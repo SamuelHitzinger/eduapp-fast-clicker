@@ -1,0 +1,13 @@
+# private / captured data: never commit
+hermes_out/
+data/
+recon/
+*.jsonl
+# build output and dependencies
+tools/node_modules/
+tools/_*
+tools/package-lock.json
+ios/build/
+ios/simbuild/
+ios/out/
+ios/*.xcodeproj/

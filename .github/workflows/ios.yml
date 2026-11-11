@@ -1,0 +1,74 @@
+name: Build iPhone app
+
+on:
+  push:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build unsigned .ipa (Sideloadly signs it with your Apple ID)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -project FastClicker.xcodeproj -scheme FastClicker -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tee device-build.log | tail -n 25
+          mkdir -p out/Payload
+          cp -R build/Build/Products/Release-iphoneos/FastClicker.app out/Payload/
+          test -f out/Payload/FastClicker.app/fast-clicker.js
+          (cd out && zip -qry FastClicker.ipa Payload)
+          ls -la out
+
+      - name: Show compile errors
+        if: failure()
+        working-directory: ios
+        run: grep -E "error:|warning:" -A3 device-build.log | head -n 80 || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FastClicker-ipa
+          path: ios/out/FastClicker.ipa
+          retention-days: 30
+
+      - name: Simulator smoke test (launch the app, screenshot after 25 s)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -project FastClicker.xcodeproj -scheme FastClicker -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath simbuild \
+            CODE_SIGN_IDENTITY=- build 2>&1 | tail -n 10
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in sorted(d.items(), reverse=True) if 'iOS' in k for x in v if x['name'].startswith('iPhone')))")
+          echo "Simulator: $UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" simbuild/Build/Products/Debug-iphonesimulator/FastClicker.app
+          xcrun simctl launch "$UDID" ch.students.fastclicker
+          sleep 25
+          mkdir -p out
+          xcrun simctl io "$UDID" screenshot out/sim-launch.png
+          xcrun simctl spawn "$UDID" log show --last 3m --predicate 'process == "FastClicker"' --style compact > out/sim-log.txt 2>&1 || true
+          tail -n 40 out/sim-log.txt || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: simulator-smoke
+          path: |
+            ios/out/sim-launch.png
+            ios/out/sim-log.txt
+          retention-days: 14

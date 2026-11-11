@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "EduApp Fast Clicker",
+  "version": "2.1.0",
+  "description": "Shows ETH EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi. Unofficial.",
+  "icons": {
+    "16": "icon-16.png",
+    "32": "icon-32.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://eduapp.ethz.ch/*"
+      ],
+      "exclude_matches": [
+        "https://eduapp.ethz.ch/keycloak/*",
+        "https://eduapp.ethz.ch/oauth2/*",
+        "https://eduapp.ethz.ch/mgmt/*"
+      ],
+      "js": [
+        "fast-clicker.js"
+      ],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "eduapp-fast-clicker@students.ethz",
+      "strict_min_version": "128.0"
+    }
+  }
+}

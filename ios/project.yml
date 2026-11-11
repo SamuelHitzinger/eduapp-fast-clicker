@@ -1,0 +1,33 @@
+name: FastClicker
+options:
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  FastClicker:
+    type: application
+    platform: iOS
+    sources:
+      - path: FastClicker
+        excludes:
+          - "Resources/**"
+      - path: FastClicker/Resources
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ch.students.fastclicker
+        PRODUCT_NAME: FastClicker
+        MARKETING_VERSION: "2.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: FastClicker/Info.plist
+      properties:
+        CFBundleDisplayName: Clicker
+        UILaunchScreen: {}
+        UIRequiresFullScreen: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        ITSAppUsesNonExemptEncryption: false
