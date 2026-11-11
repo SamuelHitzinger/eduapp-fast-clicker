@@ -24,6 +24,7 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
         if let script = Self.injectedScript() {
             controller.addUserScript(WKUserScript(source: script, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         }
+        controller.addUserScript(Self.loginFieldScript)
         config.userContentController = controller
 
         let webView = WKWebView(frame: .zero, configuration: config)
@@ -69,6 +70,19 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
         })();
         """
     }
+
+    /// ETH's login form does not switch off iOS auto-capitalisation/autocorrect on the username field,
+    /// so "abc" could silently become "Abc" or a dictionary word. Turn both off on ETH's login pages.
+    static let loginFieldScript = WKUserScript(source: """
+        (function () {
+          if (!/(^|\\.)ethz\\.ch$/.test(location.hostname)) return;
+          document.querySelectorAll('input[name=username], input[type=email]').forEach(function (i) {
+            i.setAttribute('autocapitalize', 'none'); i.setAttribute('autocorrect', 'off');
+            i.setAttribute('spellcheck', 'false'); i.setAttribute('autocomplete', 'username');
+          });
+          document.querySelectorAll('input[type=password]').forEach(function (i) { i.setAttribute('autocomplete', 'current-password'); });
+        })();
+        """, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
 
     // MARK: - Alerts from the page
 
@@ -208,6 +222,7 @@ final class LoginViewController: UIViewController, WKNavigationDelegate, WKUIDel
         } else {
             config = WKWebViewConfiguration()
             config.websiteDataStore = .default()
+            config.userContentController.addUserScript(ClickerViewController.loginFieldScript)
         }
         webView = WKWebView(frame: .zero, configuration: config)
         self.onDone = onDone
