@@ -1,0 +1,861 @@
+getpwuid_r did not find a match for uid 501
+Timestamp               Ty Process[PID:TID]
+2026-11-11 09:47:50.069 Df FastClicker[3176:3a46] (libMobileGestalt.dylib) No persisted cache on this platform.
+2026-11-11 09:47:50.069 Df FastClicker[3176:3a54] [com.apple.xpc:connection] [0x1057040c0] activating connection: mach=true listener=false peer=false name=com.apple.cfprefsd.daemon
+2026-11-11 09:47:50.072 Df FastClicker[3176:3a57] [com.apple.BoardServices:XPCErrors] [C:1] Alloc com.apple.frontboard.systemappservices
+2026-11-11 09:47:50.072 Df FastClicker[3176:3a54] [com.apple.UIKit:BackgroundTask] Creating new assertion because there is no existing background assertion.
+2026-11-11 09:47:50.072 Df FastClicker[3176:3a57] [com.apple.xpc:connection] [0x105307840] activating connection: mach=false listener=false peer=false name=(anonymous)
+2026-11-11 09:47:50.072 Df FastClicker[3176:3a54] [com.apple.UIKit:BackgroundTask] Creating new background assertion
+2026-11-11 09:47:50.072 Df FastClicker[3176:3a54] [com.apple.UIKit:BackgroundTask] Created new background assertion <BKSProcessAssertion: 0x60000210a850>
+2026-11-11 09:47:50.073 Df FastClicker[3176:3a54] [com.apple.runningboard:connection] Initializing connection
+2026-11-11 09:47:50.074 A  FastClicker[3176:3a55] (CoreFoundation) Loading Preferences From User Session CFPrefsD
+2026-11-11 09:47:50.078 Df FastClicker[3176:3a54] [com.apple.runningboard:process] Removing all cached process handles
+2026-11-11 09:47:50.078 Df FastClicker[3176:3a54] [com.apple.runningboard:connection] Creating connection to com.apple.runningboard
+2026-11-11 09:47:50.078 Df FastClicker[3176:3a54] [com.apple.xpc:connection] [0x105504280] activating connection: mach=true listener=false peer=false name=com.apple.runningboard
+2026-11-11 09:47:50.078 Df FastClicker[3176:3a5b] [com.apple.runningboard:connection] Sending handshake request attempt #1 to server
+2026-11-11 09:47:50.079 Df FastClicker[3176:3a46] [com.apple.UIKit:Application] Deactivation reason added: 10; deactivation reasons: 0 -> 1024; animating application lifecycle event: 0
+2026-11-11 09:47:50.080 Df FastClicker[3176:3a46] [com.apple.BoardServices:Injection] activating monitor for service com.apple.frontboard.open
+2026-11-11 09:47:50.080 Df FastClicker[3176:3a46] [com.apple.BoardServices:Injection] activating monitor for service com.apple.frontboard.workspace-service
+2026-11-11 09:47:50.081 Df FastClicker[3176:3a46] [com.apple.FrontBoard:Common] FBSWorkspace registering source: com.apple.frontboard.systemappservices
+2026-11-11 09:47:50.081 Df FastClicker[3176:3a5b] [com.apple.runningboard:connection] Handshake succeeded
+2026-11-11 09:47:50.081 Df FastClicker[3176:3a5b] [com.apple.runningboard:connection] Identity resolved as app<ch.students.fastclicker((null))>
+2026-11-11 09:47:50.081 Df FastClicker[3176:3a54] [com.apple.UIKit:BackgroundTask] Incrementing reference count for background assertion <BKSProcessAssertion: 0x60000210a850>
+2026-11-11 09:47:50.082 Df FastClicker[3176:3a54] [com.apple.UIKit:BackgroundTask] Created background task <_UIBackgroundTaskInfo: 0x600001710400>: taskID = 1, taskName = Launch Background Task for Coalescing, creationTime = 125 (elapsed = 0).
+2026-11-11 09:47:50.082 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension _UIApplicationSceneKeyboardSettings on FBSSceneSettings
+2026-11-11 09:47:50.082 Df FastClicker[3176:3a46] [com.apple.FrontBoard:Common] FBSWorkspace connected to endpoint : <BSServiceConnectionEndpoint: 0x600000214800; target: com.apple.frontboard.systemappservices; service: com.apple.frontboard.workspace-service>
+2026-11-11 09:47:50.082 Df FastClicker[3176:3a46] [com.apple.FrontBoard:Common] <FBSWorkspaceScenesClient:0x600003004120 com.apple.frontboard.systemappservices> attempting immediate handshake from activate
+2026-11-11 09:47:50.083 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension <_UISceneOcclusionSettings> on FBSSceneSettings
+2026-11-11 09:47:50.083 Df FastClicker[3176:3a46] [com.apple.FrontBoard:Common] <FBSWorkspaceScenesClient:0x600003004120 com.apple.frontboard.systemappservices> sent handshake
+2026-11-11 09:47:50.083 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension <_UISceneInterfaceProtectionSettings> on FBSSceneSettings
+2026-11-11 09:47:50.083 Df FastClicker[3176:3a46] [com.apple.runningboard:general] Added observer for process assertions expiration warning: <_RBSExpirationWarningClient: 0x6000002117c0>
+2026-11-11 09:47:50.083 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension _UISceneLayoutPreferencesHostSettingsExtension on FBSSceneSettings
+2026-11-11 09:47:50.083 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension _UISceneSafeAreaSettingsExtension on FBSSceneSettings
+2026-11-11 09:47:50.084 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension _UISceneLayoutPreferenceClientSettingsExtension on FBSSceneClientSettings
+2026-11-11 09:47:50.084 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension <_UIHomeAffordanceHostSceneSettings> on FBSSceneSettings
+2026-11-11 09:47:50.084 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension _UISystemShellSceneHostingEnvironmentSettings on FBSSceneSettings
+2026-11-11 09:47:50.085 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension _UISceneRenderingEnvironmentSettings on FBSSceneSettings
+2026-11-11 09:47:50.085 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension <_UISceneRenderingEnvironmentClientSettings> on FBSSceneClientSettings
+2026-11-11 09:47:50.085 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension <_UISceneTransitioningHostSettings> on FBSSceneSettings
+2026-11-11 09:47:50.085 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension <_UISceneFocusSystemSettings> on FBSSceneSettings
+2026-11-11 09:47:50.085 Df FastClicker[3176:3a46] [com.apple.UIKit:UIScreen] Evaluated capturing state as 0 on <UIScreen: 0x105406dc0> for initial
+2026-11-11 09:47:50.085 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension _UISceneOrientationSettingsExtension on FBSSceneSettings
+2026-11-11 09:47:50.086 Df FastClicker[3176:3a46] [com.apple.UIKit:UIScreen] Evaluated capturing state as 0 on <UIScreen: 0x105406dc0> for CADisplay KVO
+2026-11-11 09:47:50.086 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension _UISceneOrientationClientSettingsExtension on FBSSceneClientSettings
+2026-11-11 09:47:50.086 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension _UISceneWindowingControlClientSettings on FBSSceneClientSettings
+2026-11-11 09:47:50.086 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension <_UISceneHostingContentSizePreferenceClientSettings> on FBSSceneClientSettings
+2026-11-11 09:47:50.086 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension _UISceneHostingTraitCollectionPropagationSettings on FBSSceneSettings
+2026-11-11 09:47:50.086 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension <_UISceneHostingSheetPresentationSettings> on FBSSceneSettings
+2026-11-11 09:47:50.087 Df FastClicker[3176:3a46] [com.apple.Accessibility:AXSupportCommon] Read CategoryName: per-app = 1, category name = (null)
+2026-11-11 09:47:50.087 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension <_UISceneHostingSheetPresentationClientSettings> on FBSSceneClientSettings
+2026-11-11 09:47:50.087 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension <_UISceneHostingEventDeferringSettings> on FBSSceneSettings
+2026-11-11 09:47:50.087 Df FastClicker[3176:3a46] [com.apple.Accessibility:AXSupportCommon] Read CategoryName: per-app = 0, category name = (null)
+2026-11-11 09:47:50.087 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension <UIKit__UITypedKeyValueSceneSettings> on FBSSceneSettings
+2026-11-11 09:47:50.087 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension <UIKit__UITypedKeyValueSceneSettings> on FBSSceneClientSettings
+2026-11-11 09:47:50.088 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension <_UISceneHostingViewControllerPreferencePropagationClientSettings> on FBSSceneClientSettings
+2026-11-11 09:47:50.088 Df FastClicker[3176:3a54] [com.apple.FrontBoard:SceneExtension] Realizing settings extension <_UISceneZoomTransitionSettings> on FBSSceneSettings
+2026-11-11 09:47:50.088 Df FastClicker[3176:3a56] [com.apple.FrontBoard:SceneExtension] Realizing settings extension FBSSceneSettingsCore on FBSSceneSettings
+2026-11-11 09:47:50.089 Df FastClicker[3176:3a56] [com.apple.FrontBoard:SceneExtension] Realizing settings extension FBSSceneClientSettingsCore on FBSSceneClientSettings
+2026-11-11 09:47:50.094 Df FastClicker[3176:3a46] [com.apple.dt.xctest:Default] Registering for test daemon availability notify post.
+2026-11-11 09:47:50.094 Df FastClicker[3176:3a46] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-11 09:47:50.094 Df FastClicker[3176:3a46] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-11 09:47:50.094 Df FastClicker[3176:3a46] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-11 09:47:50.094 Df FastClicker[3176:3a56] [com.apple.FrontBoard:SceneExtension] UIMutableApplicationSceneSettings setting counterpart class: UIApplicationSceneSettings
+2026-11-11 09:47:50.095 Df FastClicker[3176:3a56] [com.apple.FrontBoard:SceneExtension] UIMutableApplicationSceneClientSettings setting counterpart class: UIApplicationSceneClientSettings
+2026-11-11 09:47:50.095 Df FastClicker[3176:3a56] [com.apple.FrontBoard:SceneExtension] Realizing settings extension FBSSceneTransitionContextCore on FBSSceneTransitionContext
+2026-11-11 09:47:50.095 Df FastClicker[3176:3a46] [com.apple.UIKit:UpdateScheduler] Selected display: name=LCD (PurpleMain), id=1
+2026-11-11 09:47:50.097 Df FastClicker[3176:3a46] [com.apple.UIKit:BackgroundTask] Will add backgroundTask with taskName: Persistent SceneSession Map Update, expirationHandler: <__NSGlobalBlock__: 0x1e61729e0>
+2026-11-11 09:47:50.097 Df FastClicker[3176:3a46] [com.apple.UIKit:BackgroundTask] Reusing background assertion <BKSProcessAssertion: 0x60000210a850>
+2026-11-11 09:47:50.097 Df FastClicker[3176:3a46] [com.apple.UIKit:BackgroundTask] Incrementing reference count for background assertion <BKSProcessAssertion: 0x60000210a850>
+2026-11-11 09:47:50.097 A  FastClicker[3176:3a5c] (RunningBoardServices) didChangeInheritances
+2026-11-11 09:47:50.097 Df FastClicker[3176:3a46] [com.apple.UIKit:BackgroundTask] Created background task <_UIBackgroundTaskInfo: 0x600001702d40>: taskID = 2, taskName = Persistent SceneSession Map Update, creationTime = 125 (elapsed = 0).
+2026-11-11 09:47:50.097 Df FastClicker[3176:3a46] [com.apple.UIKit:Application] Deactivation reason added: 5; deactivation reasons: 1024 -> 1056; animating application lifecycle event: 1
+2026-11-11 09:47:50.098 Df FastClicker[3176:3a46] [com.apple.UIKit:InterfaceStyle] Not push traits update to screen for new style 1, <UIWindowScene: 0x105504ec0> (B7F77750-40DF-4636-9EED-B47C45CEB28C)
+2026-11-11 09:47:50.098 Df FastClicker[3176:3a46] [com.apple.UIKit:InterfaceStyle] Should send trait collection or coordinate space update, interface style 1 -> 1, <UIWindowScene: 0x105504ec0> (B7F77750-40DF-4636-9EED-B47C45CEB28C)
+2026-11-11 09:47:50.099 Df FastClicker[3176:3a46] [com.apple.UIKit:InterfaceStyle] Not push traits update to screen for new style 1, <UIWindowScene: 0x105504ec0> (B7F77750-40DF-4636-9EED-B47C45CEB28C)
+2026-11-11 09:47:50.099 Df FastClicker[3176:3a46] [com.apple.UIKit:HomeAffordanceObservation] Initializing: <_UIHomeAffordanceSceneNotifier: 0x600002904380>; with scene: <UIWindowScene: 0x105504ec0>
+2026-11-11 09:47:50.099 Df FastClicker[3176:3a46] [com.apple.BacklightServices:scenes] 0x600000c0c0f0 setDelegate:<0x600000c10450 _UIBacklightEnvironment> hasDelegate:YES for environment:sceneID:ch.students.fastclicker-default
+2026-11-11 09:47:50.100 Df FastClicker[3176:3a46] [com.apple.UIKit:InterfaceStyle] Not push traits update to screen for new style 1, <UIWindowScene: 0x105504ec0> (B7F77750-40DF-4636-9EED-B47C45CEB28C)
+2026-11-11 09:47:50.100 Df FastClicker[3176:3a46] [com.apple.UIKit:EventDeferring] [0x6000029002a0] Initialized with scene: <UIWindowScene: 0x105504ec0>; behavior: <_UIEventDeferringBehavior_iOS: 0x60000020bc60>; availableForProcess: 1, systemShellManagesKeyboardFocus: 1
+2026-11-11 09:47:50.100 Df FastClicker[3176:3a46] [com.apple.BoardServices:XPCErrors] [C:2] Alloc com.apple.backboard.hid-services.xpc
+2026-11-11 09:47:50.100 Df FastClicker[3176:3a46] [com.apple.xpc:connection] [0x105704fd0] activating connection: mach=false listener=false peer=false name=(anonymous)
+2026-11-11 09:47:50.102 Df FastClicker[3176:3a46] [com.apple.BackBoard:EventDelivery] policyStatus:<BKSHIDEventDeliveryPolicyObserver: 0x600002612160; process scope; status: target> was:none
+2026-11-11 09:47:50.102 Df FastClicker[3176:3a46] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to LastOneWins
+2026-11-11 09:47:50.102 Df FastClicker[3176:3a46] [com.apple.UIKit:KeyWindow] Scene target of keyboard event deferring environment did change: 1; scene: UIWindowScene: 0x105504ec0; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Ach.students.fastclicker-default
+2026-11-11 09:47:50.102 Df FastClicker[3176:3a46] [com.apple.UIKit:EventDeferring] [0x6000029002a0] Scene target of event deferring environments did update: scene: 0x105504ec0; current systemShellManagesKeyboardFocus: 1; systemShellManagesKeyboardFocusForScene: 1; eligibleForRecordRemoval: 1;
+2026-11-11 09:47:50.102 Df FastClicker[3176:3a46] [com.apple.UIKit:KeyWindow] Scene became target of keyboard event deferring environment: UIWindowScene: 0x105504ec0; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Ach.students.fastclicker-default
+2026-11-11 09:47:50.102 Df FastClicker[3176:3a46] [com.apple.UIKit:KeyWindow] Stack[KeyWindow] 0x600000c0a370: Taking no further action for migration from LastOneWins -> SystemShellManaged as there are no scenes
+2026-11-11 09:47:50.102 Df FastClicker[3176:3a46] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to SystemShellManaged
+2026-11-11 09:47:50.103 Df FastClicker[3176:3a46] [com.apple.UIKit:KeyWindow] Key window needs update: 0; currentKeyWindowScene: 0x0; evaluatedKeyWindowScene: 0x105504ec0; currentApplicationKeyWindow: 0x0; evaluatedApplicationKeyWindow: 0x0; reason: UIWindowScene: 0x105504ec0: Window scene became target of keyboard environment
+2026-11-11 09:47:50.103 Df FastClicker[3176:3a46] [com.apple.UIKit:InterfaceStyle] Not push traits update to screen for new style 1, <UIWindowScene: 0x105504ec0> (B7F77750-40DF-4636-9EED-B47C45CEB28C)
+2026-11-11 09:47:50.103 Df FastClicker[3176:3a46] [com.apple.UIKit:InterfaceStyle] Not push traits update to screen for new style 1, <UIWindowScene: 0x105504ec0> (B7F77750-40DF-4636-9EED-B47C45CEB28C)
+2026-11-11 09:47:50.104 F  FastClicker[3176:3a46] [com.apple.runtime-issues:UIKit App Config] `UIScene` lifecycle will soon be required. Failure to adopt will result in an assert in the future.
+2026-11-11 09:47:50.104 A  FastClicker[3176:3a46] (libsystem_trace.dylib) Activity for state dumps
+2026-11-11 09:47:50.104 Df FastClicker[3176:3a46] [com.apple.UIKit:InterfaceStyle] Not push traits update to screen for new style 1, <UIWindowScene: 0x105504ec0> (B7F77750-40DF-4636-9EED-B47C45CEB28C)
+2026-11-11 09:47:50.104 Df FastClicker[3176:3a46] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:ch.students.fastclicker-default  persistentID: B7F77750-40DF-4636-9EED-B47C45CEB28C
+2026-11-11 09:47:50.105 Df FastClicker[3176:3a46] [com.apple.UIKit:Application] Ignoring already applied deactivation reason: 5; deactivation reasons: 1056
+2026-11-11 09:47:50.105 Df FastClicker[3176:3a46] [com.apple.UIKit:Application] Deactivation reason added: 11; deactivation reasons: 1056 -> 3104; animating application lifecycle event: 1
+2026-11-11 09:47:50.105 Df FastClicker[3176:3a46] [com.apple.KeyboardArbiter:Client] startConnection
+2026-11-11 09:47:50.105 Df FastClicker[3176:3a46] [com.apple.xpc:connection] [0x105705e30] activating connection: mach=true listener=false peer=false name=com.apple.UIKit.KeyboardManagement.hosted
+2026-11-11 09:47:50.106 Df FastClicker[3176:3a46] [com.apple.UserNotifications:Connections] [ch.students.fastclicker] Creating a user notification center
+2026-11-11 09:47:50.107 Df FastClicker[3176:3a46] [com.apple.UserNotifications:Connections] [ch.students.fastclicker] Requesting authorization with options 6
+2026-11-11 09:47:50.113 Df FastClicker[3176:3a5b] [com.apple.BackBoard:EventDelivery] BKSHIDEventObserver - connection activation
+2026-11-11 09:47:50.119 Df FastClicker[3176:3a5b] [com.apple.xpc:connection] [0x105609c30] activating connection: mach=true listener=false peer=false name=com.apple.usernotifications.listener
+2026-11-11 09:47:50.152 Df FastClicker[3176:3a46] (WebKit) 0x105505b38 - WebsiteDataStore::WebsiteDataStore sessionID=1 identifier=null
+2026-11-11 09:47:50.173 A  FastClicker[3176:3a46] (TCC) TCCAccessRequest() IPC
+2026-11-11 09:47:50.173 Df FastClicker[3176:3a46] [com.apple.xpc:connection] [0x10560ab40] activating connection: mach=true listener=false peer=false name=com.apple.tccd
+2026-11-11 09:47:50.181 Df FastClicker[3176:3a46] [com.apple.xpc:connection] [0x10560ab40] invalidated after the last release of the connection object
+2026-11-11 09:47:50.183 A  FastClicker[3176:3a46] (TCC) TCCAccessRequest() IPC
+2026-11-11 09:47:50.183 Df FastClicker[3176:3a46] [com.apple.xpc:connection] [0x10560ac50] activating connection: mach=true listener=false peer=false name=com.apple.tccd
+2026-11-11 09:47:50.187 Df FastClicker[3176:3a46] [com.apple.xpc:connection] [0x10560ac50] invalidated after the last release of the connection object
+2026-11-11 09:47:50.208 Df FastClicker[3176:3a46] (WebKit) 0x11409c0e0 - [PID=0] WebProcessCache::updateCapacity: Cache is disabled because process swap on navigation is disabled
+2026-11-11 09:47:50.225 Df FastClicker[3176:3a46] (libMobileGestalt.dylib) No persisted cache on this platform.
+2026-11-11 09:47:50.229 A  FastClicker[3176:3a5b] (libsystem_containermanager.dylib) container_system_group_path_for_identifier
+2026-11-11 09:47:50.259 Df FastClicker[3176:3a54] [com.apple.xpc:connection] [0x1056070e0] activating connection: mach=true listener=false peer=false name=com.apple.webprivacyd
+2026-11-11 09:47:50.261 Df FastClicker[3176:3a5b] [com.apple.containermanager:xpc] Requesting container lookup; class = 13, identifier = (null), group_identifier = systemgroup.com.apple.configurationprofiles, create = 1, temp = 0, euid = 501, uid = 501
+2026-11-11 09:47:50.262 A  FastClicker[3176:3a5b] (libsystem_containermanager.dylib) container_query_t
+2026-11-11 09:47:50.263 Df FastClicker[3176:3a5b] [com.apple.containermanager:xpc] Query; euid = 501, uid = 501, class = 13, identifier = [(null)](0), flags = 900000003
+2026-11-11 09:47:50.268 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x105404538 - PageConfiguration::delaysWebProcessLaunchUntilFirstLoad() -> false because of associated processPool value
+2026-11-11 09:47:50.268 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x107818a08 - WebProcessPool::createWebPage: Not delaying WebProcess launch
+2026-11-11 09:47:50.270 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x1140c00c0 - [PID=0] WebProcessProxy::constructor:
+2026-11-11 09:47:50.276 Df FastClicker[3176:3a5b] [com.apple.containermanager:unspecified] _container_query_get_result_at_index: success
+2026-11-11 09:47:50.284 Df FastClicker[3176:3a56] [com.apple.xpc:connection] [0x10540b120] activating connection: mach=true listener=false peer=false name=com.apple.lsd.mapdb
+2026-11-11 09:47:50.287 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Bundle/Application/144CECC1-5F07-4C06-BEF7-382B078F3A95/FastClicker.app'
+2026-11-11 09:47:50.290 Df FastClicker[3176:3a56] [com.apple.extensionkit:launch] Launching process with config: bundleID: com.apple.WebKit.WebContent instance ID: Optional([_EXExtensionInstanceIdentifier: 502CD1B5-029E-4C09-8404-3F161B619A97])
+2026-11-11 09:47:50.291 A  FastClicker[3176:3a5b] (libsystem_containermanager.dylib) container_copy_object
+2026-11-11 09:47:50.291 Df FastClicker[3176:3a5b] [com.apple.containermanager:unspecified] container_system_group_path_for_identifier: success
+2026-11-11 09:47:50.291 Df FastClicker[3176:3a5b] [com.apple.ManagedConfiguration:MC] Got system group container path from MCM for systemgroup.com.apple.configurationprofiles: /Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Shared/SystemGroup/systemgroup.com.apple.configurationprofiles
+2026-11-11 09:47:50.307 Df FastClicker[3176:3a46] [com.apple.avkit:AVKit] +[AVPictureInPicturePlatformAdapter isPictureInPictureSupported]_block_invoke isPictureInPictureSupported NO
+2026-11-11 09:47:50.313 Df FastClicker[3176:3a46] (libMobileGestalt.dylib) No persisted cache on this platform.
+2026-11-11 09:47:50.313 Df FastClicker[3176:3a46] [com.apple.xpc:connection] [0x105306900] activating connection: mach=true listener=false peer=false name=com.apple.IOSurface.Remote
+2026-11-11 09:47:50.315 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/Library/WebKit/ch.students.fastclicker/WebsiteData/MediaKeys/v1'
+2026-11-11 09:47:50.316 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d40c0 - [PID=0, throttler=0x1140c0150] ProcessThrottler::Activity::Activity: Starting foreground activity / 'Process initialization'
+2026-11-11 09:47:50.321 Df FastClicker[3176:3a5d] [com.apple.xpc:connection] [0x1055044a0] activating connection: mach=true listener=false peer=false name=com.apple.accessibility.mediaaccessibilityd
+2026-11-11 09:47:50.325 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x10601c418 - [pageProxyID=7, webPageID=8, PID=0] WebPageProxy::constructor, site isolation enabled 0
+2026-11-11 09:47:50.326 Df FastClicker[3176:3a46] [com.apple.WebKit:Media] PlaybackSessionManagerProxy::PlaybackSessionManagerProxy(2906663760)
+2026-11-11 09:47:50.326 Df FastClicker[3176:3a46] [com.apple.WebKit:Fullscreen] PlaybackSessionManagerProxy::VideoPresentationManagerProxy(2906663760)
+2026-11-11 09:47:50.340 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x1140c00c0 - [PID=0] WebProcessProxy::addExistingWebPage: webPage=0x10601c418, pageProxyID=7, webPageID=8
+2026-11-11 09:47:50.345 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSwapping] 0x11409c0e0 - [PID=0] WebProcessCache::updateCapacity: Cache is disabled by client
+2026-11-11 09:47:50.346 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/Library/Caches/com.apple.WebKit.GPU'
+2026-11-11 09:47:50.346 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/tmp/com.apple.WebKit.GPU'
+2026-11-11 09:47:50.347 Df FastClicker[3176:3a46] (libMobileGestalt.dylib) No persisted cache on this platform.
+2026-11-11 09:47:50.347 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d4120 - [PID=0, throttler=0x114110270] ProcessThrottler::Activity::Activity: Starting foreground activity / 'Process initialization'
+2026-11-11 09:47:50.347 Df FastClicker[3176:3a5b] [com.apple.extensionkit:launch] Launching process with config: bundleID: com.apple.WebKit.GPU instance ID: Optional([_EXExtensionInstanceIdentifier: 227CDB5B-92FE-4B53-ACA8-664A4CAC7D6A])
+2026-11-11 09:47:50.353 Df FastClicker[3176:3a46] [com.apple.WebKit:TextInteraction] Conforming to BrowserEngineKit text input protocol
+2026-11-11 09:47:50.367 Df FastClicker[3176:3a55] [com.apple.xpc:connection] [0x105306a10] activating connection: mach=true listener=false peer=false name=com.apple.fontservicesd
+2026-11-11 09:47:50.370 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x10601c418 - [pageProxyID=7, webPageID=8, PID=0] WebPageProxy::loadRequest:
+2026-11-11 09:47:50.371 Df FastClicker[3176:3a46] [com.apple.runningboard:connection] Creating side-channel connection to com.apple.runningboard
+2026-11-11 09:47:50.372 Df FastClicker[3176:3a46] [com.apple.xpc:connection] [0x1054162b0] activating connection: mach=true listener=false peer=false name=com.apple.runningboard
+2026-11-11 09:47:50.372 Df FastClicker[3176:3a46] [com.apple.runningboard:process] Hit the server for a process handle 107985ad00000c68 that resolved to: [app<ch.students.fastclicker((null))>:3176]
+2026-11-11 09:47:50.373 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x10601c418 - [pageProxyID=7, webPageID=8, PID=0] WebPageProxy::WebPageProxy::shouldForceForegroundPriorityForClientNavigation() returns 1 based on PageClient::canTakeForegroundAssertions()
+2026-11-11 09:47:50.373 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d41e0 - [PID=0, throttler=0x1140c0150] ProcessThrottler::Activity::Activity: Starting foreground activity / 'Client navigation'
+2026-11-11 09:47:50.373 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x10601c418 - [pageProxyID=7, webPageID=8, PID=0] WebPageProxy::loadRequestWithNavigationShared:
+2026-11-11 09:47:50.373 A  FastClicker[3176:3a46] (libsystem_containermanager.dylib) container_system_group_path_for_identifier
+2026-11-11 09:47:50.373 Df FastClicker[3176:3a46] [com.apple.containermanager:xpc] Requesting container lookup; class = 13, identifier = com.apple.nsurlsessiond, group_identifier = systemgroup.com.apple.nsurlstoragedresources, create = 1, temp = 0, euid = 501, uid = 501
+2026-11-11 09:47:50.373 A  FastClicker[3176:3a46] (libsystem_containermanager.dylib) container_query_t
+2026-11-11 09:47:50.373 Df FastClicker[3176:3a46] [com.apple.containermanager:xpc] Query; euid = 501, uid = 501, class = 13, identifier = [com.apple.nsurlsessiond](1), flags = 900000003
+2026-11-11 09:47:50.374 Df FastClicker[3176:3a46] [com.apple.containermanager:unspecified] _container_query_get_result_at_index: success
+2026-11-11 09:47:50.374 A  FastClicker[3176:3a46] (libsystem_containermanager.dylib) container_copy_object
+2026-11-11 09:47:50.374 Df FastClicker[3176:3a46] [com.apple.containermanager:unspecified] container_system_group_path_for_identifier: success
+2026-11-11 09:47:50.374 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x114130100 - NetworkProcessProxy::NetworkProcessProxy
+2026-11-11 09:47:50.374 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/Library/WebKit/ch.students.fastclicker/WebsiteData/ResourceLoadStatistics'
+2026-11-11 09:47:50.374 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/Library/Caches/ch.students.fastclicker/WebKit/NetworkCache'
+2026-11-11 09:47:50.375 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/Library/Caches/ch.students.fastclicker/WebKit/HSTS'
+2026-11-11 09:47:50.375 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/Library/WebKit/ch.students.fastclicker/WebsiteData/ResourceMonitorThrottler'
+2026-11-11 09:47:50.375 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/Library/WebKit/ch.students.fastclicker/WebsiteData/LocalStorage'
+2026-11-11 09:47:50.375 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/Library/WebKit/ch.students.fastclicker/WebsiteData/IndexedDB'
+2026-11-11 09:47:50.375 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/Library/WebKit/ch.students.fastclicker/WebsiteData/Default'
+2026-11-11 09:47:50.375 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/Library/Caches/ch.students.fastclicker/WebKit/CacheStorage'
+2026-11-11 09:47:50.375 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/Library/Caches/ch.students.fastclicker/WebKit/ServiceWorkers'
+2026-11-11 09:47:50.375 Df FastClicker[3176:3a55] [com.apple.extensionkit:launch] Launching process with config: bundleID: com.apple.WebKit.Networking instance ID: Optional([_EXExtensionInstanceIdentifier: 68A6996A-5E9C-47AB-BF26-D690461F0F14])
+2026-11-11 09:47:50.375 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/Library/Caches/ch.students.fastclicker/WebKit/AlternativeServices'
+2026-11-11 09:47:50.376 Df FastClicker[3176:3a46] [com.apple.CFNetwork:Default] Initializing CFHTTPCookieStorage singleton
+2026-11-11 09:47:50.376 Df FastClicker[3176:3a46] [com.apple.CFNetwork:Default] Creating default cookie storage with process/bundle identifier
+2026-11-11 09:47:50.376 E  FastClicker[3176:3a55] [com.apple.extensionkit:default] Failed to resolve host network app id to config: bundleID: com.apple.WebKit.Networking instance ID: Optional([_EXExtensionInstanceIdentifier: 68A6996A-5E9C-47AB-BF26-D690461F0F14])
+2026-11-11 09:47:50.376 Df FastClicker[3176:3a46] [com.apple.network:] networkd_settings_read_from_file initialized networkd settings by reading plist directly
+2026-11-11 09:47:50.376 Df FastClicker[3176:3a46] [com.apple.network:] networkd_settings_read_from_file initialized networkd settings by reading plist directly
+2026-11-11 09:47:50.377 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/Library/Cookies'
+2026-11-11 09:47:50.377 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/Library/Caches/com.apple.WebKit.Networking'
+2026-11-11 09:47:50.377 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Bundle/Application/144CECC1-5F07-4C06-BEF7-382B078F3A95/FastClicker.app'
+2026-11-11 09:47:50.378 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d4210 - [PID=0, throttler=0x114130190] ProcessThrottler::Activity::Activity: Starting foreground activity / 'Process initialization'
+2026-11-11 09:47:50.382 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x114128100 - NavigationState is taking a process network assertion because a page load started
+2026-11-11 09:47:50.382 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d4270 - [PID=0, throttler=0x1140c0150] ProcessThrottler::Activity::Activity: Starting background activity / 'Page Load'
+2026-11-11 09:47:50.382 Df FastClicker[3176:3a46] [com.apple.FrontBoard:SceneExtension] Realizing settings extension <_UIApplicationSceneDisplaySettings> on FBSSceneSettings
+2026-11-11 09:47:50.389 Df FastClicker[3176:3a46] [com.apple.WebKit:ViewState] 0x1140bc100 - ApplicationStateTracker::setIsInBackground: 0
+2026-11-11 09:47:50.389 Df FastClicker[3176:3a46] [com.apple.WebKit:ViewState] 0x1140bc100 - ApplicationStateTracker: add observers for scene
+2026-11-11 09:47:50.389 Df FastClicker[3176:3a46] [com.apple.WebKit:ViewState] 0x106018200 - WKApplicationStateTrackingView: View with page [0x10601c418, pageProxyID=7] was added to a window, _lastObservedStateWasBackground=0, isNowBackground=0
+2026-11-11 09:47:50.411 Df FastClicker[3176:3a46] [com.apple.WebKit:ViewState] 0x10601c418 - [pageProxyID=7, webPageID=8, PID=0] WebPageProxy::updateActivityState: view visibility state changed 0 -> 1
+2026-11-11 09:47:50.416 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] Activating connection to server: (null)
+2026-11-11 09:47:50.416 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] server remote target <BSXPCServiceConnectionProxy<BKSKeyboardServiceClientToServerIPC>: 0x600002904d20>
+2026-11-11 09:47:50.416 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] currently observing: YES
+2026-11-11 09:47:50.417 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] connected: (
+    "<BKSHIDKeyboardDevice: 0x600000228600> {\134n    senderID: 0xACEFADE00000003;\134n    transport: <nil>;\134n    language: <nil>;\134n    layout: US;\134n    countryCode: 0;\134n    standardType: 4294967295;\134n    subinterfaceID: 0;\134n    capsLockKeyHasLanguageSwitchLabel: NO;\134n    globeKeyLabelHasGlobeSymbol: NO;\134n}"
+)
+2026-11-11 09:47:50.417 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] currently observing: NO
+2026-11-11 09:47:50.417 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] disconnected: (
+    "<BKSHIDKeyboardDevice: 0x600000228600> {\134n    senderID: 0xACEFADE00000003;\134n    transport: <nil>;\134n    language: <nil>;\134n    layout: US;\134n    countryCode: 0;\134n    standardType: 4294967295;\134n    subinterfaceID: 0;\134n    capsLockKeyHasLanguageSwitchLabel: NO;\134n    globeKeyLabelHasGlobeSymbol: NO;\134n}"
+)
+2026-11-11 09:47:50.418 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] currently observing: YES
+2026-11-11 09:47:50.418 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] connected: (
+    "<BKSHIDKeyboardDevice: 0x60000020fe40> {\134n    senderID: 0xACEFADE00000003;\134n    transport: <nil>;\134n    language: <nil>;\134n    layout: US;\134n    countryCode: 0;\134n    standardType: 4294967295;\134n    subinterfaceID: 0;\134n    capsLockKeyHasLanguageSwitchLabel: NO;\134n    globeKeyLabelHasGlobeSymbol: NO;\134n}"
+)
+2026-11-11 09:47:50.418 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] currently observing: NO
+2026-11-11 09:47:50.418 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] disconnected: (
+    "<BKSHIDKeyboardDevice: 0x60000020fe40> {\134n    senderID: 0xACEFADE00000003;\134n    transport: <nil>;\134n    language: <nil>;\134n    layout: US;\134n    countryCode: 0;\134n    standardType: 4294967295;\134n    subinterfaceID: 0;\134n    capsLockKeyHasLanguageSwitchLabel: NO;\134n    globeKeyLabelHasGlobeSymbol: NO;\134n}"
+)
+2026-11-11 09:47:50.421 Df FastClicker[3176:3a46] [com.apple.UIKit:HardwareKeyboard] -[UIApplication GSKeyboardForHWLayout:senderID:forceRebuild:createIfNeeded:], New hardware layout is created with US layout and 0 standardType.
+2026-11-11 09:47:50.421 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] currently observing: YES
+2026-11-11 09:47:50.421 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] connected: (
+    "<BKSHIDKeyboardDevice: 0x6000002284e0> {\134n    senderID: 0xACEFADE00000003;\134n    transport: <nil>;\134n    language: <nil>;\134n    layout: US;\134n    countryCode: 0;\134n    standardType: 4294967295;\134n    subinterfaceID: 0;\134n    capsLockKeyHasLanguageSwitchLabel: NO;\134n    globeKeyLabelHasGlobeSymbol: NO;\134n}"
+)
+2026-11-11 09:47:50.421 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] currently observing: NO
+2026-11-11 09:47:50.421 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] disconnected: (
+    "<BKSHIDKeyboardDevice: 0x6000002284e0> {\134n    senderID: 0xACEFADE00000003;\134n    transport: <nil>;\134n    language: <nil>;\134n    layout: US;\134n    countryCode: 0;\134n    standardType: 4294967295;\134n    subinterfaceID: 0;\134n    capsLockKeyHasLanguageSwitchLabel: NO;\134n    globeKeyLabelHasGlobeSymbol: NO;\134n}"
+)
+2026-11-11 09:47:50.421 Df FastClicker[3176:3a46] [com.apple.WebKit:ViewState] 0x10601c418 - [pageProxyID=7, webPageID=8, PID=0] WebPageProxy::viewIsBecomingVisible:
+2026-11-11 09:47:50.435 Df FastClicker[3176:3a46] [com.apple.WebKit:ScreenTime] Screen Time has updated to use the system shield for any blocked URL.
+2026-11-11 09:47:50.438 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x10601c418 - [pageProxyID=7, webPageID=8, PID=0] WebPageProxy::updateThrottleState: UIProcess is taking a foreground assertion because the view is visible
+2026-11-11 09:47:50.438 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d4300 - [PID=0, throttler=0x1140c0150] ProcessThrottler::Activity::Activity: Starting foreground activity / 'View is visible'
+2026-11-11 09:47:50.439 Df FastClicker[3176:3a46] [com.apple.WebKit:RemoteLayerTree] RemoteLayerTreeDrawingAreaProxy(10)::hideContentUntilAnyUpdate
+2026-11-11 09:47:50.440 Df FastClicker[3176:3a46] [com.apple.WebKit:ViewState] 0x106026000 (pageProxyID=7) -[WKWebView _endLiveResize]
+2026-11-11 09:47:50.443 Df FastClicker[3176:3a46] [com.apple.UIKit:Orientation] <UIWindowScene: 0x105504ec0> (B7F77750-40DF-4636-9EED-B47C45CEB28C) Scene updated orientation preferences: none -> ( Pu )
+2026-11-11 09:47:50.447 Df FastClicker[3176:3a46] [com.apple.UIKit:KeyWindow] Key window API is scene-level: YES
+2026-11-11 09:47:50.447 Df FastClicker[3176:3a46] [com.apple.UIKit:KeyWindow] UIWindowScene: 0x105504ec0: Window became key in scene: UIWindow: 0x105707810; contextId: 0xAA900886: reason: UIWindowScene: 0x105504ec0: Window requested to become key in scene: 0x105707810
+2026-11-11 09:47:50.447 Df FastClicker[3176:3a46] [com.apple.UIKit:KeyWindow] Key window needs update: 1; currentKeyWindowScene: 0x0; evaluatedKeyWindowScene: 0x105504ec0; currentApplicationKeyWindow: 0x0; evaluatedApplicationKeyWindow: 0x105707810; reason: UIWindowScene: 0x105504ec0: Window requested to become key in scene: 0x105707810
+2026-11-11 09:47:50.447 Df FastClicker[3176:3a46] [com.apple.UIKit:KeyWindow] Window did become application key: UIWindow: 0x105707810; contextId: 0xAA900886; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Ach.students.fastclicker-default
+2026-11-11 09:47:50.447 Df FastClicker[3176:3a46] [com.apple.UIKit:EventDeferring] [0x6000029002a0] Begin local event deferring requested for token: 0x600002607480; environments: 1; reason: UIWindowScene: 0x105504ec0: Begin event deferring in keyboardFocus for window: 0x105707810
+2026-11-11 09:47:50.448 Df FastClicker[3176:3a5c] [com.apple.BackBoard:EventDelivery] BKSHIDEventDeliveryManager - connection activation
+2026-11-11 09:47:50.449 Df FastClicker[3176:3a46] [com.apple.UIKit:Application] Deactivation reason removed: 10; deactivation reasons: 3104 -> 2080; animating application lifecycle event: 1
+2026-11-11 09:47:50.449 Df FastClicker[3176:3a46] [com.apple.UIKit:Application] Deactivation reason added: 12; deactivation reasons: 2080 -> 6176; animating application lifecycle event: 1
+2026-11-11 09:47:50.450 Df FastClicker[3176:3a46] [com.apple.UIKit:Application] Deactivation reason removed: 11; deactivation reasons: 6176 -> 4128; animating application lifecycle event: 1
+2026-11-11 09:47:50.450 Df FastClicker[3176:3a46] [com.apple.FrontBoard:SceneExtension] Realizing settings extension <_UISceneIntelligenceSupportSettings> on FBSSceneSettings
+2026-11-11 09:47:50.451 Df FastClicker[3176:3a5c] [com.apple.UIIntelligenceSupport:xpc] establishing connection to agent
+2026-11-11 09:47:50.451 Df FastClicker[3176:3a46] [com.apple.UIKit:InterfaceStyle] Not push traits update to screen for new style 1, <UIWindowScene: 0x105504ec0> (B7F77750-40DF-4636-9EED-B47C45CEB28C)
+2026-11-11 09:47:50.451 Df FastClicker[3176:3a5c] [com.apple.xpc:session] [0x600002120000] Session created.
+2026-11-11 09:47:50.451 Df FastClicker[3176:3a5c] [com.apple.xpc:session] [0x600002120000] Session created from connection [0x105609d70]
+2026-11-11 09:47:50.451 Df FastClicker[3176:3a5c] [com.apple.xpc:connection] [0x105609d70] activating connection: mach=true listener=false peer=false name=com.apple.uiintelligencesupport.agent
+2026-11-11 09:47:50.451 Df FastClicker[3176:3a5c] [com.apple.xpc:session] [0x600002120000] Session activated
+2026-11-11 09:47:50.454 Df FastClicker[3176:3a5c] [com.apple.BackBoard:EventDelivery] policyStatus:<BKSHIDEventDeliveryPolicyObserver: 0x600002612160; token: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Ach.students.fastclicker-default; status: ancestor> was:target
+2026-11-11 09:47:50.469 Df FastClicker[3176:3a46] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:1 [10F0FF4B-EAAD-4663-B72C-940E590588B9] (reporting strategy default)>
+2026-11-11 09:47:50.469 Df FastClicker[3176:3a46] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:2 [47DED192-A3DA-4C4E-8274-913842606EF1] (reporting strategy default)>
+2026-11-11 09:47:50.469 Df FastClicker[3176:3a46] [com.apple.network:activity] Set activity <nw_activity 50:1 [10F0FF4B-EAAD-4663-B72C-940E590588B9] (reporting strategy default)> as the global parent
+2026-11-11 09:47:50.469 Df FastClicker[3176:3a46] [com.apple.UIKit:BackgroundTask] Ending background task with UIBackgroundTaskIdentifier: 1
+2026-11-11 09:47:50.469 Df FastClicker[3176:3a46] [com.apple.UIKit:BackgroundTask] Ending task with identifier 1 and description: <_UIBackgroundTaskInfo: 0x600001710400>: taskID = 1, taskName = Launch Background Task for Coalescing, creationTime = 125 (elapsed = 0), _expireHandler: (null)
+2026-11-11 09:47:50.469 Df FastClicker[3176:3a5c] [com.apple.CoreAnalytics:client] No XPC connection in Simulator
+2026-11-11 09:47:50.469 Df FastClicker[3176:3a46] [com.apple.UIKit:BackgroundTask] Decrementing reference count for assertion <BKSProcessAssertion: 0x60000210a850> (used by background task with identifier 1: <_UIBackgroundTaskInfo: 0x600001710400>: taskID = 1, taskName = Launch Background Task for Coalescing, creationTime = 125 (elapsed = 0))
+2026-11-11 09:47:50.470 E  FastClicker[3176:3a5c] [com.apple.app_launch_measurement:General] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.FirstFramePresentationMetric
+2026-11-11 09:47:50.472 Df FastClicker[3176:3a46] [com.apple.gamecontroller:Session] Creating the shared game controller session...
+2026-11-11 09:47:50.472 A  FastClicker[3176:3a6e] (RunningBoardServices) didChangeInheritances
+2026-11-11 09:47:50.482 Df FastClicker[3176:3a46] [com.apple.BackBoard:EventDelivery] policyStatus:<BKSHIDEventDeliveryPolicyObserver: 0x600002607120; process scope; status: target> was:none
+2026-11-11 09:47:50.482 A  FastClicker[3176:3a46] (GameController) [GCDeviceSession] Activate
+2026-11-11 09:47:50.483 Df FastClicker[3176:3a46] [com.apple.UIKit:EventDeferring] [0x6000029002a0] Scene target of event deferring environments did update: scene: 0x105504ec0; current systemShellManagesKeyboardFocus: 1; systemShellManagesKeyboardFocusForScene: 1; eligibleForRecordRemoval: 1;
+2026-11-11 09:47:50.483 Df FastClicker[3176:3a46] [com.apple.UIKit:KeyWindow] Scene became target of keyboard event deferring environment: UIWindowScene: 0x105504ec0; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Ach.students.fastclicker-default
+2026-11-11 09:47:50.484 Df FastClicker[3176:3a46] [com.apple.UIKit:EventBus] Event Timing Profile for Touch: not found, path="/System/Library/EventTimingProfiles/Sim.Touch.plist"
+2026-11-11 09:47:50.484 Df FastClicker[3176:3a46] [com.apple.UIKit:EventBus] Event Timing Profile for Pencil: not found, path="/System/Library/EventTimingProfiles/Sim.Pencil.plist"
+2026-11-11 09:47:50.484 Df FastClicker[3176:3a46] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:ch.students.fastclicker-default  persistentID: B7F77750-40DF-4636-9EED-B47C45CEB28C
+2026-11-11 09:47:50.485 Df FastClicker[3176:3a46] [com.apple.UIKit:InterfaceStyle] Not push traits update to screen for new style 1, <UIWindowScene: 0x105504ec0> (B7F77750-40DF-4636-9EED-B47C45CEB28C)
+2026-11-11 09:47:50.485 Df FastClicker[3176:3a46] [com.apple.UIKit:UpdateScheduler] Target list changed: <CADisplay:LCD PurpleMain>
+2026-11-11 09:47:50.487 Df FastClicker[3176:3a46] [com.apple.UIKit:InterfaceStyle] Not push traits update to screen for new style 1, <UIWindowScene: 0x105504ec0> (B7F77750-40DF-4636-9EED-B47C45CEB28C)
+2026-11-11 09:47:50.487 Df FastClicker[3176:3a46] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:ch.students.fastclicker-default  persistentID: B7F77750-40DF-4636-9EED-B47C45CEB28C
+2026-11-11 09:47:50.487 Df FastClicker[3176:3a46] [com.apple.UIKit:Application] Deactivation reason removed: 12; deactivation reasons: 4128 -> 32; animating application lifecycle event: 1
+2026-11-11 09:47:50.488 Df FastClicker[3176:3a46] [com.apple.KeyboardArbiter:Client] Send setDeactivating: N (-DeactivationReason:SuspendedEventsOnly)
+2026-11-11 09:47:50.488 Df FastClicker[3176:3a46] [com.apple.UIKit:Application] Deactivation reason removed: 5; deactivation reasons: 32 -> 0; animating application lifecycle event: 0
+2026-11-11 09:47:50.488 Df FastClicker[3176:3a46] [com.apple.WebKit:Fullscreen] PlaybackSessionManagerProxy::applicationDidBecomeActive(2906663760)
+2026-11-11 09:47:50.489 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d4330 - [PID=0, throttler=0x1140c0150] ProcessThrottler::Activity::Activity: Starting foreground activity / 'WebPageProxy::runJavaScriptInFrameInScriptWorld'
+2026-11-11 09:47:50.490 A  FastClicker[3176:3a46] (GameController) Notify ApplicationDidBecomeActive
+2026-11-11 09:47:50.490 A  FastClicker[3176:3a6e] (CoreFoundation) Updating Key-Value Observers Of Preferences
+2026-11-11 09:47:50.498 A  FastClicker[3176:3a6e] (CoreFoundation) Updating Key-Value Observers Of Preferences
+2026-11-11 09:47:50.500 A  FastClicker[3176:3a6e] (CoreFoundation) Updating Key-Value Observers Of Preferences
+2026-11-11 09:47:50.502 A  FastClicker[3176:3a6e] (CoreFoundation) Updating Key-Value Observers Of Preferences
+2026-11-11 09:47:50.503 A  FastClicker[3176:3a6e] (CoreFoundation) Updating Key-Value Observers Of Preferences
+2026-11-11 09:47:50.504 A  FastClicker[3176:3a6e] (CoreFoundation) Updating Key-Value Observers Of Preferences
+2026-11-11 09:47:50.508 A  FastClicker[3176:3a6e] (CoreFoundation) Updating Key-Value Observers Of Preferences
+2026-11-11 09:47:50.511 A  FastClicker[3176:3a6e] (CoreFoundation) Updating Key-Value Observers Of Preferences
+2026-11-11 09:47:50.512 A  FastClicker[3176:3a6e] (CoreFoundation) Updating Key-Value Observers Of Preferences
+2026-11-11 09:47:50.512 Df FastClicker[3176:3a46] [com.apple.gamecontroller:Session] Connected devices changed (2 added, 0 removed) -> [2] {(
+    <GCController 0x600003d0ca50 'MFi'/'Gamepad'>,
+    <GCKeyboard 0x60000022a420 'Generic Keyboard'>
+)}
+2026-11-11 09:47:50.513 A  FastClicker[3176:3a6e] (CoreFoundation) Updating Key-Value Observers Of Preferences
+2026-11-11 09:47:50.514 A  FastClicker[3176:3a6e] (CoreFoundation) Updating Key-Value Observers Of Preferences
+2026-11-11 09:47:50.516 Df FastClicker[3176:3a46] [com.apple.gamecontroller:Session] Connected devices changed (0 added, 0 removed) -> [2] {(
+    <GCController 0x600003d0ca50 'MFi'/'Gamepad'>,
+    <GCKeyboard 0x60000022a420 'Generic Keyboard'>
+)}
+2026-11-11 09:47:50.516 Df FastClicker[3176:3a46] [com.apple.gamecontroller:Session] Connected devices changed (0 added, 0 removed) -> [2] {(
+    <GCController 0x600003d0ca50 'MFi'/'Gamepad'>,
+    <GCKeyboard 0x60000022a420 'Generic Keyboard'>
+)}
+2026-11-11 09:47:50.516 A  FastClicker[3176:3a46] (GameControllerFoundation) [HID Event System Client] Activate
+2026-11-11 09:47:50.517 Df FastClicker[3176:3a46] [com.apple.KeyboardArbiter:Client] startConnection
+2026-11-11 09:47:50.517 Df FastClicker[3176:3a46] [com.apple.KeyboardArbiter:Client] handleKeyboardChange: set currentKeyboard:N (wasKeyboard:N)
+2026-11-11 09:47:50.518 Df FastClicker[3176:3a46] [com.apple.UIKit:KeyboardArbiterClientLog] isWritingToolsHandlingKeyboardTracking:Y (WT ready:Y, Arbiter ready:Y)
+2026-11-11 09:47:50.523 Df FastClicker[3176:3a5c] [com.apple.BackBoard:EventDelivery] policyStatus:<BKSHIDEventDeliveryPolicyObserver: 0x600002612160; token: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Ach.students.fastclicker-default; status: none> was:ancestor
+2026-11-11 09:47:50.523 Df FastClicker[3176:3a46] [com.apple.UIKit:KeyWindow] Scene target of keyboard event deferring environment did change: 0; scene: UIWindowScene: 0x105504ec0; scene identity: com.apple.frontboard.systemappservices/FBSceneManager:sceneID%3Ach.students.fastclicker-default
+2026-11-11 09:47:50.523 Df FastClicker[3176:3a5c] [com.apple.BackBoard:EventDelivery] policyStatus:<BKSHIDEventDeliveryPolicyObserver: 0x600002607120; environment: keyboardFocus; status: none> was:target
+2026-11-11 09:47:50.561 Df FastClicker[3176:3a46] [com.apple.network:activity] <nw_activity 50:1 [10F0FF4B-EAAD-4663-B72C-940E590588B9] (global parent) (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 1505ms
+2026-11-11 09:47:50.561 Df FastClicker[3176:3a46] [com.apple.network:activity] <nw_activity 50:2 [47DED192-A3DA-4C4E-8274-913842606EF1] (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 1505ms
+2026-11-11 09:47:50.561 Df FastClicker[3176:3a46] [com.apple.network:activity] Unsetting the global parent activity <nw_activity 50:1 [10F0FF4B-EAAD-4663-B72C-940E590588B9] (global parent) (reporting strategy default) complete (reason success)>
+2026-11-11 09:47:50.561 Df FastClicker[3176:3a46] [com.apple.network:activity] Unset the global parent activity
+2026-11-11 09:47:50.561 E  FastClicker[3176:3a61] [com.apple.app_launch_measurement:General] Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com.apple.app_launch_measurement.ExtendedLaunchMetrics
+2026-11-11 09:47:50.598 Df FastClicker[3176:3a46] [com.apple.Accessibility:AXCommon] Read Per-App on Init: Smart invert = (null)
+2026-11-11 09:47:50.598 Df FastClicker[3176:3a54] [com.apple.UIKit:BackgroundTask] Ending background task with UIBackgroundTaskIdentifier: 2
+2026-11-11 09:47:50.598 Df FastClicker[3176:3a54] [com.apple.UIKit:BackgroundTask] Ending task with identifier 2 and description: <_UIBackgroundTaskInfo: 0x600001702d40>: taskID = 2, taskName = Persistent SceneSession Map Update, creationTime = 125 (elapsed = 1), _expireHandler: <__NSGlobalBlock__: 0x1e61729e0>
+2026-11-11 09:47:50.598 Df FastClicker[3176:3a54] [com.apple.UIKit:BackgroundTask] Decrementing reference count for assertion <BKSProcessAssertion: 0x60000210a850> (used by background task with identifier 2: <_UIBackgroundTaskInfo: 0x600001702d40>: taskID = 2, taskName = Persistent SceneSession Map Update, creationTime = 125 (elapsed = 1))
+2026-11-11 09:47:50.599 Df FastClicker[3176:3a54] [com.apple.UIKit:BackgroundTask] Will invalidate assertion: <BKSProcessAssertion: 0x60000210a850> for task identifier: 2
+2026-11-11 09:47:50.608 Df FastClicker[3176:3a46] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:ch.students.fastclicker-default  persistentID: B7F77750-40DF-4636-9EED-B47C45CEB28C
+2026-11-11 09:47:50.608 Df FastClicker[3176:3a46] [com.apple.UIKit:UIAlertControllerStackManager] canShowAlerts Updated: <FBSSceneSettingsDiff: 0x60000172fc80; UIApplicationSceneSettings> {
+    subclassSettings = <BSSettingsDiff: 0x600000c3dda0> {
+        canShowAlerts = NO;
+    };
+}
+2026-11-11 09:47:50.608 Df FastClicker[3176:3a46] [com.apple.UIKit:InterfaceStyle] Not push traits update to screen for new style 1, <UIWindowScene: 0x105504ec0> (B7F77750-40DF-4636-9EED-B47C45CEB28C)
+2026-11-11 09:47:50.608 Df FastClicker[3176:3a46] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:ch.students.fastclicker-default  persistentID: B7F77750-40DF-4636-9EED-B47C45CEB28C
+2026-11-11 09:47:50.608 Df FastClicker[3176:3a46] [com.apple.UIKit:Application] Deactivation reason added: 13; deactivation reasons: 0 -> 8192; animating application lifecycle event: 0
+2026-11-11 09:47:50.608 A  FastClicker[3176:3a46] (GameController) Notify ApplicationWillResignActive
+2026-11-11 09:47:50.609 Df FastClicker[3176:3a46] [com.apple.UIKit:Application] Ignoring already applied deactivation reason: 13; deactivation reasons: 8192
+2026-11-11 09:47:50.609 Df FastClicker[3176:3a46] [com.apple.UIKit:Application] Deactivation reason added: 12; deactivation reasons: 8192 -> 12288; animating application lifecycle event: 0
+2026-11-11 09:47:50.617 Df FastClicker[3176:3a46] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:ch.students.fastclicker-default  persistentID: B7F77750-40DF-4636-9EED-B47C45CEB28C
+2026-11-11 09:47:51.234 A  FastClicker[3176:3a54] (RunningBoardServices) didChangeInheritances
+2026-11-11 09:47:51.276 Df FastClicker[3176:3a56] [com.apple.runningboard:process] Starting death monitoring for handle [xpcservice<com.apple.WebKit.WebContent([app<ch.students.fastclicker((null))>:3176])>{vt hash: 71395982}[uuid:502CD1B5-029E-4C09-8404-3F161B619A97]{definition:com.apple.WebKit.WebContent[extension][client]}:3244]
+2026-11-11 09:47:51.282 Df FastClicker[3176:3a56] [com.apple.extensionkit:launch] Created new process ExtensionProcess: bundleID: com.apple.WebKit.WebContent instance ID: Optional([_EXExtensionInstanceIdentifier: 502CD1B5-029E-4C09-8404-3F161B619A97]) pid: 3244.
+2026-11-11 09:47:51.282 Df FastClicker[3176:3a56] [com.apple.WebKit:Process] AssertionCapability::AssertionCapability: taking assertion Foreground
+2026-11-11 09:47:51.283 Df FastClicker[3176:3a46] [com.apple.xpc:connection] [0x10560c4e0] activating connection: mach=false listener=false peer=false name=(anonymous)
+2026-11-11 09:47:51.378 Df FastClicker[3176:3a5b] [com.apple.runningboard:process] Starting death monitoring for handle [xpcservice<com.apple.WebKit.GPU([app<ch.students.fastclicker((null))>:3176])>{vt hash: 223737757}[uuid:227CDB5B-92FE-4B53-ACA8-664A4CAC7D6A]{definition:com.apple.WebKit.GPU[extension][client]}:3250]
+2026-11-11 09:47:51.384 Df FastClicker[3176:3a5b] [com.apple.extensionkit:launch] Created new process ExtensionProcess: bundleID: com.apple.WebKit.GPU instance ID: Optional([_EXExtensionInstanceIdentifier: 227CDB5B-92FE-4B53-ACA8-664A4CAC7D6A]) pid: 3250.
+2026-11-11 09:47:51.384 Df FastClicker[3176:3a54] [com.apple.WebKit:Process] AssertionCapability::AssertionCapability: taking assertion Foreground
+2026-11-11 09:47:51.385 Df FastClicker[3176:3a46] [com.apple.xpc:connection] [0x10560e090] activating connection: mach=false listener=false peer=false name=(anonymous)
+2026-11-11 09:47:51.438 Df FastClicker[3176:3a46] (WebKit) WebContent[3244] Installed launch log hook
+2026-11-11 09:47:51.441 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x1140c00c0 - [PID=3244] WebProcessProxy::didFinishLaunching:
+2026-11-11 09:47:51.441 F  FastClicker[3176:3a46] [com.apple.WebKit:Process] WebContent process (0x1140c00c0) took 1.168050 seconds to launch
+2026-11-11 09:47:51.441 A  FastClicker[3176:3a46] (libsystem_trace.dylib) Activity for state dumps
+2026-11-11 09:47:51.442 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140c0150 - [PID=3244] ProcessThrottler::didConnectToProcess
+2026-11-11 09:47:51.442 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140c0150 - [PID=3244] ProcessThrottler::setThrottleState: Updating process assertion type to 3 (foregroundActivities=4, backgroundActivities=6)
+2026-11-11 09:47:51.442 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] AssertionCapability::AssertionCapability: taking assertion Foreground
+2026-11-11 09:47:51.443 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x600001731f80 - WKProcessAssertionBackgroundTaskManager: beginBackgroundTaskWithName
+2026-11-11 09:47:51.443 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] WKProcessAssertionBackgroundTaskManager: Took a FinishTaskInterruptable assertion for own process
+2026-11-11 09:47:51.443 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140c00c0 - [PID=3244] WebProcessProxy::didChangeThrottleState: type=2
+2026-11-11 09:47:51.443 Df FastClicker[3176:3a56] [com.apple.WebKit:ProcessSuspension] 0x1141580c0 - ProcessAssertion::acquireSync Trying to take RBS assertion 'WebProcess Foreground Assertion' for process with PID=3244
+2026-11-11 09:47:51.443 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140c00c0 - [PID=3244] WebProcessProxy::didChangeThrottleState(Foreground) Taking foreground assertion for network process
+2026-11-11 09:47:51.443 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d4390 - [PID=0, throttler=0x114130190] ProcessThrottler::Activity::Activity: Starting foreground activity / 'Networking for foreground view(s)'
+2026-11-11 09:47:51.443 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d43c0 - [PID=0, throttler=0x114110270] ProcessThrottler::Activity::Activity: Starting foreground activity / 'GPU for foreground view(s)'
+2026-11-11 09:47:51.443 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x114130100 - NetworkProcessProxy::sendXPCEndpointToProcess(0x1140c00c0) state = 1 has connection = 1 XPC endpoint message = 0x0
+2026-11-11 09:47:51.445 Df FastClicker[3176:3a56] [com.apple.WebKit:ProcessSuspension] 0x1141580c0 - ProcessAssertion() Successfully granted capability
+2026-11-11 09:47:51.461 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] WebContent[3244] getNetworkProcessConnection: Request connection for core identifier 2
+2026-11-11 09:47:51.461 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d40c0 - [PID=3244, throttler=0x1140c0150] ProcessThrottler::Activity::invalidate: Ending foreground activity / 'Process initialization'
+2026-11-11 09:47:51.461 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x114130100 - NetworkProcessProxy::getNetworkProcessConnection: Taking a background assertion because web process pid 3244 (core identifier 2) is requesting a connection
+2026-11-11 09:47:51.491 Df FastClicker[3176:3a55] [com.apple.runningboard:process] Starting death monitoring for handle [xpcservice<com.apple.WebKit.Networking([app<ch.students.fastclicker((null))>:3176])>{vt hash: 114736818}[uuid:68A6996A-5E9C-47AB-BF26-D690461F0F14]{definition:com.apple.WebKit.Networking[extension][client]}:3251]
+2026-11-11 09:47:51.497 Df FastClicker[3176:3a55] [com.apple.extensionkit:launch] Created new process ExtensionProcess: bundleID: com.apple.WebKit.Networking instance ID: Optional([_EXExtensionInstanceIdentifier: 68A6996A-5E9C-47AB-BF26-D690461F0F14]) pid: 3251.
+2026-11-11 09:47:51.497 Df FastClicker[3176:3a55] [com.apple.WebKit:Process] AssertionCapability::AssertionCapability: taking assertion Foreground
+2026-11-11 09:47:51.498 Df FastClicker[3176:3a46] [com.apple.xpc:connection] [0x105605a90] activating connection: mach=false listener=false peer=false name=(anonymous)
+2026-11-11 09:47:51.513 E  FastClicker[3176:3a46] [com.apple.WebKit:ResourceLoadStatistics] Failed to request storage access quirks from WebPrivacy.
+2026-11-11 09:47:51.514 E  FastClicker[3176:3a46] [com.apple.WebKit:ResourceLoadStatistics] Failed to request known fingerprinting scripts from WebPrivacy: Error Domain=WebPrivacyErrorDomain Code=1001 "List data not found" UserInfo={NSLocalizedDescription=List data not found}
+2026-11-11 09:47:51.514 E  FastClicker[3176:3a46] [com.apple.WebKit:ResourceLoadStatistics] Failed to request storage access user agent string quirks from WebPrivacy.
+2026-11-11 09:47:51.539 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x1141101e0 - GPUProcessProxy::didFinishLaunching:
+2026-11-11 09:47:51.539 F  FastClicker[3176:3a46] [com.apple.WebKit:Process] GPU process (0x1141101e0) took 1.193368 seconds to launch
+2026-11-11 09:47:51.539 A  FastClicker[3176:3a46] (libsystem_trace.dylib) Activity for state dumps
+2026-11-11 09:47:51.539 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x1141101e0 - GPUProcessProxy::connectionWillOpen:
+2026-11-11 09:47:51.539 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x114110270 - [PID=3250] ProcessThrottler::didConnectToProcess
+2026-11-11 09:47:51.539 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x114110270 - [PID=3250] ProcessThrottler::setThrottleState: Updating process assertion type to 3 (foregroundActivities=2, backgroundActivities=1)
+2026-11-11 09:47:51.539 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] AssertionCapability::AssertionCapability: taking assertion Foreground
+2026-11-11 09:47:51.539 Df FastClicker[3176:3a5b] [com.apple.WebKit:ProcessSuspension] 0x114158180 - ProcessAssertion::acquireSync Trying to take RBS assertion 'GPUProcess Foreground Assertion' for process with PID=3250
+2026-11-11 09:47:51.539 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x114130100 - NetworkProcessProxy::sendXPCEndpointToProcess(0x1141101e0) state = 1 has connection = 1 XPC endpoint message = 0x0
+2026-11-11 09:47:51.540 A  FastClicker[3176:3a55] (CoreServicesInternal) CFURLCreateBookmarkData
+2026-11-11 09:47:51.540 Df FastClicker[3176:3a5b] [com.apple.WebKit:ProcessSuspension] 0x114158180 - ProcessAssertion() Successfully granted capability
+2026-11-11 09:47:51.563 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d4120 - [PID=3250, throttler=0x114110270] ProcessThrottler::Activity::invalidate: Ending foreground activity / 'Process initialization'
+2026-11-11 09:47:51.661 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x114130100 - NetworkProcessProxy::didFinishLaunching
+2026-11-11 09:47:51.661 F  FastClicker[3176:3a46] [com.apple.WebKit:Process] Networking process (0x114130100) took 1.286921 seconds to launch
+2026-11-11 09:47:51.661 A  FastClicker[3176:3a46] (libsystem_trace.dylib) Activity for state dumps
+2026-11-11 09:47:51.661 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x114130190 - [PID=3251] ProcessThrottler::didConnectToProcess
+2026-11-11 09:47:51.661 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x114130190 - [PID=3251] ProcessThrottler::setThrottleState: Updating process assertion type to 3 (foregroundActivities=2, backgroundActivities=2)
+2026-11-11 09:47:51.661 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] AssertionCapability::AssertionCapability: taking assertion Foreground
+2026-11-11 09:47:51.661 Df FastClicker[3176:3a55] [com.apple.WebKit:ProcessSuspension] 0x114158240 - ProcessAssertion::acquireSync Trying to take RBS assertion 'NetworkProcess Foreground Assertion' for process with PID=3251
+2026-11-11 09:47:51.662 Df FastClicker[3176:3a55] [com.apple.WebKit:ProcessSuspension] 0x114158240 - ProcessAssertion() Successfully granted capability
+2026-11-11 09:47:51.664 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x114130100 - NetworkProcessProxy::sendXPCEndpointToProcess(0x1140c00c0) state = 1 has connection = 1 XPC endpoint message = 0x600003e01100
+2026-11-11 09:47:51.664 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x114130100 - NetworkProcessProxy::sendXPCEndpointToProcess(0x1141101e0) state = 1 has connection = 1 XPC endpoint message = 0x600003e01100
+2026-11-11 09:47:51.664 Df FastClicker[3176:3a46] [com.apple.xpc:connection] WebContent[3244] [0x100a041d0] activating connection: mach=false listener=false peer=false name=(anonymous)
+2026-11-11 09:47:51.688 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d4210 - [PID=3251, throttler=0x114130190] ProcessThrottler::Activity::invalidate: Ending foreground activity / 'Process initialization'
+2026-11-11 09:47:51.695 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] WebContent[3244] Received Launch Services database
+2026-11-11 09:47:51.700 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] WebContent[3244] 0x10c060150 - [sessionID=1] WebProcess::initializeLogForwarding: Debug logging enabled: 0
+2026-11-11 09:47:51.700 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] WebContent[3244] WebProcess::platformInitializeWebProcess
+2026-11-11 09:47:51.703 Df FastClicker[3176:3a46] [com.apple.xpc:connection] WebContent[3244] [0x100a04310] activating connection: mach=false listener=true peer=false name=(anonymous)
+2026-11-11 09:47:51.703 Df FastClicker[3176:3a46] [com.apple.xpc:connection] WebContent[3244] [0x100a04310] Connection returned listener port: 0x3903
+2026-11-11 09:47:51.703 Df FastClicker[3176:3a46] [com.apple.xpc:connection] WebContent[3244] [0x100a048a0] activating connection: mach=false listener=false peer=false name=(anonymous)
+2026-11-11 09:47:51.703 Df FastClicker[3176:3a46] [com.apple.xpc:connection] WebContent[3244] [0x100b04080] activating connection: mach=false listener=false peer=true name=com.apple.xpc.anonymous.0x100a04310.peer[3244].0x100b04080
+2026-11-11 09:47:51.726 Df FastClicker[3176:3a46] [com.apple.Accessibility:AXSupportCommon] WebContent[3244] Application accessibility enabled: 0, (
+	0   libAccessibility.dylib              0x000000019215585c _AXSApplicationAccessibilitySetEnabled + 76
+	1   WebKit                              0x000000018e01aa24 _ZN6WebKit10WebProcess28platformInitializeWebProcessERNS_28WebProcessCreationParametersE + 2096
+	2   WebKit                              0x000000018e1fcc94 _ZN6WebKit10WebProcess20initializeWebProcessEONS_28WebProcessCreationParametersEON3WTF17CompletionHandlerIFvN7WebCore15ProcessIdentityEEEE + 188
+	3   WebKit                              0x000000018db9b684 _ZN3IPC18handleMessageAsyncIN8Messages10WebProcess20InitializeWebProcessENS_10ConnectionEN6WebKit10WebProcessES6_FvONS5_28WebProcessCreationParametersEON3WTF17CompletionHandlerIFvN7WebCore15ProcessIdentityEEEEEEEvRT0_RNS_7DecoderEPT1_MT2_T3_ + 224
+	4   WebKit                              0x000000018e5c03cc _ZN3IPC10Connection15dispatchMessageEN3WTF9UniqueRefINS_7DecoderEEE + 556
+	5   WebKit                              0x000000018e5db49c _Z<…>
+2026-11-11 09:47:51.726 Df FastClicker[3176:3a46] [com.apple.Accessibility:AXSupportCommon] WebContent[3244] Stored App AX setting: 0
+2026-11-11 09:47:51.727 Df FastClicker[3176:3a46] [com.apple.Accessibility:AXSupportCommon] WebContent[3244] AXS AccessibilityEnabled: (app ax: 0), ax settings: 0, cached: 0
+2026-11-11 09:47:51.727 Df FastClicker[3176:3a56] [com.apple.xpc:connection] [0x10560c4e0] Re-initialization successful; calling out to event handler with XPC_ERROR_CONNECTION_INTERRUPTED
+2026-11-11 09:47:51.901 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x10601c418 - [pageProxyID=7, webPageID=8, PID=3244] WebPageProxy::decidePolicyForNavigationAction: frameID=4294967297, isMainFrame=1, navigationID=13
+2026-11-11 09:47:51.903 A  FastClicker[3176:3a56] (CoreFoundation) Loading Preferences From User Session CFPrefsD
+2026-11-11 09:47:51.904 Df FastClicker[3176:3a56] [com.apple.xpc:connection] [0x105505800] activating connection: mach=true listener=false peer=false name=com.apple.Safari.SafeBrowsing.Service
+2026-11-11 09:47:51.915 Df FastClicker[3176:3a46] [com.apple.WebKit:AppSSO] 0x1140640d0 - SOAuthorizationCoordinator::tryAuthorize
+2026-11-11 09:47:51.927 A  FastClicker[3176:3a46] (AppSSO) canPerformAuthorizationWithURL
+2026-11-11 09:47:51.927 A  FastClicker[3176:3a46] (AppSSOCore) canPerformAuthorizationWithURL
+2026-11-11 09:47:51.929 Df FastClicker[3176:3a46] [com.apple.authkit:nto] Fetching native takeover URLs
+2026-11-11 09:47:51.929 Df FastClicker[3176:3a46] [com.apple.xpc:connection] [0x10530d660] activating connection: mach=true listener=false peer=false name=com.apple.ak.authorizationservices.xpc
+2026-11-11 09:47:51.929 E  FastClicker[3176:3a46] [com.apple.WebKit:ResourceLoadStatistics] Failed to request query parameters from WebPrivacy.
+2026-11-11 09:47:51.931 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d4330 - [PID=3244, throttler=0x1140c0150] ProcessThrottler::Activity::invalidate: Ending foreground activity / 'WebPageProxy::runJavaScriptInFrameInScriptWorld'
+2026-11-11 09:47:51.934 Df FastClicker[3176:3a56] [com.apple.authkit:nto] URL shouldn't be processed
+2026-11-11 09:47:51.934 Df FastClicker[3176:3a56] [com.apple.AppSSO:SOConfigurationClient] -[SOConfigurationClient init]  on <SOConfigurationClient: 0x60000026a240>
+2026-11-11 09:47:51.934 Df FastClicker[3176:3a56] [com.apple.xpc:connection] [0x10560eaf0] activating connection: mach=true listener=false peer=false name=com.apple.AppSSO.service-xpc
+2026-11-11 09:47:51.934 Df FastClicker[3176:3b38] [com.apple.WebKit:RemoteLayerBuffers] WebContent[3244]: [renderingBackend=11] Created rendering backend for pageProxyID=7, webPageID=8
+2026-11-11 09:47:51.935 Df FastClicker[3176:3a56] [com.apple.AppSSO:SOServiceConnection] <SOServiceConnection: 0x600000269fe0>: new XPC connection
+2026-11-11 09:47:51.935 Df FastClicker[3176:3b38] [com.apple.WebKit:Process] WebContent[3244] GPUProcessConnection::create - 0x10c0e3aa0
+2026-11-11 09:47:51.935 Df FastClicker[3176:3a5b] [com.apple.AppSSO:SOConfigurationClient] -[SOConfigurationClient _reloadConfig]  on <SOConfigurationClient: 0x60000026a240>
+2026-11-11 09:47:51.935 Df FastClicker[3176:3a5b] [com.apple.AppSSO:SOClient] -[SOClient configurationWithCompletion:]  on <SOClient: 0x600000004920>
+2026-11-11 09:47:51.935 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/tmp/ch.students.fastclicker/WebKit/MediaCache'
+2026-11-11 09:47:51.935 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/Library/WebKit/ch.students.fastclicker/WebsiteData/MediaKeys/v1'
+2026-11-11 09:47:51.935 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1141101e0 - GPUProcessProxy is taking a background assertion because a web process is requesting a connection
+2026-11-11 09:47:51.971 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x1141101e0 - GPUProcessProxy::didCreateContextForVisibilityPropagation: webPageProxyID: 7, pagePID: 8, contextID: 3
+2026-11-11 09:47:51.971 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] Created visibility propagation interaction <_UIVisibilityPropagationInteraction: 0x600002609860> for process with PID=3250
+2026-11-11 09:47:51.976 Df FastClicker[3176:3b38] [com.apple.WebKit:Process] WebContent[3244] 0x10c0e3aa0 - GPUProcessConnection::didInitialize
+2026-11-11 09:47:52.195 Df FastClicker[3176:3a46] [com.apple.WebKit:RemoteLayerTree] RemoteLayerTreeDrawingAreaProxy(10) Unhiding layer tree
+2026-11-11 09:47:52.249 Df FastClicker[3176:3b38] [com.apple.Accessibility:AXCommon] WebContent[3244] Read Per-App on Init: Smart invert = (null)
+2026-11-11 09:47:52.351 Df FastClicker[3176:3a5b] [com.apple.AppSSO:SOClient] configurationWithCompletion: success = YES, error = (null)
+2026-11-11 09:47:52.352 Df FastClicker[3176:3a46] [com.apple.WebKit:AppSSO] SOAuthorizationCoordinator::tryAuthorize: The requested URL is not registered for AppSSO handling. No further action needed.
+2026-11-11 09:47:52.352 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x10601c418 - [pageProxyID=7, webPageID=8, PID=3244] WebPageProxy::decidePolicyForNavigationAction: listener called: frameID=4294967297, isMainFrame=1, navigationID=13, policyAction=Use, isAppBoundDomain=0, wasNavigationIntercepted=0
+2026-11-11 09:47:52.352 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x10601c418 - [pageProxyID=7, webPageID=8, PID=3244] WebPageProxy::receivedNavigationActionPolicyDecision: frameID=4294967297, isMainFrame=1, navigationID=13, policyAction=Use
+2026-11-11 09:47:52.353 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSwapping] 0x10601c418 - [pageProxyID=7, webPageID=8, PID=3244] WebPageProxy::decidePolicyForNavigationAction: keep using process 3244 for navigation, reason=Process has not yet committed any provisional loads
+2026-11-11 09:47:52.353 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x1140c00c0 - [PID=3244] WebProcessProxy::canTerminateAuxiliaryProcess: returns false (pageCount=1, provisionalPageCount=0, suspendedPageCount=0, m_isInProcessCache=0, m_shutdownPreventingScopeCounter=0)
+2026-11-11 09:47:52.353 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webFrameID=4294967297, webPageID=8] WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction: Got policyAction Use from async IPC
+2026-11-11 09:47:52.353 Df FastClicker[3176:3b38] [com.apple.WebKit:Loading] WebContent[3244] 0x10c07c8c0 - [pageID=8, frameID=4294967297] PolicyChecker::checkNavigationPolicy: continuing because this policyAction from dispatchDecidePolicyForNavigationAction is Use
+2026-11-11 09:47:52.354 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8 frameID=4294967297 isMainFrame=1] FrameLoader::stopAllLoaders: m_provisionalDocumentLoader=0, m_documentLoader=4513902592
+2026-11-11 09:47:52.354 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [pageID=8, frameID=4294967297, isMainFrame=1] DocumentLoader::stopLoading
+2026-11-11 09:47:52.354 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8 frameID=4294967297 isMainFrame=1] FrameLoader::setProvisionalDocumentLoader: Setting provisional document loader to 4513894400 (was 0)
+2026-11-11 09:47:52.354 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8 frameID=4294967297 isMainFrame=1] FrameLoader::continueLoadAfterNavigationPolicy: Setting provisional document loader (m_provisionalDocumentLoader=4513894400)
+2026-11-11 09:47:52.354 Df FastClicker[3176:3b38] [com.apple.WebKit:ProcessSuspension] WebContent[3244]: [webPageID=8] WebPage::freezeLayerTree: Adding a reason to freeze layer tree (reason=1, new=1, old=0)
+2026-11-11 09:47:52.354 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8 frameID=4294967297 isMainFrame=1] FrameLoader::setPolicyDocumentLoader: Setting policy document loader to 0 (was 4513894400)
+2026-11-11 09:47:52.354 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8 frameID=4294967297 isMainFrame=1] FrameLoader::prepareForLoadStart: Starting frame load
+2026-11-11 09:47:52.354 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: ProgressTracker::progressStarted: frameID 4294967297, value 0.100000, tracked frames 1, originating frameID 4294967297, isMainLoad 1
+2026-11-11 09:47:52.354 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [pageID=8, frameID=4294967297, isMainFrame=1] DocumentLoader::startLoadingMainResource: Starting load
+2026-11-11 09:47:52.354 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x10601c418 - [pageProxyID=7, webPageID=8, PID=3244] WebPageProxy::didStartProvisionalLoadForFrame: frameID=4294967297, isMainFrame=1
+2026-11-11 09:47:52.354 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x1140c00c0 - [PID=3244] WebProcessProxy::didStartProvisionalLoadForMainFrame:
+2026-11-11 09:47:52.354 E  FastClicker[3176:3a46] [com.apple.WebKit:ResourceLoadStatistics] Failed to request restricted opener domains from WebPrivacy
+2026-11-11 09:47:52.355 E  FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoadStatistics] WebContent[3244] Unable to filter tracking query parameters (missing data)
+2026-11-11 09:47:52.357 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=18] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:47:52.357 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=18 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:47:52.357 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=8, resourceID=8] WebLoaderStrategy::scheduleLoad: URL will be scheduled with the NetworkProcess
+2026-11-11 09:47:52.358 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=8, resourceID=8] WebLoaderStrategy::scheduleLoad: Resource is being scheduled with the NetworkProcess (priority=4, existingNetworkResourceLoadIdentifierToResume=0)
+2026-11-11 09:47:52.358 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=18] WebResourceLoader::WebResourceLoader
+2026-11-11 09:47:52.603 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=18] WebResourceLoader::didReceiveResponse: (httpStatusCode=401)
+2026-11-11 09:47:52.641 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=18] WebResourceLoader::didReceiveData: Started receiving data
+2026-11-11 09:47:52.641 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8 frameID=4294967297 isMainFrame=1] FrameLoader::setDocumentLoader: Setting document loader to 4513894400 (was 4513902592)
+2026-11-11 09:47:52.641 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [pageID=8, frameID=4294967297, isMainFrame=1] DocumentLoader::detachFromFrame
+2026-11-11 09:47:52.641 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [pageID=8, frameID=4294967297, isMainFrame=1] DocumentLoader::stopLoading
+2026-11-11 09:47:52.642 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8 frameID=4294967297 isMainFrame=1] FrameLoader::transitionToCommitted: Clearing provisional document loader (m_provisionalDocumentLoader=4513894400)
+2026-11-11 09:47:52.642 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8 frameID=4294967297 isMainFrame=1] FrameLoader::setProvisionalDocumentLoader: Setting provisional document loader to 0 (was 4513894400)
+2026-11-11 09:47:52.642 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x10601c418 - [pageProxyID=7, webPageID=8, PID=3244] WebPageProxy::didNavigateWithNavigationDataShared:
+2026-11-11 09:47:52.643 E  FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoadStatistics] WebContent[3244] Unable to hide query parameters from script (missing data)
+2026-11-11 09:47:52.643 Df FastClicker[3176:3b38] [com.apple.WebKit:ProcessSuspension] WebContent[3244]: [webPageID=8] WebPage::unfreezeLayerTree: Removing a reason to freeze layer tree (reason=128, new=1, old=1)
+2026-11-11 09:47:52.643 Df FastClicker[3176:3b38] [com.apple.WebKit:ProcessSuspension] WebContent[3244]: [webPageID=8] WebPage::unfreezeLayerTree: Removing a reason to freeze layer tree (reason=128, new=1, old=1)
+2026-11-11 09:47:52.644 Df FastClicker[3176:3b38] [com.apple.WebKit:ProcessSuspension] WebContent[3244]: [webPageID=8] WebPage::unfreezeLayerTree: Removing a reason to freeze layer tree (reason=32, new=1, old=1)
+2026-11-11 09:47:52.644 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=18] WebResourceLoader::didFinishResourceLoad: (length=172)
+2026-11-11 09:47:52.644 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=18 SubResourceLoader::didFinishLoading
+2026-11-11 09:47:52.645 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x10601c418 - [pageProxyID=7, webPageID=8, PID=3244] WebPageProxy::didCommitLoadForFrame: frameID=4294967297, isMainFrame=1
+2026-11-11 09:47:52.646 E  FastClicker[3176:3a46] [com.apple.WebKit:ResourceLoadStatistics] Failed to request allowed query parameters from WebPrivacy.
+2026-11-11 09:47:52.650 Df FastClicker[3176:3b38] [com.apple.WebKit:ProcessSuspension] WebContent[3244]: [webPageID=8] WebPage::unfreezeLayerTree: Removing a reason to freeze layer tree (reason=1, new=0, old=1)
+2026-11-11 09:47:52.650 Df FastClicker[3176:3b38] [com.apple.WebKit:Layout] WebContent[3244]: [pageID=8, frameID=4294967297, isMainFrame=1] LocalFrameView::fireLayoutRelatedMilestonesIfNeeded: Firing first visually non-empty layout milestone on the main frame
+2026-11-11 09:47:52.650 Df FastClicker[3176:3b38] [com.apple.WebKit:Layout] WebContent[3244]: [webFrameID=4294967297, webPageID=8] WebLocalFrameLoaderClient::dispatchDidReachLayoutMilestone: dispatching DidReachLayoutMilestone (milestones=DidFirstVisuallyNonEmptyLayout)
+2026-11-11 09:47:52.650 Df FastClicker[3176:3b38] [com.apple.WebKit:Layout] WebContent[3244]: [webFrameID=4294967297, webPageID=8] WebLocalFrameLoaderClient::dispatchDidReachLayoutMilestone: dispatching DidFirstVisuallyNonEmptyLayoutForFrame
+2026-11-11 09:47:52.650 Df FastClicker[3176:3b38] [com.apple.WebKit:Layout] WebContent[3244]: [webFrameID=4294967297, webPageID=8] WebLocalFrameLoaderClient::completePageTransitionIfNeeded: dispatching didCompletePageTransition
+2026-11-11 09:47:52.653 Df FastClicker[3176:3a55] [com.apple.Safari.SafeBrowsing:Database] Service did finish database update with protection type 1 and provider 1
+2026-11-11 09:47:52.653 Df FastClicker[3176:3a55] [com.apple.Safari.SafeBrowsing:Database] Service did finish database update with protection type 1 and provider 1
+2026-11-11 09:47:52.680 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x10601c418 - [pageProxyID=7, webPageID=8, PID=3244] WebPageProxy::didFinishDocumentLoadForFrame: frameID=4294967297, isMainFrame=1
+2026-11-11 09:47:52.695 Df FastClicker[3176:3b38] [com.apple.WebKit:Layout] WebContent[3244]: [webFrameID=4294967297, webPageID=8] WebLocalFrameLoaderClient::dispatchDidReachLayoutMilestone: dispatching DidFirstLayoutForFrame
+2026-11-11 09:47:52.695 Df FastClicker[3176:3b38] [com.apple.WebKit:Layout] WebContent[3244]: [webFrameID=4294967297, webPageID=8] WebLocalFrameLoaderClient::dispatchDidReachLayoutMilestone: dispatching DidReachLayoutMilestone (milestones=DidFirstLayout)
+2026-11-11 09:47:52.695 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8 frameID=4294967297 isMainFrame=1] FrameLoader::setState: main frame load completed
+2026-11-11 09:47:52.695 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3244]: Memory usage info dump at MainFrameLoadCompleted:
+2026-11-11 09:47:52.695 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3244]:   page_count: 1
+2026-11-11 09:47:52.695 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3244]:   backforward_cache_page_count: 0
+2026-11-11 09:47:52.695 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3244]:   document_count: 2
+2026-11-11 09:47:52.695 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3244]:   javascript_gc_heap_capacity_mb: 1
+2026-11-11 09:47:52.696 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3244]:   javascript_gc_heap_extra_memory_size_mb: 0
+2026-11-11 09:47:52.696 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3244]:   internal_mb: 15
+2026-11-11 09:47:52.696 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3244]:   compressed_mb: 0
+2026-11-11 09:47:52.696 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3244]:   phys_footprint_mb: 17
+2026-11-11 09:47:52.696 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3244]:   resident_size_mb: 139
+2026-11-11 09:47:52.696 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3244]:   virtual_size_mb: 419185
+2026-11-11 09:47:52.696 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: ProgressTracker::progressCompleted: frameID 4294967297, value 0.500000, tracked frames 1, originating frameID 4294967297, isMainLoad 1
+2026-11-11 09:47:52.696 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: ProgressTracker::finalProgressComplete: value 0.500000, tracked frames 0, originating frameID 4294967297, isMainLoad 1, isMainLoadProgressing 0
+2026-11-11 09:47:52.696 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8 frameID=4294967297 isMainFrame=1] FrameLoader::checkLoadCompleteForThisFrame: Finished frame load
+2026-11-11 09:47:52.697 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x10601c418 - [pageProxyID=7, webPageID=8, PID=3244] WebPageProxy::didFinishLoadForFrame: frameID=4294967297, isMainFrame=1
+2026-11-11 09:47:52.697 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x114128100 - NavigationState will release its process network assertion soon because the page load completed
+2026-11-11 09:47:52.697 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSwapping] 0x11409c150 - [PID=0] WebProcessCache::updateCapacity: Cache is disabled because process swap on navigation is disabled
+2026-11-11 09:47:52.700 Df FastClicker[3176:3b38] [com.apple.WebKit:Layout] WebContent[3244]: [webFrameID=4294967297, webPageID=8] WebLocalFrameLoaderClient::dispatchDidReachLayoutMilestone: dispatching DidReachLayoutMilestone (milestones=DidFirstMeaningfulPaint)
+2026-11-11 09:47:52.702 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x10540d288 - PageConfiguration::delaysWebProcessLaunchUntilFirstLoad() -> false because of associated processPool value
+2026-11-11 09:47:52.702 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x106825a08 - WebProcessPool::createWebPage: Not delaying WebProcess launch
+2026-11-11 09:47:52.702 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x1140c0680 - [PID=0] WebProcessProxy::constructor:
+2026-11-11 09:47:52.702 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Bundle/Application/144CECC1-5F07-4C06-BEF7-382B078F3A95/FastClicker.app'
+2026-11-11 09:47:52.702 Df FastClicker[3176:3a46] (libMobileGestalt.dylib) No persisted cache on this platform.
+2026-11-11 09:47:52.702 Df FastClicker[3176:3a46] [com.apple.WebKit:Sandbox] Successfully created a sandbox extension for '/Users/runner/Library/Developer/CoreSimulator/Devices/2FEACF5E-886C-4FB8-A137-C571FBA5CF5C/data/Containers/Data/Application/8F3B75BA-C1D0-469C-8402-CE87460BE9B7/Library/WebKit/ch.students.fastclicker/WebsiteData/MediaKeys/v1'
+2026-11-11 09:47:52.703 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d40f0 - [PID=0, throttler=0x1140c0710] ProcessThrottler::Activity::Activity: Starting foreground activity / 'Process initialization'
+2026-11-11 09:47:52.703 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x107033218 - [pageProxyID=18, webPageID=19, PID=0] WebPageProxy::constructor, site isolation enabled 0
+2026-11-11 09:47:52.703 Df FastClicker[3176:3a46] [com.apple.WebKit:Media] PlaybackSessionManagerProxy::PlaybackSessionManagerProxy(1452330178)
+2026-11-11 09:47:52.703 Df FastClicker[3176:3a46] [com.apple.WebKit:Fullscreen] PlaybackSessionManagerProxy::VideoPresentationManagerProxy(1452330178)
+2026-11-11 09:47:52.703 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x1140c0680 - [PID=0] WebProcessProxy::addExistingWebPage: webPage=0x107033218, pageProxyID=18, webPageID=19
+2026-11-11 09:47:52.703 Df FastClicker[3176:3a46] [com.apple.WebKit:Storage] WebsiteDataStore::propagateSettingUpdates (0x105505b38) sessionID=1, OptInCookiePartitioning enabled, setting ThirdPartyCookieBlockingMode::AllExceptPartitioned
+2026-11-11 09:47:52.704 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSwapping] 0x11409c150 - [PID=0] WebProcessCache::updateCapacity: Cache is disabled by client
+2026-11-11 09:47:52.704 Df FastClicker[3176:3a55] [com.apple.extensionkit:launch] Launching process with config: bundleID: com.apple.WebKit.WebContent instance ID: Optional([_EXExtensionInstanceIdentifier: 7B6941BF-02BC-4499-AE3A-CC28640FFE16])
+2026-11-11 09:47:52.704 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] Created visibility propagation interaction <_UIVisibilityPropagationInteraction: 0x600002615aa0> for process with PID=3250
+2026-11-11 09:47:52.705 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x107033218 - [pageProxyID=18, webPageID=19, PID=0] WebPageProxy::loadRequest:
+2026-11-11 09:47:52.705 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x107033218 - [pageProxyID=18, webPageID=19, PID=0] WebPageProxy::WebPageProxy::shouldForceForegroundPriorityForClientNavigation() returns 1 based on PageClient::canTakeForegroundAssertions()
+2026-11-11 09:47:52.705 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d4330 - [PID=0, throttler=0x1140c0710] ProcessThrottler::Activity::Activity: Starting foreground activity / 'Client navigation'
+2026-11-11 09:47:52.705 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x107033218 - [pageProxyID=18, webPageID=19, PID=0] WebPageProxy::loadRequestWithNavigationShared:
+2026-11-11 09:47:52.705 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x114128180 - NavigationState is taking a process network assertion because a page load started
+2026-11-11 09:47:52.705 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d4360 - [PID=0, throttler=0x1140c0710] ProcessThrottler::Activity::Activity: Starting background activity / 'Page Load'
+2026-11-11 09:47:52.709 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d41e0 - [PID=3244, throttler=0x1140c0150] ProcessThrottler::Activity::invalidate: Ending foreground activity / 'Client navigation'
+2026-11-11 09:47:52.720 Df FastClicker[3176:3a46] [PrototypeTools:domain] Not observing PTDefaults on customer install.
+2026-11-11 09:47:52.725 Df FastClicker[3176:3a46] [com.apple.WebKit:ViewState] 0x1140bc190 - ApplicationStateTracker::setIsInBackground: 0
+2026-11-11 09:47:52.725 Df FastClicker[3176:3a46] [com.apple.WebKit:ViewState] 0x1140bc190 - ApplicationStateTracker: add observers for scene
+2026-11-11 09:47:52.725 Df FastClicker[3176:3a46] [com.apple.WebKit:ViewState] 0x10605d200 - WKApplicationStateTrackingView: View with page [0x107033218, pageProxyID=18] was added to a window, _lastObservedStateWasBackground=0, isNowBackground=0
+2026-11-11 09:47:52.726 Df FastClicker[3176:3a46] [com.apple.WebKit:ViewState] 0x107033218 - [pageProxyID=18, webPageID=19, PID=0] WebPageProxy::updateActivityState: view visibility state changed 0 -> 1
+2026-11-11 09:47:52.726 Df FastClicker[3176:3a46] [com.apple.WebKit:ViewState] 0x107033218 - [pageProxyID=18, webPageID=19, PID=0] WebPageProxy::viewIsBecomingVisible:
+2026-11-11 09:47:52.727 Df FastClicker[3176:3a46] [com.apple.WebKit:ScreenTime] Screen Time has updated to use the system shield for any blocked URL.
+2026-11-11 09:47:52.727 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x107033218 - [pageProxyID=18, webPageID=19, PID=0] WebPageProxy::updateThrottleState: UIProcess is taking a foreground assertion because the view is visible
+2026-11-11 09:47:52.727 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d4450 - [PID=0, throttler=0x1140c0710] ProcessThrottler::Activity::Activity: Starting foreground activity / 'View is visible'
+2026-11-11 09:47:52.727 Df FastClicker[3176:3a46] [com.apple.WebKit:RemoteLayerTree] RemoteLayerTreeDrawingAreaProxy(21)::hideContentUntilAnyUpdate
+2026-11-11 09:47:52.727 Df FastClicker[3176:3a46] [com.apple.WebKit:ViewState] 0x106826800 (pageProxyID=18) -[WKWebView _endLiveResize]
+2026-11-11 09:47:52.768 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=60] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:47:52.768 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=60 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:47:52.768 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=8, resourceID=8] WebLoaderStrategy::scheduleLoad: URL will be scheduled with the NetworkProcess
+2026-11-11 09:47:52.768 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=8, resourceID=8] WebLoaderStrategy::scheduleLoad: Resource is being scheduled with the NetworkProcess (priority=3, existingNetworkResourceLoadIdentifierToResume=0)
+2026-11-11 09:47:52.768 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=60] WebResourceLoader::WebResourceLoader
+2026-11-11 09:47:52.908 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=60] WebResourceLoader::didReceiveResponse: (httpStatusCode=401)
+2026-11-11 09:47:52.908 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=60] WebResourceLoader::didReceiveData: Started receiving data
+2026-11-11 09:47:52.912 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=62] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:47:52.912 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=62 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:47:52.912 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=8, resourceID=8] WebLoaderStrategy::scheduleLoad: URL will be scheduled with the NetworkProcess
+2026-11-11 09:47:52.912 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=8, resourceID=8] WebLoaderStrategy::scheduleLoad: Resource is being scheduled with the NetworkProcess (priority=2, existingNetworkResourceLoadIdentifierToResume=0)
+2026-11-11 09:47:52.912 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=62] WebResourceLoader::WebResourceLoader
+2026-11-11 09:47:52.914 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=60] WebResourceLoader::didFinishResourceLoad: (length=172)
+2026-11-11 09:47:52.914 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=60 SubResourceLoader::didFinishLoading
+2026-11-11 09:47:52.949 Df FastClicker[3176:3a46] [com.apple.xpc:connection] [0x10570c2e0] activating connection: mach=true listener=false peer=false name=com.apple.ScreenTimeAgent
+2026-11-11 09:47:52.951 Df FastClicker[3176:3a46] [com.apple.WebKit:ScreenTime] Screen Time has updated to use the system shield for any blocked URL.
+2026-11-11 09:47:53.060 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=62] WebResourceLoader::willSendRequest
+2026-11-11 09:47:53.060 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244] 0x10c3f0960 - CachedRawResource::redirectReceived:
+2026-11-11 09:47:53.060 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244] 0x10c3f0960 - CachedResource::redirectReceived:
+2026-11-11 09:47:53.060 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=62 SubResourceLoader::willSendRequestInternal: resource done notifying clients
+2026-11-11 09:47:53.060 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244] 0x10d00a800 - [pageID=8, frameID=4294967297, frameLoader=0x10c19c100, resourceID=62] ResourceLoader::willSendRequestInternal: Processing cross-origin redirect
+2026-11-11 09:47:53.060 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=62] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:47:53.060 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=62 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:47:53.060 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=62] WebResourceLoader::willSendRequest: returning ContinueWillSendRequest
+2026-11-11 09:47:53.189 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=62] WebResourceLoader::didReceiveResponse: (httpStatusCode=200)
+2026-11-11 09:47:53.191 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=70] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:47:53.191 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=70 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:47:53.191 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=8, resourceID=8] WebLoaderStrategy::scheduleLoad: URL will be scheduled with the NetworkProcess
+2026-11-11 09:47:53.191 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=8, resourceID=8] WebLoaderStrategy::scheduleLoad: Resource is being scheduled with the NetworkProcess (priority=3, existingNetworkResourceLoadIdentifierToResume=0)
+2026-11-11 09:47:53.191 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=70] WebResourceLoader::WebResourceLoader
+2026-11-11 09:47:53.191 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=62] WebResourceLoader::didReceiveData: Started receiving data
+2026-11-11 09:47:53.191 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=62] WebResourceLoader::didFinishResourceLoad: (length=3923)
+2026-11-11 09:47:53.191 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=62 SubResourceLoader::didFinishLoading
+2026-11-11 09:47:53.266 Df FastClicker[3176:3a46] [com.apple.WebKit:ResourceLoadStatistics] StorageAccessPromptQuirkController::didUpdateCachedListData: Loaded 1 storage access prompt(s) quirks from WebPrivacy.
+2026-11-11 09:47:53.324 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=70] WebResourceLoader::didReceiveResponse: (httpStatusCode=401)
+2026-11-11 09:47:53.327 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=70] WebResourceLoader::didReceiveData: Started receiving data
+2026-11-11 09:47:53.327 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=70] WebResourceLoader::didFinishResourceLoad: (length=172)
+2026-11-11 09:47:53.327 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=70 SubResourceLoader::didFinishLoading
+2026-11-11 09:47:53.668 Df FastClicker[3176:3a55] [com.apple.runningboard:process] Starting death monitoring for handle [xpcservice<com.apple.WebKit.WebContent([app<ch.students.fastclicker((null))>:3176])>{vt hash: 71395982}[uuid:7B6941BF-02BC-4499-AE3A-CC28640FFE16]{definition:com.apple.WebKit.WebContent[extension][client]}:3377]
+2026-11-11 09:47:53.673 Df FastClicker[3176:3a55] [com.apple.extensionkit:launch] Created new process ExtensionProcess: bundleID: com.apple.WebKit.WebContent instance ID: Optional([_EXExtensionInstanceIdentifier: 7B6941BF-02BC-4499-AE3A-CC28640FFE16]) pid: 3377.
+2026-11-11 09:47:53.673 Df FastClicker[3176:3a55] [com.apple.WebKit:Process] AssertionCapability::AssertionCapability: taking assertion Foreground
+2026-11-11 09:47:53.674 Df FastClicker[3176:3a46] [com.apple.xpc:connection] [0x10560b4e0] activating connection: mach=false listener=false peer=false name=(anonymous)
+2026-11-11 09:47:53.839 Df FastClicker[3176:3a46] (WebKit) WebContent[3377] Installed launch log hook
+2026-11-11 09:47:53.840 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x1140c0680 - [PID=3377] WebProcessProxy::didFinishLaunching:
+2026-11-11 09:47:53.840 F  FastClicker[3176:3a46] [com.apple.WebKit:Process] WebContent process (0x1140c0680) took 1.138402 seconds to launch
+2026-11-11 09:47:53.840 A  FastClicker[3176:3a46] (libsystem_trace.dylib) Activity for state dumps
+2026-11-11 09:47:53.840 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140c0710 - [PID=3377] ProcessThrottler::didConnectToProcess
+2026-11-11 09:47:53.840 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140c0710 - [PID=3377] ProcessThrottler::setThrottleState: Updating process assertion type to 3 (foregroundActivities=3, backgroundActivities=6)
+2026-11-11 09:47:53.840 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] AssertionCapability::AssertionCapability: taking assertion Foreground
+2026-11-11 09:47:53.840 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140c0680 - [PID=3377] WebProcessProxy::didChangeThrottleState: type=2
+2026-11-11 09:47:53.841 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140c0680 - [PID=3377] WebProcessProxy::didChangeThrottleState(Foreground) Taking foreground assertion for network process
+2026-11-11 09:47:53.841 Df FastClicker[3176:3a55] [com.apple.WebKit:ProcessSuspension] 0x114158300 - ProcessAssertion::acquireSync Trying to take RBS assertion 'WebProcess Foreground Assertion' for process with PID=3377
+2026-11-11 09:47:53.841 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x114130100 - NetworkProcessProxy::sendXPCEndpointToProcess(0x1140c0680) state = 1 has connection = 1 XPC endpoint message = 0x600003e01100
+2026-11-11 09:47:53.842 Df FastClicker[3176:3a46] [com.apple.xpc:connection] WebContent[3377] [0x100a057b0] activating connection: mach=false listener=false peer=false name=(anonymous)
+2026-11-11 09:47:53.843 Df FastClicker[3176:3a55] [com.apple.WebKit:ProcessSuspension] 0x114158300 - ProcessAssertion() Successfully granted capability
+2026-11-11 09:47:53.844 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] WebContent[3377] Received Launch Services database
+2026-11-11 09:47:53.863 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] WebContent[3377] getNetworkProcessConnection: Request connection for core identifier 5
+2026-11-11 09:47:53.863 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d40f0 - [PID=3377, throttler=0x1140c0710] ProcessThrottler::Activity::invalidate: Ending foreground activity / 'Process initialization'
+2026-11-11 09:47:53.863 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x114130100 - NetworkProcessProxy::getNetworkProcessConnection: Taking a background assertion because web process pid 3377 (core identifier 5) is requesting a connection
+2026-11-11 09:47:53.870 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] WebContent[3377] 0x10d060150 - [sessionID=1] WebProcess::initializeLogForwarding: Debug logging enabled: 0
+2026-11-11 09:47:53.870 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] WebContent[3377] WebProcess::platformInitializeWebProcess
+2026-11-11 09:47:53.872 Df FastClicker[3176:3a46] [com.apple.xpc:connection] WebContent[3377] [0x100a06540] activating connection: mach=false listener=true peer=false name=(anonymous)
+2026-11-11 09:47:53.872 Df FastClicker[3176:3a46] [com.apple.xpc:connection] WebContent[3377] [0x100a06540] Connection returned listener port: 0x3d03
+2026-11-11 09:47:53.872 Df FastClicker[3176:3a46] [com.apple.xpc:connection] WebContent[3377] [0x100a06680] activating connection: mach=false listener=false peer=false name=(anonymous)
+2026-11-11 09:47:53.872 Df FastClicker[3176:3a46] [com.apple.xpc:connection] WebContent[3377] [0x100d05ce0] activating connection: mach=false listener=false peer=true name=com.apple.xpc.anonymous.0x100a06540.peer[3377].0x100d05ce0
+2026-11-11 09:47:53.875 Df FastClicker[3176:3a46] [com.apple.Accessibility:AXSupportCommon] WebContent[3377] Application accessibility enabled: 0, (
+	0   libAccessibility.dylib              0x000000019215585c _AXSApplicationAccessibilitySetEnabled + 76
+	1   WebKit                              0x000000018e01aa24 _ZN6WebKit10WebProcess28platformInitializeWebProcessERNS_28WebProcessCreationParametersE + 2096
+	2   WebKit                              0x000000018e1fcc94 _ZN6WebKit10WebProcess20initializeWebProcessEONS_28WebProcessCreationParametersEON3WTF17CompletionHandlerIFvN7WebCore15ProcessIdentityEEEE + 188
+	3   WebKit                              0x000000018db9b684 _ZN3IPC18handleMessageAsyncIN8Messages10WebProcess20InitializeWebProcessENS_10ConnectionEN6WebKit10WebProcessES6_FvONS5_28WebProcessCreationParametersEON3WTF17CompletionHandlerIFvN7WebCore15ProcessIdentityEEEEEEEvRT0_RNS_7DecoderEPT1_MT2_T3_ + 224
+	4   WebKit                              0x000000018e5c03cc _ZN3IPC10Connection15dispatchMessageEN3WTF9UniqueRefINS_7DecoderEEE + 556
+	5   WebKit                              0x000000018e5db49c _Z<…>
+2026-11-11 09:47:53.876 Df FastClicker[3176:3a46] [com.apple.Accessibility:AXSupportCommon] WebContent[3377] Stored App AX setting: 0
+2026-11-11 09:47:53.877 Df FastClicker[3176:3a46] [com.apple.Accessibility:AXSupportCommon] WebContent[3377] AXS AccessibilityEnabled: (app ax: 0), ax settings: 0, cached: 0
+2026-11-11 09:47:53.879 Df FastClicker[3176:3a5b] [com.apple.xpc:connection] [0x10560b4e0] Re-initialization successful; calling out to event handler with XPC_ERROR_CONNECTION_INTERRUPTED
+2026-11-11 09:47:53.906 Df FastClicker[3176:3b38] [com.apple.WebKit:RemoteLayerBuffers] WebContent[3377]: [renderingBackend=11] Created rendering backend for pageProxyID=18, webPageID=19
+2026-11-11 09:47:53.906 Df FastClicker[3176:3b38] [com.apple.WebKit:Process] WebContent[3377] GPUProcessConnection::create - 0x10d2a38e0
+2026-11-11 09:47:53.907 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x107033218 - [pageProxyID=18, webPageID=19, PID=3377] WebPageProxy::decidePolicyForNavigationAction: frameID=4294967298, isMainFrame=1, navigationID=23
+2026-11-11 09:47:53.907 Df FastClicker[3176:3a46] [com.apple.WebKit:AppSSO] 0x1140640d0 - SOAuthorizationCoordinator::tryAuthorize
+2026-11-11 09:47:53.907 A  FastClicker[3176:3a46] (AppSSO) canPerformAuthorizationWithURL
+2026-11-11 09:47:53.908 A  FastClicker[3176:3a46] (AppSSOCore) canPerformAuthorizationWithURL
+2026-11-11 09:47:53.908 Df FastClicker[3176:3a46] [com.apple.authkit:nto] Fetching native takeover URLs
+2026-11-11 09:47:53.908 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1141101e0 - GPUProcessProxy is taking a background assertion because a web process is requesting a connection
+2026-11-11 09:47:53.909 Df FastClicker[3176:3a55] [com.apple.authkit:nto] URL shouldn't be processed
+2026-11-11 09:47:53.909 Df FastClicker[3176:3a46] [com.apple.WebKit:AppSSO] SOAuthorizationCoordinator::tryAuthorize: The requested URL is not registered for AppSSO handling. No further action needed.
+2026-11-11 09:47:53.915 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x107033218 - [pageProxyID=18, webPageID=19, PID=3377] WebPageProxy::decidePolicyForNavigationAction: listener called: frameID=4294967298, isMainFrame=1, navigationID=23, policyAction=Use, isAppBoundDomain=0, wasNavigationIntercepted=0
+2026-11-11 09:47:53.916 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x107033218 - [pageProxyID=18, webPageID=19, PID=3377] WebPageProxy::receivedNavigationActionPolicyDecision: frameID=4294967298, isMainFrame=1, navigationID=23, policyAction=Use
+2026-11-11 09:47:53.921 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSwapping] 0x107033218 - [pageProxyID=18, webPageID=19, PID=3377] WebPageProxy::decidePolicyForNavigationAction: keep using process 3377 for navigation, reason=Process has not yet committed any provisional loads
+2026-11-11 09:47:53.921 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x1140c0680 - [PID=3377] WebProcessProxy::canTerminateAuxiliaryProcess: returns false (pageCount=1, provisionalPageCount=0, suspendedPageCount=0, m_isInProcessCache=0, m_shutdownPreventingScopeCounter=0)
+2026-11-11 09:47:53.923 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x1141101e0 - GPUProcessProxy::didCreateContextForVisibilityPropagation: webPageProxyID: 18, pagePID: 19, contextID: 6
+2026-11-11 09:47:53.947 Df FastClicker[3176:3b38] [com.apple.WebKit:Process] WebContent[3377] 0x10d2a38e0 - GPUProcessConnection::didInitialize
+2026-11-11 09:47:53.947 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webFrameID=4294967298, webPageID=19] WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction: Got policyAction Use from async IPC
+2026-11-11 09:47:53.947 Df FastClicker[3176:3b38] [com.apple.WebKit:Loading] WebContent[3377] 0x10d07c700 - [pageID=19, frameID=4294967298] PolicyChecker::checkNavigationPolicy: continuing because this policyAction from dispatchDecidePolicyForNavigationAction is Use
+2026-11-11 09:47:53.947 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19 frameID=4294967298 isMainFrame=1] FrameLoader::stopAllLoaders: m_provisionalDocumentLoader=0, m_documentLoader=4530679808
+2026-11-11 09:47:53.947 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [pageID=19, frameID=4294967298, isMainFrame=1] DocumentLoader::stopLoading
+2026-11-11 09:47:53.947 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19 frameID=4294967298 isMainFrame=1] FrameLoader::setProvisionalDocumentLoader: Setting provisional document loader to 4530683904 (was 0)
+2026-11-11 09:47:53.947 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19 frameID=4294967298 isMainFrame=1] FrameLoader::continueLoadAfterNavigationPolicy: Setting provisional document loader (m_provisionalDocumentLoader=4530683904)
+2026-11-11 09:47:53.947 Df FastClicker[3176:3b38] [com.apple.WebKit:ProcessSuspension] WebContent[3377]: [webPageID=19] WebPage::freezeLayerTree: Adding a reason to freeze layer tree (reason=1, new=1, old=0)
+2026-11-11 09:47:53.948 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19 frameID=4294967298 isMainFrame=1] FrameLoader::setPolicyDocumentLoader: Setting policy document loader to 0 (was 4530683904)
+2026-11-11 09:47:53.948 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19 frameID=4294967298 isMainFrame=1] FrameLoader::prepareForLoadStart: Starting frame load
+2026-11-11 09:47:53.948 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: ProgressTracker::progressStarted: frameID 4294967298, value 0.100000, tracked frames 1, originating frameID 4294967298, isMainLoad 1
+2026-11-11 09:47:53.948 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [pageID=19, frameID=4294967298, isMainFrame=1] DocumentLoader::startLoadingMainResource: Starting load
+2026-11-11 09:47:53.948 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=17] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:47:53.948 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=17 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:47:53.948 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=19, resourceID=19] WebLoaderStrategy::scheduleLoad: URL will be scheduled with the NetworkProcess
+2026-11-11 09:47:53.948 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=19, resourceID=19] WebLoaderStrategy::scheduleLoad: Resource is being scheduled with the NetworkProcess (priority=4, existingNetworkResourceLoadIdentifierToResume=0)
+2026-11-11 09:47:53.949 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=17] WebResourceLoader::WebResourceLoader
+2026-11-11 09:47:53.963 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x107033218 - [pageProxyID=18, webPageID=19, PID=3377] WebPageProxy::didStartProvisionalLoadForFrame: frameID=4294967298, isMainFrame=1
+2026-11-11 09:47:53.963 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x1140c0680 - [PID=3377] WebProcessProxy::didStartProvisionalLoadForMainFrame:
+2026-11-11 09:47:53.978 Df FastClicker[3176:3a46] [com.apple.WebKit:RemoteLayerTree] RemoteLayerTreeDrawingAreaProxy(21) Unhiding layer tree
+2026-11-11 09:47:54.106 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=17] WebResourceLoader::willSendRequest
+2026-11-11 09:47:54.106 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377] 0x10d19a900 - CachedRawResource::redirectReceived:
+2026-11-11 09:47:54.107 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x107033218 - [pageProxyID=18, webPageID=19, PID=3377] WebPageProxy::decidePolicyForNavigationAction: frameID=4294967298, isMainFrame=1, navigationID=23
+2026-11-11 09:47:54.107 Df FastClicker[3176:3a46] [com.apple.WebKit:AppSSO] 0x1140640d0 - SOAuthorizationCoordinator::tryAuthorize
+2026-11-11 09:47:54.107 A  FastClicker[3176:3a46] (AppSSO) canPerformAuthorizationWithURL
+2026-11-11 09:47:54.108 A  FastClicker[3176:3a46] (AppSSOCore) canPerformAuthorizationWithURL
+2026-11-11 09:47:54.108 Df FastClicker[3176:3a46] [com.apple.authkit:nto] Fetching native takeover URLs
+2026-11-11 09:47:54.108 Df FastClicker[3176:3a56] [com.apple.authkit:nto] URL shouldn't be processed
+2026-11-11 09:47:54.109 Df FastClicker[3176:3a46] [com.apple.WebKit:AppSSO] SOAuthorizationCoordinator::tryAuthorize: The requested URL is not registered for AppSSO handling. No further action needed.
+2026-11-11 09:47:54.109 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x107033218 - [pageProxyID=18, webPageID=19, PID=3377] WebPageProxy::decidePolicyForNavigationAction: listener called: frameID=4294967298, isMainFrame=1, navigationID=23, policyAction=Use, isAppBoundDomain=0, wasNavigationIntercepted=0
+2026-11-11 09:47:54.109 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x107033218 - [pageProxyID=18, webPageID=19, PID=3377] WebPageProxy::receivedNavigationActionPolicyDecision: frameID=4294967298, isMainFrame=1, navigationID=23, policyAction=Use
+2026-11-11 09:47:54.109 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSwapping] 0x107033218 - [pageProxyID=18, webPageID=19, PID=3377] WebPageProxy::decidePolicyForNavigationAction: keep using process 3377 for navigation, reason=Process has not yet committed any provisional loads
+2026-11-11 09:47:54.109 Df FastClicker[3176:3a46] [com.apple.WebKit:Process] 0x1140c0680 - [PID=3377] WebProcessProxy::canTerminateAuxiliaryProcess: returns false (pageCount=1, provisionalPageCount=0, suspendedPageCount=0, m_isInProcessCache=0, m_shutdownPreventingScopeCounter=0)
+2026-11-11 09:47:54.109 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webFrameID=4294967298, webPageID=19] WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction: Got policyAction Use from async IPC
+2026-11-11 09:47:54.109 Df FastClicker[3176:3b38] [com.apple.WebKit:Loading] WebContent[3377] 0x10d07c700 - [pageID=19, frameID=4294967298] PolicyChecker::checkNavigationPolicy: continuing because this policyAction from dispatchDecidePolicyForNavigationAction is Use
+2026-11-11 09:47:54.109 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377] 0x10d19a900 - CachedResource::redirectReceived:
+2026-11-11 09:47:54.110 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=17 SubResourceLoader::willSendRequestInternal: resource done notifying clients
+2026-11-11 09:47:54.110 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377] 0x10e007800 - [pageID=19, frameID=4294967298, frameLoader=0x10d1e0100, resourceID=17] ResourceLoader::willSendRequestInternal: Processing cross-origin redirect
+2026-11-11 09:47:54.110 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=17] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:47:54.110 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=17 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:47:54.110 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=17] WebResourceLoader::willSendRequest: returning ContinueWillSendRequest
+2026-11-11 09:47:54.110 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x107033218 - [pageProxyID=18, webPageID=19, PID=3377] WebPageProxy::didReceiveServerRedirectForProvisionalLoadForFrame: frameID=4294967298, isMainFrame=1
+2026-11-11 09:47:54.242 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=17] WebResourceLoader::didReceiveResponse: (httpStatusCode=200)
+2026-11-11 09:47:54.247 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=17] WebResourceLoader::didReceiveData: Started receiving data
+2026-11-11 09:47:54.247 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19 frameID=4294967298 isMainFrame=1] FrameLoader::setDocumentLoader: Setting document loader to 4530683904 (was 4530679808)
+2026-11-11 09:47:54.247 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [pageID=19, frameID=4294967298, isMainFrame=1] DocumentLoader::detachFromFrame
+2026-11-11 09:47:54.247 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [pageID=19, frameID=4294967298, isMainFrame=1] DocumentLoader::stopLoading
+2026-11-11 09:47:54.247 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19 frameID=4294967298 isMainFrame=1] FrameLoader::transitionToCommitted: Clearing provisional document loader (m_provisionalDocumentLoader=4530683904)
+2026-11-11 09:47:54.247 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19 frameID=4294967298 isMainFrame=1] FrameLoader::setProvisionalDocumentLoader: Setting provisional document loader to 0 (was 4530683904)
+2026-11-11 09:47:54.247 E  FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoadStatistics] WebContent[3377] Unable to hide query parameters from script (missing data)
+2026-11-11 09:47:54.247 Df FastClicker[3176:3b38] [com.apple.WebKit:ProcessSuspension] WebContent[3377]: [webPageID=19] WebPage::unfreezeLayerTree: Removing a reason to freeze layer tree (reason=128, new=1, old=1)
+2026-11-11 09:47:54.248 Df FastClicker[3176:3b38] [com.apple.WebKit:ProcessSuspension] WebContent[3377]: [webPageID=19] WebPage::unfreezeLayerTree: Removing a reason to freeze layer tree (reason=128, new=1, old=1)
+2026-11-11 09:47:54.248 Df FastClicker[3176:3b38] [com.apple.WebKit:ProcessSuspension] WebContent[3377]: [webPageID=19] WebPage::unfreezeLayerTree: Removing a reason to freeze layer tree (reason=32, new=1, old=1)
+2026-11-11 09:47:54.249 Df FastClicker[3176:3b38] [com.apple.WebKit:ProcessSuspension] WebContent[3377]: [webPageID=19] WebPage::freezeLayerTree: Adding a reason to freeze layer tree (reason=128, new=129, old=1)
+2026-11-11 09:47:54.249 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=23] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:47:54.249 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=23 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:47:54.250 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=19, resourceID=19] WebLoaderStrategy::scheduleLoad: URL will be scheduled with the NetworkProcess
+2026-11-11 09:47:54.250 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=19, resourceID=19] WebLoaderStrategy::scheduleLoad: Resource is being scheduled with the NetworkProcess (priority=3, existingNetworkResourceLoadIdentifierToResume=0)
+2026-11-11 09:47:54.250 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=23] WebResourceLoader::WebResourceLoader
+2026-11-11 09:47:54.251 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=24] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:47:54.251 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=24 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:47:54.251 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=19, resourceID=19] WebLoaderStrategy::scheduleLoad: URL will be scheduled with the NetworkProcess
+2026-11-11 09:47:54.251 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=19, resourceID=19] WebLoaderStrategy::scheduleLoad: Resource is being scheduled with the NetworkProcess (priority=3, existingNetworkResourceLoadIdentifierToResume=0)
+2026-11-11 09:47:54.251 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=24] WebResourceLoader::WebResourceLoader
+2026-11-11 09:47:54.251 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=25] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:47:54.251 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=25 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:47:54.251 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=19, resourceID=19] WebLoaderStrategy::scheduleLoad: URL will be scheduled with the NetworkProcess
+2026-11-11 09:47:54.251 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=19, resourceID=19] WebLoaderStrategy::scheduleLoad: Resource is being scheduled with the NetworkProcess (priority=3, existingNetworkResourceLoadIdentifierToResume=0)
+2026-11-11 09:47:54.251 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=25] WebResourceLoader::WebResourceLoader
+2026-11-11 09:47:54.252 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=26] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:47:54.252 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=26 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:47:54.252 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=19, resourceID=19] WebLoaderStrategy::scheduleLoad: URL will be scheduled with the NetworkProcess
+2026-11-11 09:47:54.252 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=19, resourceID=19] WebLoaderStrategy::scheduleLoad: Resource is being scheduled with the NetworkProcess (priority=1, existingNetworkResourceLoadIdentifierToResume=0)
+2026-11-11 09:47:54.252 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=26] WebResourceLoader::WebResourceLoader
+2026-11-11 09:47:54.252 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x107033218 - [pageProxyID=18, webPageID=19, PID=3377] WebPageProxy::didNavigateWithNavigationDataShared:
+2026-11-11 09:47:54.252 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x107033218 - [pageProxyID=18, webPageID=19, PID=3377] WebPageProxy::didPerformServerRedirect:
+2026-11-11 09:47:54.253 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x107033218 - [pageProxyID=18, webPageID=19, PID=3377] WebPageProxy::didCommitLoadForFrame: frameID=4294967298, isMainFrame=1
+2026-11-11 09:47:54.257 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=17] WebResourceLoader::didFinishResourceLoad: (length=3893)
+2026-11-11 09:47:54.257 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=17 SubResourceLoader::didFinishLoading
+2026-11-11 09:47:54.261 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x107033218 - [pageProxyID=18, webPageID=19, PID=3377] WebPageProxy::didFinishDocumentLoadForFrame: frameID=4294967298, isMainFrame=1
+2026-11-11 09:47:54.394 Df FastClicker[3176:3b38] [com.apple.Accessibility:AXCommon] WebContent[3377] Read Per-App on Init: Smart invert = (null)
+2026-11-11 09:47:54.411 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=24] WebResourceLoader::didReceiveResponse: (httpStatusCode=200)
+2026-11-11 09:47:54.412 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=25] WebResourceLoader::didReceiveResponse: (httpStatusCode=200)
+2026-11-11 09:47:54.413 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=24] WebResourceLoader::didReceiveData: Started receiving data
+2026-11-11 09:47:54.416 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=24] WebResourceLoader::didFinishResourceLoad: (length=4381)
+2026-11-11 09:47:54.416 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=24 SubResourceLoader::didFinishLoading
+2026-11-11 09:47:54.417 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=25] WebResourceLoader::didReceiveData: Started receiving data
+2026-11-11 09:47:54.417 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=25] WebResourceLoader::didFinishResourceLoad: (length=1729)
+2026-11-11 09:47:54.417 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=25 SubResourceLoader::didFinishLoading
+2026-11-11 09:47:54.513 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=23] WebResourceLoader::didReceiveResponse: (httpStatusCode=200)
+2026-11-11 09:47:54.513 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=23] WebResourceLoader::didReceiveData: Started receiving data
+2026-11-11 09:47:54.514 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=23] WebResourceLoader::didFinishResourceLoad: (length=633)
+2026-11-11 09:47:54.514 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=23 SubResourceLoader::didFinishLoading
+2026-11-11 09:47:54.514 Df FastClicker[3176:3b38] [com.apple.WebKit:ProcessSuspension] WebContent[3377]: [webPageID=19] WebPage::unfreezeLayerTree: Removing a reason to freeze layer tree (reason=128, new=1, old=129)
+2026-11-11 09:47:54.519 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=27] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:47:54.519 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=27 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:47:54.519 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=19, resourceID=19] WebLoaderStrategy::scheduleLoad: URL will be scheduled with the NetworkProcess
+2026-11-11 09:47:54.519 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=19, resourceID=19] WebLoaderStrategy::scheduleLoad: Resource is being scheduled with the NetworkProcess (priority=2, existingNetworkResourceLoadIdentifierToResume=0)
+2026-11-11 09:47:54.519 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=27] WebResourceLoader::WebResourceLoader
+2026-11-11 09:47:54.523 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=28] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:47:54.523 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=28 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:47:54.523 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=19, resourceID=19] WebLoaderStrategy::scheduleLoad: URL will be scheduled with the NetworkProcess
+2026-11-11 09:47:54.523 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=19, resourceID=19] WebLoaderStrategy::scheduleLoad: Resource is being scheduled with the NetworkProcess (priority=2, existingNetworkResourceLoadIdentifierToResume=0)
+2026-11-11 09:47:54.523 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=28] WebResourceLoader::WebResourceLoader
+2026-11-11 09:47:54.523 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=29] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:47:54.523 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=29 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:47:54.523 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=19, resourceID=19] WebLoaderStrategy::scheduleLoad: URL will be scheduled with the NetworkProcess
+2026-11-11 09:47:54.523 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=19, resourceID=19] WebLoaderStrategy::scheduleLoad: Resource is being scheduled with the NetworkProcess (priority=2, existingNetworkResourceLoadIdentifierToResume=0)
+2026-11-11 09:47:54.523 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=29] WebResourceLoader::WebResourceLoader
+2026-11-11 09:47:54.546 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=26] WebResourceLoader::didReceiveResponse: (httpStatusCode=200)
+2026-11-11 09:47:54.546 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=26] WebResourceLoader::didReceiveData: Started receiving data
+2026-11-11 09:47:54.548 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=26] WebResourceLoader::didFinishResourceLoad: (length=2185)
+2026-11-11 09:47:54.548 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=26 SubResourceLoader::didFinishLoading
+2026-11-11 09:47:54.549 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=0 frameID=21474836481 isMainFrame=1] FrameLoader::setPolicyDocumentLoader: Setting policy document loader to 4530696192 (was 0)
+2026-11-11 09:47:54.549 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [pageID=0, frameID=21474836481, isMainFrame=1] DocumentLoader::attachToFrame
+2026-11-11 09:47:54.549 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=0 frameID=21474836481 isMainFrame=1] FrameLoader::setProvisionalDocumentLoader: Setting provisional document loader to 4530696192 (was 0)
+2026-11-11 09:47:54.549 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=0 frameID=21474836481 isMainFrame=1] FrameLoader::setDocumentLoader: Setting document loader to 4530696192 (was 0)
+2026-11-11 09:47:54.549 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=0 frameID=21474836481 isMainFrame=1] FrameLoader::transitionToCommitted: Clearing provisional document loader (m_provisionalDocumentLoader=4530696192)
+2026-11-11 09:47:54.549 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=0 frameID=21474836481 isMainFrame=1] FrameLoader::setProvisionalDocumentLoader: Setting provisional document loader to 0 (was 4530696192)
+2026-11-11 09:47:54.549 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [pageID=0, frameID=21474836481, isMainFrame=1] DocumentLoader::startLoadingMainResource: Returning empty document
+2026-11-11 09:47:54.549 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=0 frameID=21474836481 isMainFrame=1] FrameLoader::setPolicyDocumentLoader: Setting policy document loader to 0 (was 4530696192)
+2026-11-11 09:47:54.549 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=0 frameID=21474836481 isMainFrame=1] FrameLoader::setState: main frame load completed
+2026-11-11 09:47:54.651 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=27] WebResourceLoader::didReceiveResponse: (httpStatusCode=200)
+2026-11-11 09:47:54.732 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=29] WebResourceLoader::didReceiveResponse: (httpStatusCode=200)
+2026-11-11 09:47:54.773 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=27] WebResourceLoader::didReceiveData: Started receiving data
+2026-11-11 09:47:54.773 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=27] WebResourceLoader::didFinishResourceLoad: (length=35092)
+2026-11-11 09:47:54.773 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=27 SubResourceLoader::didFinishLoading
+2026-11-11 09:47:54.777 Df FastClicker[3176:3b38] [com.apple.WebKit:ProcessSuspension] WebContent[3377]: [webPageID=19] WebPage::unfreezeLayerTree: Removing a reason to freeze layer tree (reason=1, new=0, old=1)
+2026-11-11 09:47:54.777 Df FastClicker[3176:3b38] [com.apple.WebKit:Layout] WebContent[3377]: [pageID=19, frameID=4294967298, isMainFrame=1] LocalFrameView::fireLayoutRelatedMilestonesIfNeeded: Firing first visually non-empty layout milestone on the main frame
+2026-11-11 09:47:54.777 Df FastClicker[3176:3b38] [com.apple.WebKit:Layout] WebContent[3377]: [webFrameID=4294967298, webPageID=19] WebLocalFrameLoaderClient::dispatchDidReachLayoutMilestone: dispatching DidReachLayoutMilestone (milestones=DidFirstVisuallyNonEmptyLayout)
+2026-11-11 09:47:54.777 Df FastClicker[3176:3b38] [com.apple.WebKit:Layout] WebContent[3377]: [webFrameID=4294967298, webPageID=19] WebLocalFrameLoaderClient::dispatchDidReachLayoutMilestone: dispatching DidFirstVisuallyNonEmptyLayoutForFrame
+2026-11-11 09:47:54.777 Df FastClicker[3176:3b38] [com.apple.WebKit:Layout] WebContent[3377]: [webFrameID=4294967298, webPageID=19] WebLocalFrameLoaderClient::completePageTransitionIfNeeded: dispatching didCompletePageTransition
+2026-11-11 09:47:54.782 Df FastClicker[3176:3b38] [com.apple.WebKit:Layout] WebContent[3377]: [webFrameID=4294967298, webPageID=19] WebLocalFrameLoaderClient::dispatchDidReachLayoutMilestone: dispatching DidFirstLayoutForFrame
+2026-11-11 09:47:54.782 Df FastClicker[3176:3b38] [com.apple.WebKit:Layout] WebContent[3377]: [webFrameID=4294967298, webPageID=19] WebLocalFrameLoaderClient::dispatchDidReachLayoutMilestone: dispatching DidReachLayoutMilestone (milestones=DidFirstLayout)
+2026-11-11 09:47:54.788 Df FastClicker[3176:3b38] [com.apple.WebKit:Layout] WebContent[3377]: [webFrameID=4294967298, webPageID=19] WebLocalFrameLoaderClient::dispatchDidReachLayoutMilestone: dispatching DidReachLayoutMilestone (milestones=DidFirstMeaningfulPaint)
+2026-11-11 09:47:54.795 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=28] WebResourceLoader::didReceiveResponse: (httpStatusCode=200)
+2026-11-11 09:47:54.806 Df FastClicker[3176:3a46] [com.apple.xpc:connection] [0x105511b40] activating connection: mach=true listener=false peer=false name=com.apple.ScreenTimeAgent
+2026-11-11 09:47:54.845 Df FastClicker[3176:3a46] [com.apple.UIKit:KeyboardUI] -[_UIKeyboardStateManager initWithPresentationDelegateView:forCustomInputView:] UIDevice.currentDevice._hardwareKeyboardAvailable = YES
+2026-11-11 09:47:54.845 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] currently observing: YES
+2026-11-11 09:47:54.846 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] connected: (
+    "<BKSHIDKeyboardDevice: 0x600000272260> {\134n    senderID: 0xACEFADE00000003;\134n    transport: <nil>;\134n    language: <nil>;\134n    layout: US;\134n    countryCode: 0;\134n    standardType: 4294967295;\134n    subinterfaceID: 0;\134n    capsLockKeyHasLanguageSwitchLabel: NO;\134n    globeKeyLabelHasGlobeSymbol: NO;\134n}"
+)
+2026-11-11 09:47:54.846 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] currently observing: NO
+2026-11-11 09:47:54.846 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] disconnected: (
+    "<BKSHIDKeyboardDevice: 0x600000272260> {\134n    senderID: 0xACEFADE00000003;\134n    transport: <nil>;\134n    language: <nil>;\134n    layout: US;\134n    countryCode: 0;\134n    standardType: 4294967295;\134n    subinterfaceID: 0;\134n    capsLockKeyHasLanguageSwitchLabel: NO;\134n    globeKeyLabelHasGlobeSymbol: NO;\134n}"
+)
+2026-11-11 09:47:54.847 Df FastClicker[3176:3a46] [com.apple.xpc:connection] [0x105315ed0] activating connection: mach=true listener=false peer=false name=com.apple.TextInput
+2026-11-11 09:47:54.847 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] currently observing: YES
+2026-11-11 09:47:54.847 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] connected: (
+    "<BKSHIDKeyboardDevice: 0x60000026ece0> {\134n    senderID: 0xACEFADE00000003;\134n    transport: <nil>;\134n    language: <nil>;\134n    layout: US;\134n    countryCode: 0;\134n    standardType: 4294967295;\134n    subinterfaceID: 0;\134n    capsLockKeyHasLanguageSwitchLabel: NO;\134n    globeKeyLabelHasGlobeSymbol: NO;\134n}"
+)
+2026-11-11 09:47:54.847 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] currently observing: NO
+2026-11-11 09:47:54.847 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] disconnected: (
+    "<BKSHIDKeyboardDevice: 0x60000026ece0> {\134n    senderID: 0xACEFADE00000003;\134n    transport: <nil>;\134n    language: <nil>;\134n    layout: US;\134n    countryCode: 0;\134n    standardType: 4294967295;\134n    subinterfaceID: 0;\134n    capsLockKeyHasLanguageSwitchLabel: NO;\134n    globeKeyLabelHasGlobeSymbol: NO;\134n}"
+)
+2026-11-11 09:47:54.869 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] currently observing: YES
+2026-11-11 09:47:54.869 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] connected: (
+    "<BKSHIDKeyboardDevice: 0x60000026e800> {\134n    senderID: 0xACEFADE00000003;\134n    transport: <nil>;\134n    language: <nil>;\134n    layout: US;\134n    countryCode: 0;\134n    standardType: 4294967295;\134n    subinterfaceID: 0;\134n    capsLockKeyHasLanguageSwitchLabel: NO;\134n    globeKeyLabelHasGlobeSymbol: NO;\134n}"
+)
+2026-11-11 09:47:54.869 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] currently observing: NO
+2026-11-11 09:47:54.870 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] disconnected: (
+    "<BKSHIDKeyboardDevice: 0x60000026e800> {\134n    senderID: 0xACEFADE00000003;\134n    transport: <nil>;\134n    language: <nil>;\134n    layout: US;\134n    countryCode: 0;\134n    standardType: 4294967295;\134n    subinterfaceID: 0;\134n    capsLockKeyHasLanguageSwitchLabel: NO;\134n    globeKeyLabelHasGlobeSymbol: NO;\134n}"
+)
+2026-11-11 09:47:54.871 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] currently observing: YES
+2026-11-11 09:47:54.871 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] connected: (
+    "<BKSHIDKeyboardDevice: 0x60000025d400> {\134n    senderID: 0xACEFADE00000003;\134n    transport: <nil>;\134n    language: <nil>;\134n    layout: US;\134n    countryCode: 0;\134n    standardType: 4294967295;\134n    subinterfaceID: 0;\134n    capsLockKeyHasLanguageSwitchLabel: NO;\134n    globeKeyLabelHasGlobeSymbol: NO;\134n}"
+)
+2026-11-11 09:47:54.871 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] currently observing: NO
+2026-11-11 09:47:54.871 Df FastClicker[3176:3a46] [com.apple.BackBoard:Keyboard] disconnected: (
+    "<BKSHIDKeyboardDevice: 0x60000025d400> {\134n    senderID: 0xACEFADE00000003;\134n    transport: <nil>;\134n    language: <nil>;\134n    layout: US;\134n    countryCode: 0;\134n    standardType: 4294967295;\134n    subinterfaceID: 0;\134n    capsLockKeyHasLanguageSwitchLabel: NO;\134n    globeKeyLabelHasGlobeSymbol: NO;\134n}"
+)
+2026-11-11 09:47:54.872 Df FastClicker[3176:3a46] [com.apple.UIKit:UIKBFeedbackGenerator] <_UIKBFeedbackGenerator: 0x6000035175a0>: Updating mode. Haptics: unsupported. Haptics: disabled. Ringer: on. Sound: enabled. Mode: audio only
+2026-11-11 09:47:54.876 Df FastClicker[3176:3a46] [com.apple.WebKit:ScreenTime] Screen Time has updated to use the system shield for any blocked URL.
+2026-11-11 09:47:54.898 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=28] WebResourceLoader::didReceiveData: Started receiving data
+2026-11-11 09:47:54.898 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=28] WebResourceLoader::didFinishResourceLoad: (length=34628)
+2026-11-11 09:47:54.898 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=28 SubResourceLoader::didFinishLoading
+2026-11-11 09:47:55.698 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x114128100 NavigationState is releasing background process assertion because a page load completed
+2026-11-11 09:47:55.698 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d4270 - [PID=3244, throttler=0x1140c0150] ProcessThrottler::Activity::invalidate: Ending background activity / 'Page Load'
+2026-11-11 09:47:57.361 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=29] WebResourceLoader::didReceiveData: Started receiving data
+2026-11-11 09:47:57.361 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: [webPageID=19, frameID=4294967298, resourceID=29] WebResourceLoader::didFinishResourceLoad: (length=4011576)
+2026-11-11 09:47:57.361 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19, frameID=4294967298, resourceID=29 SubResourceLoader::didFinishLoading
+2026-11-11 09:47:57.431 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19 frameID=4294967298 isMainFrame=1] FrameLoader::setState: main frame load completed
+2026-11-11 09:47:57.431 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3377]: Memory usage info dump at MainFrameLoadCompleted:
+2026-11-11 09:47:57.431 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3377]:   page_count: 1
+2026-11-11 09:47:57.431 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3377]:   backforward_cache_page_count: 0
+2026-11-11 09:47:57.431 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3377]:   document_count: 2
+2026-11-11 09:47:57.431 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3377]:   javascript_gc_heap_capacity_mb: 0
+2026-11-11 09:47:57.431 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3377]:   javascript_gc_heap_extra_memory_size_mb: 0
+2026-11-11 09:47:57.431 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3377]:   internal_mb: 28
+2026-11-11 09:47:57.431 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3377]:   compressed_mb: 0
+2026-11-11 09:47:57.431 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3377]:   phys_footprint_mb: 26
+2026-11-11 09:47:57.432 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3377]:   resident_size_mb: 151
+2026-11-11 09:47:57.432 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3377]:   virtual_size_mb: 419194
+2026-11-11 09:47:57.432 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: ProgressTracker::progressCompleted: frameID 4294967298, value 0.898387, tracked frames 1, originating frameID 4294967298, isMainLoad 1
+2026-11-11 09:47:57.432 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3377]: ProgressTracker::finalProgressComplete: value 0.898387, tracked frames 0, originating frameID 4294967298, isMainLoad 1, isMainLoadProgressing 0
+2026-11-11 09:47:57.432 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3377]: [pageID=19 frameID=4294967298 isMainFrame=1] FrameLoader::checkLoadCompleteForThisFrame: Finished frame load
+2026-11-11 09:47:57.433 Df FastClicker[3176:3a46] [com.apple.WebKit:Loading] 0x107033218 - [pageProxyID=18, webPageID=19, PID=3377] WebPageProxy::didFinishLoadForFrame: frameID=4294967298, isMainFrame=1
+2026-11-11 09:47:57.433 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x114128180 - NavigationState will release its process network assertion soon because the page load completed
+2026-11-11 09:47:57.433 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d4330 - [PID=3377, throttler=0x1140c0710] ProcessThrottler::Activity::invalidate: Ending foreground activity / 'Client navigation'
+2026-11-11 09:47:59.831 A  FastClicker[3176:3cfd] (CoreFoundation) Loading Preferences From User Session CFPrefsD
+2026-11-11 09:47:59.869 A  FastClicker[3176:3cfd] (CoreFoundation) Loading Preferences From User Session CFPrefsD
+2026-11-11 09:47:59.885 A  FastClicker[3176:3cfd] (CoreFoundation) Loading Preferences From User Session CFPrefsD
+2026-11-11 09:47:59.892 A  FastClicker[3176:3cfd] (CoreFoundation) Loading Preferences From User Session CFPrefsD
+2026-11-11 09:47:59.905 A  FastClicker[3176:3cfd] (CoreFoundation) Loading Preferences From User Session CFPrefsD
+2026-11-11 09:47:59.913 A  FastClicker[3176:3cfd] (CoreFoundation) Loading Preferences From User Session CFPrefsD
+2026-11-11 09:48:00.434 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x114128180 NavigationState is releasing background process assertion because a page load completed
+2026-11-11 09:48:00.434 Df FastClicker[3176:3a46] [com.apple.WebKit:ProcessSuspension] 0x1140d4360 - [PID=3377, throttler=0x1140c0710] ProcessThrottler::Activity::invalidate: Ending background activity / 'Page Load'
+2026-11-11 09:48:02.696 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3244]: PerformanceMonitor::measurePostLoadMemoryUsage: Process was using 18505280 bytes of memory after the page load.
+2026-11-11 09:48:04.925 Df FastClicker[3176:3a46] [com.apple.KeyboardArbiter:Client] RX sceneBecameFocused:(null)
+2026-11-11 09:48:06.099 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=108] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:48:06.099 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=108 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:48:06.099 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=8, resourceID=8] WebLoaderStrategy::scheduleLoad: URL will be scheduled with the NetworkProcess
+2026-11-11 09:48:06.099 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=8, resourceID=8] WebLoaderStrategy::scheduleLoad: Resource is being scheduled with the NetworkProcess (priority=3, existingNetworkResourceLoadIdentifierToResume=0)
+2026-11-11 09:48:06.099 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=108] WebResourceLoader::WebResourceLoader
+2026-11-11 09:48:06.228 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=108] WebResourceLoader::didReceiveResponse: (httpStatusCode=401)
+2026-11-11 09:48:06.228 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=108] WebResourceLoader::didReceiveData: Started receiving data
+2026-11-11 09:48:06.229 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=108] WebResourceLoader::didFinishResourceLoad: (length=172)
+2026-11-11 09:48:06.229 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=108 SubResourceLoader::didFinishLoading
+2026-11-11 09:48:07.432 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3377]: PerformanceMonitor::measurePostLoadMemoryUsage: Process was using 28204672 bytes of memory after the page load.
+2026-11-11 09:48:07.698 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3244]: PerformanceMonitor::measurePostLoadCPUUsage: Process was using 0.4% CPU after the page load.
+2026-11-11 09:48:11.703 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=125] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:48:11.703 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=125 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:48:11.703 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=8, resourceID=8] WebLoaderStrategy::scheduleLoad: URL will be scheduled with the NetworkProcess
+2026-11-11 09:48:11.703 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=8, resourceID=8] WebLoaderStrategy::scheduleLoad: Resource is being scheduled with the NetworkProcess (priority=3, existingNetworkResourceLoadIdentifierToResume=0)
+2026-11-11 09:48:11.703 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=125] WebResourceLoader::WebResourceLoader
+2026-11-11 09:48:11.844 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=125] WebResourceLoader::didReceiveResponse: (httpStatusCode=401)
+2026-11-11 09:48:11.847 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=125] WebResourceLoader::didReceiveData: Started receiving data
+2026-11-11 09:48:11.848 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=125] WebResourceLoader::didFinishResourceLoad: (length=172)
+2026-11-11 09:48:11.848 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=125 SubResourceLoader::didFinishLoading
+2026-11-11 09:48:12.433 Df FastClicker[3176:3b38] [com.apple.WebKit:PerformanceLogging] WebContent[3377]: PerformanceMonitor::measurePostLoadCPUUsage: Process was using 0.0% CPU after the page load.
+2026-11-11 09:48:17.201 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=140] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:48:17.201 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=140 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:48:17.201 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=8, resourceID=8] WebLoaderStrategy::scheduleLoad: URL will be scheduled with the NetworkProcess
+2026-11-11 09:48:17.201 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=8, resourceID=8] WebLoaderStrategy::scheduleLoad: Resource is being scheduled with the NetworkProcess (priority=3, existingNetworkResourceLoadIdentifierToResume=0)
+2026-11-11 09:48:17.201 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=140] WebResourceLoader::WebResourceLoader
+2026-11-11 09:48:17.342 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=140] WebResourceLoader::didReceiveResponse: (httpStatusCode=401)
+2026-11-11 09:48:17.344 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=140] WebResourceLoader::didReceiveData: Started receiving data
+2026-11-11 09:48:17.344 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=140] WebResourceLoader::didFinishResourceLoad: (length=172)
+2026-11-11 09:48:17.344 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=140 SubResourceLoader::didFinishLoading
+2026-11-11 09:48:21.497 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=153] ResourceLoader::willSendRequestInternal: calling completion handler
+2026-11-11 09:48:21.497 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=153 SubResourceLoader::willSendRequestInternal: resource load finished; calling completion handler
+2026-11-11 09:48:21.497 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=8, resourceID=8] WebLoaderStrategy::scheduleLoad: URL will be scheduled with the NetworkProcess
+2026-11-11 09:48:21.498 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=8, resourceID=8] WebLoaderStrategy::scheduleLoad: Resource is being scheduled with the NetworkProcess (priority=3, existingNetworkResourceLoadIdentifierToResume=0)
+2026-11-11 09:48:21.498 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=153] WebResourceLoader::WebResourceLoader
+2026-11-11 09:48:21.628 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=153] WebResourceLoader::didReceiveResponse: (httpStatusCode=401)
+2026-11-11 09:48:21.628 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=153] WebResourceLoader::didReceiveData: Started receiving data
+2026-11-11 09:48:21.628 Df FastClicker[3176:3b38] [com.apple.WebKit:Network] WebContent[3244]: [webPageID=8, frameID=4294967297, resourceID=153] WebResourceLoader::didFinishResourceLoad: (length=172)
+2026-11-11 09:48:21.628 Df FastClicker[3176:3b38] [com.apple.WebKit:ResourceLoading] WebContent[3244]: [pageID=8, frameID=4294967297, resourceID=153 SubResourceLoader::didFinishLoading

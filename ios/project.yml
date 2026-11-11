@@ -26,6 +26,8 @@ targets:
       path: FastClicker/Info.plist
       properties:
         CFBundleDisplayName: Clicker
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         UILaunchScreen: {}
         UIRequiresFullScreen: true
         UISupportedInterfaceOrientations:
