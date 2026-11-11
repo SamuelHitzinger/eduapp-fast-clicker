@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         EduApp Fast Clicker
 // @namespace    https://eduapp.ethz.ch/
-// @version      2.1.0
+// @version      2.1.1
 // @description  Shows opened ETH EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi.
 // @match        https://eduapp.ethz.ch/*
 // @run-at       document-idle
@@ -32,7 +32,7 @@
 //   * focus mode (bookmarklet): stops the EduApp page's own background traffic and keeps the screen awake.
 (() => {
   'use strict';
-  const VERSION = '2.1.0';
+  const VERSION = '2.1.1';
   const MODE = window.__FC_MODE === 'focus' ? 'focus' : 'panel';
   if (window.__fastClicker) { window.__fastClicker.show(MODE); return; }
   if (location.hostname !== 'eduapp.ethz.ch') {
@@ -697,7 +697,17 @@
     .card h3{margin:0 0 4px;font-size:16px}
     .course{font-size:12px;color:#888;margin-bottom:8px}
     .q{font-size:14px;line-height:1.45;overflow-x:auto}
-    .q svg{max-width:100%} .q img{max-width:100%;height:auto}
+    /* question/answer content from EduApp: formulas (SVG), pictures (data: URLs), figures, lists, tables */
+    .q svg,.opt svg{max-width:100%}
+    .q img,.opt img{max-width:100%;height:auto;background:#fff;border-radius:4px} /* white behind transparent diagrams (dark mode) */
+    .q img{cursor:zoom-in}
+    .q figure,.opt figure{margin:8px 0}.q figure img{display:block;margin:0 auto}
+    .q figcaption{font-size:12px;color:#888;text-align:center;margin-top:4px}
+    .q table,.opt table{border-collapse:collapse;margin:8px 0}.q td,.q th,.opt td,.opt th{border:1px solid #bbc;padding:4px 8px}
+    .q pre{overflow-x:auto}.q ul,.q ol{padding-left:1.4em}
+    .mjpage__block{display:block;text-align:center;margin:8px 0;overflow-x:auto}
+    .zoom{position:fixed;inset:0;z-index:10;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:12px;cursor:zoom-out}
+    .zoom[hidden]{display:none}.zoom img{max-width:100%;max-height:100%;background:#fff;border-radius:4px}
     .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
     .opt{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;margin:8px 0;padding:12px;border:2px solid #ccd;border-radius:12px;background:#f6f7fb;color:#111;font-size:14px;cursor:pointer;min-height:48px}
     .opt.sel{border-color:#1f407a;background:#dfe7f6}
@@ -715,7 +725,7 @@
     .empty{font-size:14px;color:#777;padding:18px 4px;line-height:1.5}
     .note{background:#fff3cd;color:#664d03;border-radius:10px;padding:10px;font-size:13px;margin:8px 0;line-height:1.4}
     .foot{font-size:11px;color:#999;margin-top:14px}
-    .mathMLFormula{display:none}  /* EduApp ships every formula as SVG + hidden MathML; show the SVG once */
+    svg~.mathMLFormula{display:none}  /* EduApp ships every formula as SVG + hidden MathML; show the SVG once (MathML only if there is no SVG) */
     @media (prefers-color-scheme:dark){
       .panel{background:#1d1f23;color:#eee}
       .card{border-color:#333}
@@ -731,7 +741,7 @@
       <div class="bar"><span class="dot"></span><b>Fast Clicker</b><span class="grow" id="stat"></span><button class="x" data-a="min" title="Minimize">–</button></div>
       <div id="banner"></div><div id="empty" class="empty"></div><div id="cards"></div><div id="chips" class="row"></div>
       <div class="foot">v${VERSION} · runs only in this tab, talks only to eduapp.ethz.ch</div>
-    </div>`;
+    </div><div class="zoom" hidden></div>`;
   const $ = (sel) => root.querySelector(sel);
   const el = { fab: $('.fab'), panel: $('.panel'), dot: $('.dot'), stat: $('#stat'), banner: $('#banner'), empty: $('#empty'), cards: $('#cards'), chips: $('#chips') };
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
@@ -852,7 +862,15 @@
     el.stat.textContent = s;
   }
 
+  // pictures in a question: tap to see them full screen, tap again to close
+  const zoom = root.querySelector('.zoom');
+  const closeZoom = () => { zoom.hidden = true; zoom.replaceChildren(); };
   root.addEventListener('click', (ev) => {
+    if (!zoom.hidden) { closeZoom(); return; }
+    if (ev.target.tagName === 'IMG' && ev.target.closest('.q')) {
+      const img = document.createElement('img'); img.src = ev.target.src; img.alt = ev.target.alt || '';
+      zoom.replaceChildren(img); zoom.hidden = false; return;
+    }
     const b = ev.target.closest('[data-a]');
     if (!b) return;
     const id = b.dataset.id ? Number(b.dataset.id) : null;
@@ -901,6 +919,7 @@
     patchCard(ev.target.closest('.card'), c);
   });
   document.addEventListener('keydown', (ev) => {
+    if (!zoom.hidden && ev.key === 'Escape') { closeZoom(); return; }
     if (!panelOpen || (ev.target.closest && ev.target.closest('input,textarea,[contenteditable]')) || (root.activeElement && root.activeElement.tagName === 'TEXTAREA')) return;
     const c = [...state.clickers.values()].find((x) => isLive(x) && x.type !== 'TEXT');
     if (!c) return;

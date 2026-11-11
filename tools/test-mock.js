@@ -299,6 +299,30 @@ const check = (name, cond, extra = '') => results.push(`${cond ? 'PASS' : 'FAIL'
     check('F5 polling continues after switching to focus', await until(() => root.querySelector('.card[data-id="490001"]')));
     w.__fastClicker.state.running = false; w.close();
   }
+  {
+    // question content like EduApp sends it: MathJax SVG (defs + use) with hidden MathML, an embedded picture, formulas in answers
+    const S = makeServer();
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+    const formula = (n) => `<span class="mjpage"><span role="text" class="sr-only pLatexText">x squared</span><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="2ex" height="2ex" viewBox="0 -800 900 1000" xmlns="http://www.w3.org/2000/svg"><defs><path id="E${n}-MJMATHI-78" d="M52 289Q59 331 106 386"></path></defs><g stroke="currentColor" fill="currentColor"><use xlink:href="#E${n}-MJMATHI-78"></use></g></svg><span class="mathMLFormula" aria-hidden="true"><math><msup><mi>x</mi><mn>2</mn></msup></math></span></span>`;
+    S.addClicker({ id: 490777, type: 'MCSA', state: 'OPEN', title: 'Math', question: `<p>Is ${formula(1)} shown?</p><figure class="image"><img src="${png}"><figcaption>Plot</figcaption></figure><table><tr><td>a</td><td>b</td></tr></table>`,
+      answerState: 'UNANSWERED', entries: [{ id: 1, answer: `<p>${formula(2)} yes</p>`, selected: false }, { id: 2, answer: '<p>no</p>', selected: false }], showResults: false, preview: false });
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 490777 });
+    const { root, w, stop } = boot(S);
+    const card = await until(() => root.querySelector('.card[data-id="490777"]')) && root.querySelector('.card[data-id="490777"]');
+    const q = card && card.querySelector('.q');
+    check('M1 formula SVG arrives with its glyph definitions', !!q && !!q.querySelector('svg defs path#E1-MJMATHI-78') && q.querySelector('svg use').getAttribute('xlink:href') === '#E1-MJMATHI-78');
+    check('M2 picture arrives intact (embedded data URL, figure + caption)', !!q && q.querySelector('figure img')?.getAttribute('src') === png && q.querySelector('figcaption')?.textContent === 'Plot');
+    check('M3 formulas inside answer options arrive', !!card && !!card.querySelector('.opt[data-e="1"] svg use') && card.querySelector('.opt[data-e="1"]').textContent.includes('yes'));
+    check('M4 tables arrive', !!q && q.querySelectorAll('td').length === 2);
+    const css = root.querySelector('style').textContent;
+    check('M5 MathML copy hidden only when the SVG is there; pictures get a white backdrop', css.includes('svg~.mathMLFormula{display:none}') && /\.q img,\.opt img\{[^}]*background:#fff/.test(css));
+    q.querySelector('img').dispatchEvent(new w.MouseEvent('click', { bubbles: true, composed: true }));
+    const zoom = root.querySelector('.zoom');
+    check('M6 tapping a picture shows it full screen', !zoom.hidden && zoom.querySelector('img')?.getAttribute('src') === png);
+    zoom.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+    check('M7 tapping again closes it without selecting anything', zoom.hidden && !card.querySelector('.opt.sel'));
+    stop();
+  }
   console.log(results.join('\n'));
   const fails = results.filter((r) => r.startsWith('FAIL')).length;
   console.log(`\n${results.length - fails}/${results.length} passed`);
