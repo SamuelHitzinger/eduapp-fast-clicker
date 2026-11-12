@@ -1,0 +1,15 @@
+name = "fast-clicker-relay"
+main = "src/worker.js"
+compatibility_date = "2025-06-01"
+
+# One Durable Object class; the Worker always talks to the single instance
+# named "hub", which keeps every room in memory.
+[[durable_objects.bindings]]
+name = "HUB"
+class_name = "RelayHub"
+
+# SQLite-backed class: required for Durable Objects on the Workers Free plan.
+# (The relay never writes to storage.)
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RelayHub"]

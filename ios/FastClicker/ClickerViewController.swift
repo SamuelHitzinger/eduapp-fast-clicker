@@ -4,6 +4,7 @@ import AudioToolbox
 import UserNotifications
 
 /// Main screen: eduapp.ethz.ch with the Fast Clicker script injected in focus mode.
+/// The script draws the whole clicker section itself (list, question pages, results).
 final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
     /// A tiny same-origin page (129 bytes of JSON) instead of the 1 MB EduApp web app: the script replaces it.
     private static let startURL = URL(string: "https://eduapp.ethz.ch/web/gw/semesters/current")!
@@ -37,7 +38,19 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
         refresh.addTarget(self, action: #selector(pullToReload(_:)), for: .valueChanged)
         webView.scrollView.refreshControl = refresh
         self.webView = webView
-        view = webView
+
+        // The page starts below the status bar / Dynamic Island, so its own header bar always stays visible.
+        let container = UIView()
+        container.backgroundColor = .systemBackground
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(webView)
+        NSLayoutConstraint.activate([
+            webView.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor),
+            webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        view = container
     }
 
     override func viewDidLoad() {
@@ -62,8 +75,15 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
           window.__FC_HOOKS = {
             nativeAlerts: true,
             noExit: true,
+            recordDefault: true,
             onAlert: function (q) {
               try { window.webkit.messageHandlers.fc.postMessage({ type: 'alert', id: String(q.id), title: q.title, course: q.course }); } catch (e) {}
+            },
+            onShare: function (text, name) {
+              try { window.webkit.messageHandlers.fc.postMessage({ type: 'share', text: String(text), name: String(name) }); } catch (e) {}
+            },
+            onTheme: function (dark) {
+              try { window.webkit.messageHandlers.fc.postMessage({ type: 'theme', dark: !!dark }); } catch (e) {}
             }
           };
         \(core)
@@ -84,10 +104,42 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
         })();
         """, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
 
-    // MARK: - Alerts from the page
+    // MARK: - Messages from the page
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard let body = message.body as? [String: Any], body["type"] as? String == "alert" else { return }
+        // Only the clicker page itself may talk to the app (not ETH's login pages or anything inside a frame).
+        guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.host == "eduapp.ethz.ch",
+              let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
+        switch type {
+        case "alert": handleAlert(body)
+        case "share": handleShare(body)
+        case "theme": handleTheme(body)
+        default: break
+        }
+    }
+
+    /// The page switched between light and dark: colour the strip behind the status bar like the page's header.
+    private func handleTheme(_ body: [String: Any]) {
+        let dark = body["dark"] as? Bool ?? false
+        view.window?.overrideUserInterfaceStyle = dark ? .dark : .light
+        view.backgroundColor = dark ? UIColor(red: 33 / 255, green: 33 / 255, blue: 33 / 255, alpha: 1) : .white
+    }
+
+    /// "Export" of the timing recording: hand the JSON file to the iOS share sheet (AirDrop, Files, Mail, ...).
+    private func handleShare(_ body: [String: Any]) {
+        guard let text = body["text"] as? String, presentedViewController == nil else { return }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        let raw = body["name"] as? String ?? ""
+        let safe = String(String.UnicodeScalarView(raw.unicodeScalars.filter { allowed.contains($0) }.prefix(80)))
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(safe.isEmpty ? "fast-clicker-diagnostics.json" : safe)
+        do { try text.write(to: url, atomically: true, encoding: .utf8) } catch { return }
+        let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        sheet.popoverPresentationController?.sourceView = view
+        sheet.popoverPresentationController?.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
+        present(sheet, animated: true)
+    }
+
+    private func handleAlert(_ body: [String: Any]) {
         let title = body["title"] as? String ?? ""
         let course = body["course"] as? String ?? ""
         let id = body["id"] as? String ?? UUID().uuidString

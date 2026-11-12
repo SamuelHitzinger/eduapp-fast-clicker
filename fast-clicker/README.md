@@ -1,50 +1,76 @@
-# EduApp Fast Clicker v2.1
+# EduApp Fast Clicker v3.0
 
-Shows ETH EduApp clicker questions within seconds and gets your answer through, even on bad lecture-hall Wi-Fi. **Nothing to install:** it's a bookmark you tap while EduApp is open. Desktop users can also use an optional browser add-on.
+A replacement for the clicker section of ETH EduApp. It looks like EduApp's own clicker pages, but a new question appears by itself within seconds, your answer gets through on bad lecture-hall Wi-Fi, and you see when it really arrived.
 
+- **Source:** `eduapp-fast-clicker.user.js`. The same file is the iPhone app's content, the bookmark (focus mode) and the browser add-on (panel mode).
 - **Install page:** `../site/index.html` (self-contained; shows the right steps for iPhone, Android or a laptop).
-- **Source:** `eduapp-fast-clicker.user.js`. The same file works as a userscript, a bookmarklet (focus mode) and an add-on (panel mode).
+- **Relay (optional):** `../relay/` lets the students of one lecture share the work of noticing a new question.
 
 ## How it gets to you
 
 | Way | Install | Starts | Notes |
 |---|---|---|---|
-| **Bookmark** (recommended) | Drag a button (laptop), or copy-paste into a bookmark (phone) | Tap it on EduApp | Works in Safari, Chrome, Firefox, Edge. All code is inside the bookmark, so it doesn't depend on any website. |
+| **iPhone app** | Sideload `FastClicker.ipa` (see `../AGENTS.md`) | Open the app | A web view on eduapp.ethz.ch that shows only this clicker. Native sound, vibration and notification. |
+| **Bookmark** | Drag a button (laptop), or copy-paste into a bookmark (phone) | Tap it on EduApp | All code is inside the bookmark (about 70 KB since v3; not yet tried on real phones at that size). |
 | Short bookmark (only when the install page is hosted) | Same | Same | ~500 characters; loads a pinned, integrity-checked (SRI) copy from the install site. |
-| Browser add-on (laptops) | Developer mode → Load unpacked (until published to the Chrome/Firefox stores) | Automatically, as a small panel | Same code; a "Focus mode" button. |
+| Browser add-on (laptops) | Developer mode → Load unpacked | Automatically, as a small panel | Same code; a "Focus mode" button. |
 
-A separate website or app can't work without your ETH password. Browsers only let code use the EduApp login when it runs on eduapp.ethz.ch itself.
+Login always happens on ETH's own pages. Code can only use the EduApp login when it runs on eduapp.ethz.ch itself (in a browser tab, an add-on or an app's web view), so an ordinary separate website cannot do this, and nothing here ever sees your ETH password.
 
-## What it does (and why it's faster)
+## What EduApp does, and what this does instead
 
-Reverse-engineered facts (measured): EduApp has **no push**: Firebase is disabled and there's no WebSocket. It only refetches when you navigate or focus the tab. Each refresh of the clicker page downloads the **whole semester** (2.6 MB, 1.1 MB gzip, ~1 s). The dashboard re-fetches ~25 questions (~1 MB) on every focus. Sending is never retried, and an expired login (after a few hours) reloads the whole page, losing your answer.
+Reverse-engineered and measured (November 2026):
+
+- EduApp has **no push**: no WebSocket or event stream, and its Firebase code is for emergency alerts and is switched off. It only refetches when you navigate or re-focus.
+- The only signal confirmed to announce a new question is the **activity feed**. It costs ETH 1.3–1.5 s per request whatever is asked (1 event or 100; a HEAD request costs the same; filters are ignored) and the API has no "not changed" shortcut (no ETag).
+- Everything else is fast: one question about 35 ms, the timetable about 40 ms, six questions at once about 45 ms each.
+- Each visit to EduApp's clicker page downloads the **whole semester** (3 MB, 1.4 MB compressed, about 1.2 s).
+- Sending is never retried, and an expired login (after a few hours) reloads the whole page, losing your answer.
 
 Fast Clicker:
-- **Detection:** it polls the ~2 KB activity feed, one request at a time. That's every ~4 s from 10 min before to 15 min after each of your lectures (from your timetable), every 15 s in a background tab, and every 50 s otherwise. It backs off when the server or network struggles. Then it downloads only the question that changed (~25 ms on the server). Typical time from "lecturer opens" to the question on screen: about 2–5 s.
-- **Focus mode** (bookmark): stops EduApp's own background traffic (dashboard refreshes, ~1 MB on every refocus, the 5-minute service-worker check), so your answer doesn't compete with it. It also keeps the screen on around lectures.
-- **Sending:** one request per question at a time, on the already-open HTTP/2 connection. It retries with backoff for up to 2 minutes, waits through offline periods and login renewal, and never carries an answer into a new round. It shows **"Sent ✓"** the moment the server accepts, then re-reads the question in the background to show **"✓ Confirmed"**. If a late older request overwrote your answer, it automatically re-sends the newest one.
-- **Login:** an expired session is renewed silently by following the ETH login redirects in the background, which works while ETH single sign-on is still valid (verified on the real site). Otherwise a **Log in** button opens the login once, and your chosen answer is kept and sent right after.
-- **Several tabs:** only one tab polls (Web Locks); the others get its updates (BroadcastChannel) and can still answer.
-- Every request carries a unique `_fc` parameter (ignored by the server), so EduApp's service-worker cache can never hand back stale data. Those entries are swept away every minute.
+
+- **Looks like EduApp's clicker section.** A list by date or by lecture with the same colours, icons and wording, and a question page (options and Send while open; your result and the vote bars once closed). Fixed along the way: it updates by itself, a newly opened question comes on screen by itself (unless you are in the middle of answering another one), a stopped round is shown as "paused", bigger touch targets, formulas in the list preview, pictures readable in dark mode.
+- **The semester list is kept on the device.** It is downloaded once (never automatically during a lecture) and patched as questions change, instead of 1.4 MB on every visit.
+- **Detection:** it checks the feed one request at a time: every ~4 s from 10 min before to 15 min after each of your lectures (from your timetable), every 15 s in a background tab, every 50 s otherwise, backing off when the server or network struggles. Then it downloads only the question that changed.
+- **Shared detection (optional relay).** With a relay configured, the clients in one lecture take turns: together they ask the feed about once a second, each one only every n-th time, and the one that sees a clicker event tells the others "question N changed". Everyone then reads the question from ETH directly. A full hall puts about 1 feed request per second on ETH instead of about 100. If the relay is unreachable, each client checks alone again, more slowly the more students were sharing.
+- **Sending:** one request per question at a time. It retries with backoff for up to 2 minutes, waits through offline periods and login renewal, shows **"Sent ✓"** the moment the server accepts, then re-reads the question to show **"✓ Confirmed"**, and re-sends if a late older request overwrote your answer. When a new round is seen, the old answer is dropped and you choose again.
+- **Login:** an expired session is renewed silently while ETH single sign-on is still valid; otherwise a **Log in** button opens the login once, and your chosen answer is kept.
+- **Several tabs:** only one tab checks (Web Locks) and talks to the relay; the others get its updates (BroadcastChannel) and can still answer.
+- **Diagnostics (off unless switched on; on by default in the iPhone app for now).** "Record timing" keeps a timeline of requests on the device, watches two cheap signals that might beat the feed (the timetable's clicker flags and the open question itself) and lets you mark the moment the lecturer opens a question. "Export" hands the file to the share sheet. No names, logins, question texts or answer texts are recorded.
+
+### Limits you should know
+
+- **A new round cannot be detected with certainty.** ETH's vote request carries no round number. The client stops sending as soon as it sees a round change (from the feed or a hint), but a retry that was already on its way can still land in the next round. After a connection gap it asks you to check your answer.
+- **`OPEN` does not mean "accepting answers".** A stopped round still reports `OPEN`; the page shows "paused".
+- **No vote has been sent to the real server by us.** The request format is copied from EduApp's own code; its speed is unmeasured.
+- **The floor for detection is the feed's own 1.4 s** unless a faster signal turns up in the recordings.
+
+## The relay
+
+`../relay/` is a small WebSocket service (Cloudflare Worker or Node). It is public and has no accounts.
+
+- It sees: connections (IP address, timing), room names (a hash of semester + course number) and hints (`clicker id`, `event type`, `activity id`, `time`).
+- It never sees: ETH logins, cookies, question text, answers, names.
+- A hint can only make a client read `clickers/{id}` from ETH. It cannot make a client vote, navigate or run anything. Hints are only accepted for the course rooms the client joined from its own timetable.
+- Known weakness: a student who sends false "new round" hints can make others' chosen-but-unsent answers clear (rate-limited by the relay and the client).
+
+The address goes into `relay/relay-url.txt`; `node tools/build.js` puts it into every build. Without that file each client checks for itself.
 
 ## Verified
 
-- `tools/test-mock.js`: **39** functional and regression checks: detection, vote format, retries, round changes, out-of-order and stale responses, typing during polls, login expiry and silent renewal, offline queueing, focus mode, and late verification with repair.
-- `tools/test-tabs.js`: **9** checks: one poller across tabs; failover when that tab closes or is paused; answers from two tabs are serialized so the newest wins; the Log in button appears in every tab.
-- `tools/test-chaos.js`: simulated terrible Wi-Fi. 12% of requests hang, 8% fail, 10% get 503, and 25% of vote replies are lost after the server applied them. Plus a login expiry, a changed mind mid-send and a round restart. Pass criterion: the server ends with exactly the student's latest answer, confirmed, with no overlapping polls and no parallel votes. 20/20 runs pass.
-- `tools/test-bookmarklet.js`: the built bookmark, decoded exactly as a browser does.
-- Every bug found by the two independent reviews (Sol/OpenAI) and by the chaos test has a regression test that fails on the old code and passes now.
-- **Real browser** (via Hermes, read-only, no answers sent): focus mode replaced the live EduApp page; polling and question display worked; there were no console errors; dark mode was readable; formulas showed once; the silent-renewal redirect chain returned 200 JSON same-origin; pausing released the polling lock (real Web Locks API) and resuming reacquired it.
-- **Not yet verified live:** an actual vote on the real server (the format matches EduApp's own code exactly), and the bookmark on real iOS/Android devices.
-
-## Server load (honest numbers)
-
-Each feed request is small (~2 KB), but the server needs ~1.2 s to answer it. One student in a lecture makes ~1 request per 4 s, so a full lecture hall of 400 would add ~100 requests/s, which is a noticeable load. The client therefore polls one request at a time, only around your lectures, slows to every 15 s in background tabs, and backs off to 3× the observed response time as soon as EduApp answers slower than ~2.5 s. Don't lower the interval. If this spreads widely, ETH enabling push (below) is the right fix.
+- `tools/test-mock.js`: 48 functional and regression checks: detection, vote format, retries, round changes, out-of-order and stale responses, login expiry and silent renewal, offline queueing, focus mode, verification with repair, question content.
+- `tools/test-tabs.js`: 9 checks: one poller across tabs, failover, serialized answers across tabs, login in every tab.
+- `tools/test-v3.js`: 39 checks: the list and question pages, auto-opening without interrupting an answer, shared detection against a fake relay (slots, hints both ways, de-duplication, junk and foreign hints, relay down, reconnect), the recorder.
+- `tools/test-chaos.js`: simulated terrible Wi-Fi (12% of requests hang, 8% fail, 10% get 503, 25% of vote replies lost after the server applied them), plus a login expiry, a changed mind mid-send and a round restart. Pass criterion: the server ends with exactly the student's latest answer, confirmed, with no overlapping polls and no parallel votes.
+- `tools/test-bookmarklet.js`, `tools/verify-site.js`: the built bookmark and the pinned file.
+- `relay/test/`: the relay's own tests.
+- **Real site, read-only** (via the Hermes browser, no answers sent): endpoint costs and headers (`hermes_out/v3/probe.json`), EduApp's phone layout for the look (`hermes_out/v3/ui/`), and for v2.1 focus mode, polling, silent renewal and tab hand-over.
+- **Not yet verified live:** a vote on the real server, the v3 pages on a real phone, the relay with more than one real student.
 
 ## Build
 
-`node tools/build.js` builds `site/`: `index.html`, the pinned `fast-clicker.<hash>.js`, the add-on folder and zip. `node tools/verify-site.js` checks the bookmark encoding and the SRI hash.
+`node tools/build.js` builds `site/` (`index.html`, the pinned `fast-clicker.<hash>.js`, the add-on folder and zip) and `ios/FastClicker/Resources/fast-clicker.js`.
 
 ## Real fix (for ETH)
 
-EduApp already contains Firebase push code (`firebase-messaging-sw.js`, `notifications/subscribe`), but `/config.json` has it disabled. Enabling push, or adding a cheap "anything new?" endpoint, would give every student instant clicker notifications with less server load than any polling client.
+A cheap "anything new?" endpoint, an ETag on the feed, or clicker events over push would give every student instant questions with less server load than any polling client.

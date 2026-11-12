@@ -5,8 +5,18 @@ const { execFileSync } = require('child_process');
 const root = path.resolve(__dirname, '..');
 const site = path.join(root, 'site');
 const srcPath = path.join(root, 'fast-clicker/eduapp-fast-clicker.user.js');
-const src = fs.readFileSync(srcPath, 'utf8');
+let src = fs.readFileSync(srcPath, 'utf8');
 const version = (src.match(/const VERSION = '([^']+)'/) || [])[1];
+// The hint relay's address (relay/README.md) is put into every build; without relay/relay-url.txt each client
+// simply checks for itself.
+const relayFile = path.join(root, 'relay/relay-url.txt');
+const relayUrl = fs.existsSync(relayFile) ? fs.readFileSync(relayFile, 'utf8').trim() : '';
+if (relayUrl) {
+  if (!/^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w\/.-]*)?$/i.test(relayUrl)) throw new Error('relay/relay-url.txt must hold one wss:// address');
+  const marker = "const RELAY_URL = '';";
+  if (!src.includes(marker)) throw new Error('RELAY_URL marker not found in the script');
+  src = src.replace(marker, () => `const RELAY_URL = ${JSON.stringify(relayUrl)};`);
+}
 const min = esbuild.transformSync(src, { minify: true, target: 'es2020', legalComments: 'none' }).code.trim();
 
 // 1) bookmarklet with everything inside (works without this website).
@@ -20,7 +30,7 @@ const sri = 'sha384-' + crypto.createHash('sha384').update(min).digest('base64')
 const shortFile = `fast-clicker.${crypto.createHash('sha256').update(min).digest('hex').slice(0, 10)}.js`;
 // older pinned files are kept on purpose: installed short bookmarks reference them by name + hash
 fs.writeFileSync(path.join(site, shortFile), min);
-fs.copyFileSync(srcPath, path.join(site, 'fast-clicker.user.js'));
+fs.writeFileSync(path.join(site, 'fast-clicker.user.js'), src);
 // iPhone app: the same tested build, injected by the app
 fs.writeFileSync(path.join(root, 'ios/FastClicker/Resources/fast-clicker.js'), min);
 
@@ -53,4 +63,5 @@ fs.writeFileSync(path.join(ext, 'manifest.json'), JSON.stringify({
 const zip = path.join(site, 'fast-clicker-extension.zip');
 execFileSync('python', ['-I', path.join(__dirname, 'zipdir.py'), zip, ext]);
 
+console.log(`relay: ${relayUrl || '(none: every client checks for itself)'}`);
 console.log(`v${version}: script ${min.length} B, full bookmarklet ${full.length} chars, pinned ${shortFile}, add-on zip ${fs.statSync(zip).size} B`);

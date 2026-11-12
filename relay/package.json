@@ -1,0 +1,23 @@
+{
+  "name": "fast-clicker-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WebSocket hint relay for EduApp Fast Clicker (one poller per lecture, hints fanned out to the room).",
+  "type": "module",
+  "main": "src/hub.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/node-server.js",
+    "test": "node test/run.js",
+    "dev:worker": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

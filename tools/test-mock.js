@@ -26,7 +26,7 @@ const check = (name, cond, extra = '') => results.push(`${cond ? 'PASS' : 'FAIL'
     check('A8 1-tap send on single choice', await until(() => S.votes.some((v) => v.id === 400001 && v.body.selectedAnswer[0] === 2)));
     S.clickers.get(400001).state = 'CLOSED';
     S.push({ objectType: 'CLICKER', type: 'CLICKER_CLOSE', objectId: 400001 });
-    check('A9 closed clicker disappears', await until(() => !root.querySelector('.card[data-id="400001"]')));
+    check('A9 closed clicker switches to its results page', await until(() => root.querySelector('.card.closed[data-id="400001"]') && !root.querySelector('.send[data-id="400001"]')) && /closed/.test(root.getElementById('dtitle').textContent));
     S.addClicker({ id: 400002, type: 'TEXT', state: 'OPEN', title: 'Text', question: '<p>Why?</p>', answerState: 'UNANSWERED', individualAnswer: null, entries: [] });
     S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 400002 });
     await until(() => root.querySelector('textarea[data-id="400002"]'));
@@ -164,15 +164,19 @@ const check = (name, cond, extra = '') => results.push(`${cond ? 'PASS' : 'FAIL'
   }
   // ---------- B6: late older request → server shows different answer → repaired automatically
   {
-    const S = makeServer(); const { root, stop } = boot(S);
+    const S = makeServer(); const { root, w, stop } = boot(S);
     await until(() => root.querySelector('.card[data-id="322454"]'));
     S.addClicker(mcsa(455001)); S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 455001 });
     await until(() => root.querySelector('.card[data-id="455001"]'));
+    const realFetch = w.fetch; let once = true;
+    w.fetch = async (url, opts) => {                 // a stale request lands right after the vote was accepted
+      const r = await realFetch(url, opts);
+      if (once && /clickers\/455001\/vote/.test(String(url))) { once = false; S.clickers.get(455001).entries.forEach((e) => { e.selected = e.id === 1; }); }
+      return r;
+    };
     root.querySelector('.opt[data-id="455001"][data-e="2"]').click();
     root.querySelector('.send[data-id="455001"]').click();
-    await until(() => S.votes.some((v) => v.id === 455001));
-    S.clickers.get(455001).entries.forEach((e) => { e.selected = e.id === 1; }); // a stale request lands late
-    S.detailDelay.set(455001, 0);
+    await until(() => S.votes.filter((v) => v.id === 455001).length >= 2, 5000);
     await until(() => /Confirmed/.test(st(root, 455001)), 5000);
     check('B6 verification repairs a mismatching server answer', S.clickers.get(455001).entries.find((e) => e.id === 2).selected, st(root, 455001));
     stop();

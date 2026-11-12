@@ -1,0 +1,371 @@
+// v3 tests: EduApp-style list and question pages, shared discovery through the relay, diagnostics recorder.
+// Mock server + jsdom, a fake WebSocket instead of the relay. Run: node tools/test-v3.js
+const { makeServer, boot, mcsa, st, until, wait } = require('./harness');
+const results = [];
+const check = (name, cond, extra = '') => results.push(`${cond ? 'PASS' : 'FAIL'}  ${name}${extra ? '  — ' + extra : ''}`);
+
+function fakeRelay() {
+  const R = { sockets: [], fail: false };
+  R.WebSocket = class {
+    constructor(url) {
+      if (R.fail) throw new Error('relay unreachable');
+      this.url = url; this.sent = []; this.closed = false;
+      R.sockets.push(this);
+      setTimeout(() => { if (!this.closed && this.onopen) this.onopen(); }, 3);
+    }
+    send(text) { this.sent.push(JSON.parse(text)); }
+    close() { if (this.closed) return; this.closed = true; if (this.onclose) this.onclose(); }
+    push(msg) { if (!this.closed && this.onmessage) this.onmessage({ data: JSON.stringify(msg) }); }   // relay → client
+  };
+  R.last = () => R.sockets.filter((s) => !s.closed).at(-1);
+  R.joined = () => { const s = R.last(); return s && s.sent.filter((m) => m.t === 'join').at(-1); };
+  return R;
+}
+const closedWithResults = (id) => ({ id, type: 'MCSA', state: 'CLOSED', title: 'Old question', question: '<p>Past?</p>', answerState: 'CORRECT', showResults: true, preview: false, voteCount: 10,
+  entries: [{ id: 1, answer: 'no', selected: false, correct: false, voteCount: 3, voteRatio: 30 }, { id: 2, answer: 'yes', selected: true, correct: true, voteCount: 7, voteRatio: 70 }] });
+const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activity-feed')).length;
+
+(async () => {
+  // ---------- L: list and question pages
+  {
+    const S = makeServer(); const { root, fc, stop } = boot(S);
+    await until(() => root.querySelector('.card[data-id="322454"]'));
+    check('L1 start-up shows the list page with the open question in it, without downloading the semester list',
+      !root.getElementById('listview').hidden && !!root.querySelector('.row[data-id="322454"] .pill') && !S.log.some((l) => l.startsWith('GET clickers?')));
+    check('L2 the earlier questions are offered, not downloaded during a lecture', !!root.querySelector('#list [data-a="scan"]'));
+    root.querySelector('#list [data-a="scan"]').click();
+    await until(() => root.querySelectorAll('.row').length > 50);
+    const rows = root.querySelectorAll('.row').length;
+    check('L3 the semester list shows up grouped by date, like EduApp', rows > 50 && root.querySelectorAll('.dg .ct').length > 5 && S.log.filter((l) => l.startsWith('GET clickers?')).length === 1, `rows=${rows}`);
+    check('L4 each question shows its status icon and a one-line preview', root.querySelectorAll('.row .rs svg').length === rows && root.querySelectorAll('.row .qs').length === rows);
+    root.querySelector('.tab[data-g="lecture"]').click();
+    check('L5 "By Lecture" shows one coloured, collapsible group per course', await until(() => root.querySelectorAll('.lg .gh').length === 2) && /Clicker/.test(root.querySelector('.gs').textContent));
+    const closedGroup = [...root.querySelectorAll('.gh')].find((b) => b.getAttribute('aria-expanded') === 'false');
+    const before = root.querySelectorAll('.row').length;
+    closedGroup.click();
+    check('L6 a group opens on tap and stays open', await until(() => root.querySelectorAll('.row').length > before) && Object.values(fc.CFG.expanded).includes(true));
+    root.querySelector('.tab[data-g="date"]').click();
+    await until(() => root.querySelector('.dg'));
+    // a closed question from the list: its page is read fresh and shows the results
+    S.addClicker(closedWithResults(322453));
+    root.querySelector('.row[data-id="322453"]').click();
+    check('L7 tapping a past question opens its page with results', await until(() => root.querySelector('.card.closed[data-id="322453"] .fill')) && !root.getElementById('detailview').hidden
+      && /Old question \(closed\)/.test(root.getElementById('dtitle').textContent) && /70% \/ 7 votes/.test(root.querySelector('.card[data-id="322453"]').textContent));
+    check('L8 the results page marks the right answer and the student\'s own choice', !!root.querySelector('.card[data-id="322453"] .you.ok') && !!root.querySelector('.card[data-id="322453"] .v-ok') && /correct/.test(root.querySelector('.summary').textContent));
+    check('L9 previous/next moves within the same lecture group', /\/ 2/.test(root.getElementById('gnav').textContent) && !!root.querySelector('#gnav [data-a="nav"]'));
+    root.querySelector('#gnav [data-a="nav"]').click();
+    check('L10 next question page opens', await until(() => fc.ui.id === 322454 && !root.querySelector('.card[data-id="322454"]').hidden));
+    root.querySelector('[data-a="back"]').click();
+    check('L11 back returns to the list', !root.getElementById('listview').hidden && root.getElementById('detailview').hidden);
+    // a new question opens: its page comes up by itself
+    S.addClicker(mcsa(810001, 'Fresh')); S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 810001, courseTitle: { de: 'Analysis I' } });
+    check('L12 a newly opened question comes on screen by itself', await until(() => fc.ui.view === 'detail' && fc.ui.id === 810001 && root.querySelector('.card[data-id="810001"]') && !root.querySelector('.card[data-id="810001"]').hidden));
+    root.querySelector('.opt[data-id="810001"][data-e="2"]').click();          // answer in progress (chosen, not sent)
+    S.addClicker(mcsa(810002, 'Second')); S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 810002, courseTitle: { de: 'Analysis I' } });
+    await until(() => root.querySelector('.card[data-id="810002"]'));
+    check('L13 another question opening does not pull the student away from an answer in progress', fc.ui.id === 810001 && !!root.querySelector('#banner [data-a="view"][data-id="810002"]'));
+    root.querySelector('.send[data-id="810001"]').click();
+    check('L14 the answer still goes through and is confirmed', await until(() => /Confirmed/.test(st(root, 810001))) && S.votes.some((v) => v.id === 810001 && v.body.selectedAnswer[0] === 2));
+    root.querySelector('#banner [data-a="view"][data-id="810002"]').click();
+    check('L15 "Show" opens the other question', fc.ui.id === 810002 && !root.querySelector('#banner [data-a="view"]'));
+    root.querySelector('[data-a="back"]').click();
+    check('L16 questions opened since the list was loaded are filed under today and their course', !!root.querySelector('.row[data-id="810001"]') && !!root.querySelector('.row[data-id="810002"]')
+      && root.querySelector('.row[data-id="810001"]').closest('.co').querySelector('.ct').textContent.includes('Analysis I'));
+    stop();
+  }
+  {
+    // outside lectures the list loads by itself once
+    const S = makeServer({ lectureNow: false }); const { root, stop } = boot(S);
+    check('L17 outside lectures the list is loaded automatically, once', await until(() => root.querySelectorAll('.row').length > 50) && (await wait(400), S.log.filter((l) => l.startsWith('GET clickers?')).length === 1));
+    stop();
+  }
+
+  // ---------- R: shared discovery through the relay
+  {
+    const S = makeServer(); const R = fakeRelay(); const alerts = [];
+    const { root, fc, stop } = boot(S, { hooks: { relayUrl: 'wss://relay.test/v1', WebSocket: R.WebSocket, onAlert: (q) => alerts.push(q.id), nativeAlerts: true }, settings: { shareMinMs: 10 } });
+    check('R1 around a lecture the client joins one room for the course, as a checking client', await until(() => R.joined()) && R.joined().rooms.length === 1 && /^[0-9a-f]{32}$/.test(R.joined().rooms[0]) && R.joined().scout === true && R.sockets[0].url === 'wss://relay.test/v1');
+    const room = R.joined().rooms[0];
+    check('R2 the room name does not contain the course number', !room.includes('401') && !JSON.stringify(R.last().sent).includes('0261'));
+    // 10 clients share: this one polls only every 10th slot
+    R.last().push({ t: 'roster', room, n: 10, slot: 3, m: 10, every: 40, now: Date.now() });
+    await wait(150);
+    const p0 = feedPolls(S); await wait(1250); const shared = feedPolls(S) - p0;
+    check('R3 with 10 clients sharing, this client asks the feed about a tenth as often', shared >= 2 && shared <= 5, `${shared} feed requests in 1.25 s (alone: about 10)`);
+    // a hint from another client: the question is read from ETH directly, no feed request needed
+    S.addClicker(mcsa(820001, 'Hinted'));
+    const createdAt = new Date().toISOString();
+    const before = feedPolls(S);
+    R.last().push({ t: 'hint', room, k: 820001, e: 'CLICKER_OPEN', a: 555001, c: createdAt, now: Date.now() });
+    const shown = await until(() => root.querySelector('.card[data-id="820001"]'), 1500);
+    check('R4 a hint puts the question on screen without waiting for the own feed check', shown && fc.ui.id === 820001 && feedPolls(S) - before <= 1 && S.log.includes('GET clickers/820001'));
+    check('R5 the hint alerted once', alerts.filter((x) => x === 820001).length === 1, JSON.stringify(alerts));
+    // the same event later shows up in the own feed (even under another activity id): no second alert, no new round
+    const gen = fc.state.clickers.get(820001).gen;
+    S.feed.unshift({ id: 999001, createdAt, objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 820001, courseTitle: { de: 'Analysis I' } });
+    await wait(700);
+    check('R6 the same event arriving later through the feed is not handled twice', alerts.filter((x) => x === 820001).length === 1 && fc.state.clickers.get(820001).gen === gen);
+    // this client's own feed check finds an event: it tells the room
+    S.addClicker(mcsa(820002, 'Found here'));
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 820002, courseTitle: { de: 'Analysis I', en: 'Analysis I' } });
+    const told = await until(() => R.last().sent.some((m) => m.t === 'hint' && m.k === 820002), 2500);
+    const hint = R.last().sent.find((m) => m.t === 'hint' && m.k === 820002);
+    check('R7 an event found by the own check is passed on as a hint (ids and time only)', told && hint.room === room && hint.e === 'CLICKER_OPEN' && Number.isInteger(hint.a) && Object.keys(hint).sort().join() === 'a,c,e,k,room,t');
+    // events of other courses are not passed on
+    S.addClicker(mcsa(820003, 'Other course'));
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 820003, courseTitle: { de: 'Lineare Algebra I' } });
+    await until(() => root.querySelector('.card[data-id="820003"]'), 2500);
+    check('R8 an event of another course is not sent into this course\'s room', !!root.querySelector('.card[data-id="820003"]') && !R.last().sent.some((m) => m.t === 'hint' && m.k === 820003));
+    // junk and foreign hints are ignored
+    const reads = S.log.filter((l) => l.startsWith('GET clickers/')).length;
+    R.last().push({ t: 'hint', room: 'f'.repeat(32), k: 322453, e: 'CLICKER_OPEN', a: 1, c: createdAt });
+    R.last().push({ t: 'hint', room, k: 'x', e: 'CLICKER_OPEN', a: 2, c: createdAt });
+    R.last().push({ t: 'hint', room, k: 322453, e: 'open; drop', a: 3, c: createdAt });
+    R.last().push('not an object');
+    await wait(300);
+    check('R9 hints for other rooms or with junk in them cause no request', S.log.filter((l) => l.startsWith('GET clickers/')).length === reads);
+    // a hint for a question ETH does not show to this student: dropped quietly
+    R.last().push({ t: 'hint', room, k: 777777, e: 'CLICKER_OPEN', a: 555777, c: createdAt });
+    await wait(300);
+    check('R10 a hint for a question ETH refuses is dropped without an error', !root.querySelector('.card[data-id="777777"]') && !fc.state.lastError);
+    // a "new round" hint alone changes nothing: it only makes the client re-read the question (the relay is untrusted)
+    fc.openDetail(820001);
+    root.querySelector('.opt[data-id="820001"][data-e="2"]').click();
+    root.querySelector('.send[data-id="820001"]').click();
+    await until(() => /Confirmed/.test(st(root, 820001)));
+    const reads0 = S.log.filter((l) => l === 'GET clickers/820001').length;
+    R.last().push({ t: 'hint', room, k: 820001, e: 'CLICKER_START_ROUND', a: 555002, c: new Date().toISOString() });
+    await until(() => S.log.filter((l) => l === 'GET clickers/820001').length > reads0, 1500);
+    await wait(300);
+    check('R11 a "new round" hint alone does not clear the answer or alert (only ETH\'s feed can say so)',
+      fc.state.clickers.get(820001).gen === gen && /Confirmed/.test(st(root, 820001)) && alerts.filter((x) => x === 820001).length === 1);
+    // the real round change, seen in the feed, does reset it and alerts again
+    S.clickers.get(820001).entries.forEach((e) => { e.selected = false; });
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_START_ROUND', objectId: 820001, courseTitle: { de: 'Analysis I' } });
+    check('R11b the round change from the feed clears the previous answer and alerts again',
+      await until(() => fc.state.clickers.get(820001).gen === gen + 1 && !root.querySelector('.opt.sel[data-id="820001"]') && alerts.filter((x) => x === 820001).length === 2, 3000));
+    stop();
+  }
+  {
+    // relay configured but unreachable: check alone, slower the more students were sharing last time
+    const S = makeServer(); const R = fakeRelay(); R.fail = true;
+    const { root, w, stop } = boot(S, { hooks: { relayUrl: 'wss://relay.test/v1', WebSocket: R.WebSocket }, settings: { soloStepMs: 100, soloMaxMs: 2000 } });
+    w.localStorage.setItem('fast-clicker-relay-n', '6');
+    await until(() => root.querySelector('.card[data-id="322454"]'));
+    S.addClicker(mcsa(830001)); S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 830001 });
+    check('R12 without the relay a new question is still found by the own check', await until(() => root.querySelector('.card[data-id="830001"]'), 3000));
+    stop();
+  }
+  {
+    const S = makeServer(); const R = fakeRelay(); R.fail = true;
+    const { w, fc, stop } = boot(S, { hooks: { relayUrl: 'wss://relay.test/v1', WebSocket: R.WebSocket }, settings: { soloStepMs: 100, soloMaxMs: 2000 } });
+    fc.relay.lastN = 6;
+    await wait(400);
+    const p0 = feedPolls(S); await wait(1300); const n = feedPolls(S) - p0;
+    check('R13 without the relay, a client that last shared with 6 checks about every 6 steps instead of every step', n >= 1 && n <= 4, `${n} feed requests in 1.3 s`);
+    void w; stop();
+  }
+  {
+    // relay drops: the client reconnects and re-joins
+    const S = makeServer(); const R = fakeRelay();
+    const { stop } = boot(S, { hooks: { relayUrl: 'wss://relay.test/v1', WebSocket: R.WebSocket, timeScale: 0.02 } });
+    await until(() => R.joined());
+    const first = R.last();
+    first.close();
+    check('R14 after the relay connection drops the client reconnects and joins again', await until(() => R.last() && R.last() !== first && R.joined(), 4000));
+    stop();
+  }
+  {
+    // outside lectures: no relay connection at all
+    const S = makeServer({ lectureNow: false }); const R = fakeRelay();
+    const { stop } = boot(S, { hooks: { relayUrl: 'wss://relay.test/v1', WebSocket: R.WebSocket } });
+    await wait(600);
+    check('R15 outside lectures the relay is not contacted', R.sockets.length === 0);
+    stop();
+  }
+  {
+    // no relay configured: nothing changes
+    const S = makeServer(); const R = fakeRelay();
+    const { root, stop } = boot(S, { hooks: { WebSocket: R.WebSocket } });
+    await until(() => root.querySelector('.card[data-id="322454"]'));
+    await wait(300);
+    check('R16 with no relay configured no connection is made', R.sockets.length === 0);
+    stop();
+  }
+
+  // ---------- S: what a hostile relay (or a student sending crafted hints) can and cannot do
+  {
+    const S = makeServer(); const R = fakeRelay(); const alerts = [];
+    const { root, fc, stop } = boot(S, { hooks: { relayUrl: 'wss://relay.test/v1', WebSocket: R.WebSocket, onAlert: (q) => alerts.push(q.id), nativeAlerts: true }, settings: { shareMinMs: 10 } });
+    await until(() => R.joined());
+    const room = R.joined().rooms[0];
+    S.addClicker(mcsa(850001, 'Real')); S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 850001, courseTitle: { de: 'Analysis I' } });
+    await until(() => root.querySelector('.card[data-id="850001"]'));
+    root.querySelector('.opt[data-id="850001"][data-e="2"]').click();
+    root.querySelector('.send[data-id="850001"]').click();
+    await until(() => /Confirmed/.test(st(root, 850001)));
+    const gen = fc.state.clickers.get(850001).gen;
+    // the attacker knows the activity id the next real round will get and attaches it to a question that does not exist
+    const nextId = 991234;
+    R.last().push({ t: 'hint', room, k: 777001, e: 'CLICKER_START_ROUND', a: nextId, c: new Date().toISOString() });
+    await wait(200);
+    S.clickers.get(850001).entries.forEach((e) => { e.selected = false; });
+    S.feed.unshift({ id: nextId, createdAt: new Date().toISOString(), objectType: 'CLICKER', type: 'CLICKER_START_ROUND', objectId: 850001, courseTitle: { de: 'Analysis I' } });
+    check('S1 a hint cannot hide a real round change from this client (activity ids from the relay are not trusted)',
+      await until(() => fc.state.clickers.get(850001).gen === gen + 1 && !root.querySelector('.opt.sel[data-id="850001"]'), 3000),
+      `gen ${gen}→${fc.state.clickers.get(850001).gen}, selected shown: ${!!root.querySelector('.opt.sel[data-id="850001"]')}, ui ${fc.ui.view}/${fc.ui.id}`);
+    // forged hints in quantity: bounded reads, no votes, nothing else
+    const votes0 = S.votes.length, reads0 = S.log.filter((l) => l.startsWith('GET clickers/')).length;
+    for (let i = 0; i < 60; i++) R.last().push({ t: 'hint', room, k: 860000 + i, e: 'CLICKER_OPEN', a: 870000 + i, c: new Date().toISOString() });
+    await wait(1500);
+    const reads = S.log.filter((l) => l.startsWith('GET clickers/')).length - reads0;
+    check('S2 a flood of forged hints causes only a few question reads and never a vote', reads <= 12 && S.votes.length === votes0, `${reads} reads`);
+    stop();
+  }
+  {
+    // ETH says "slow down" while handling a hint: the client waits as long as it is told
+    const S = makeServer(); const R = fakeRelay();
+    const { w, stop } = boot(S, { hooks: { relayUrl: 'wss://relay.test/v1', WebSocket: R.WebSocket }, settings: { shareMinMs: 10 } });
+    await until(() => R.joined());
+    const room = R.joined().rooms[0];
+    const real = w.fetch; let hits = 0;
+    w.fetch = async (url, opts) => {
+      if (/clickers\/880001(\?|$)/.test(String(url))) {
+        hits++;
+        return { ok: false, status: 429, type: 'basic', headers: { get: (k) => (k.toLowerCase() === 'retry-after' ? '60' : null) }, text: async () => '' };
+      }
+      return real(url, opts);
+    };
+    R.last().push({ t: 'hint', room, k: 880001, e: 'CLICKER_OPEN', a: 1, c: new Date().toISOString() });
+    await wait(2500);
+    R.last().push({ t: 'hint', room, k: 880001, e: 'CLICKER_OPEN', a: 2, c: new Date().toISOString() });
+    await wait(500);
+    check('S3 "429, retry after 60 s" on a hinted question: no retries, and further hints wait too', hits === 1, `${hits} requests`);
+    stop();
+  }
+  {
+    // the relay hands out absurd plans: the client keeps its own minimum spacing and its own deadline
+    const S = makeServer(); const R = fakeRelay();
+    const { w, stop } = boot(S, { hooks: { relayUrl: 'wss://relay.test/v1', WebSocket: R.WebSocket }, settings: { cadenceMs: 400, shareMinMs: 10, shareMaxMs: 600 } });
+    await until(() => R.joined());
+    const room = R.joined().rooms[0];
+    const real = w.fetch; const at = [];
+    w.fetch = (url, opts) => { if (String(url).includes('activity-feed')) at.push(Date.now()); return real(url, opts); };
+    const t0 = Date.now();
+    const spam = setInterval(() => R.last() && R.last().push({ t: 'roster', room, n: 2 + Math.floor(Math.random() * 3), slot: Math.floor(Math.random() * 2), m: 5, every: 10, now: Date.now() }), 37);
+    await wait(2000);
+    clearInterval(spam);
+    const gaps = at.filter((t) => t > t0).map((t, i, a) => (i ? t - a[i - 1] : null)).filter((x) => x !== null);
+    check('S4 roster messages cannot make the client check the feed faster than its own rhythm', gaps.length >= 2 && Math.min(...gaps) >= 0.8 * 400, `gaps ${gaps.join(',')}`);
+    R.last().push({ t: 'roster', room, n: 5000, slot: 4999, m: 5000, every: 5000, now: Date.now() });
+    const t1 = Date.now(); await wait(2000);
+    const after = at.filter((t) => t > t1).length;
+    check('S5 a plan that would postpone checking for days still checks within the local deadline', after >= 1, `${after} checks in 2 s (deadline about 0.9 s)`);
+    stop();
+  }
+  {
+    // keyboard shortcuts only ever act on the question that is on screen
+    const S = makeServer(); const { root, w, fc, stop } = boot(S, { settings: { oneTap: true } });
+    S.addClicker(mcsa(890001)); S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 890001 });
+    await until(() => fc.ui.id === 890001);
+    root.querySelector('[data-a="back"]').click();
+    const key = (k) => w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
+    key('2'); key('Enter');
+    await wait(300);
+    check('S6 on the list page, number keys and Enter send nothing', S.votes.length === 0 && !fc.state.draft.has(890001));
+    fc.openDetail(890001);
+    root.querySelector('[data-a="menu"]').click();
+    key('2');
+    await wait(300);
+    check('S7 with the settings sheet open, number keys send nothing', S.votes.length === 0);
+    root.querySelector('[data-a="closemenu"]').click();
+    key('2');
+    check('S8 on the question page, number keys still work', await until(() => S.votes.some((v) => v.id === 890001 && v.body.selectedAnswer[0] === 2)));
+    stop();
+  }
+  {
+    // start-up in a lecture with a busy feed: the 1.4 MB semester list is still not downloaded automatically
+    const S = makeServer();
+    const now = Date.now();
+    S.feed = Array.from({ length: 70 }, (_, i) => ({ id: 960000 - i, createdAt: new Date(now - i * 60e3).toISOString(), objectType: 'CHANNEL', type: 'CHANNEL_COMMENT_CREATE', objectId: 1, itemId: i }));
+    const { stop } = boot(S);
+    await wait(1200);
+    check('S9 during a lecture the semester list is never downloaded automatically, even when the feed cannot vouch for it', !S.log.some((l) => l.startsWith('GET clickers?')), S.log.filter((l) => l.startsWith('GET clickers?')).join());
+    stop();
+  }
+  {
+    // a newer semester list wins over an older copy of a closed question
+    const S = makeServer({ lectureNow: false }); const { root, fc, stop } = boot(S);
+    await until(() => root.querySelectorAll('.row').length > 50);
+    S.addClicker(closedWithResults(322453));
+    fc.openDetail(322453);
+    await until(() => root.querySelector('.card.closed[data-id="322453"]'));
+    root.querySelector('[data-a="back"]').click();
+    for (const g of S.list.byCourse) for (const x of g.clickers) if (x.id === 322453) x.answerState = 'WRONG';
+    for (const d of S.list.byDate) for (const co of d.courses) for (const x of co.clickers) if (x.id === 322453) x.answerState = 'WRONG';
+    S.clickers.get(322453).answerState = 'WRONG';
+    await wait(20);
+    await fc.fullScan();
+    const icon = await until(() => { const ic = root.querySelector('.row[data-id="322453"] .rs svg'); return ic && ic.classList.contains('c-bad'); }, 1500) && root.querySelector('.row[data-id="322453"] .rs svg');
+    check('S10 a newer list is not overwritten by an older copy of a closed question', !!icon && icon.classList.contains('c-bad'), icon && icon.getAttribute('class'));
+    stop();
+  }
+
+  // ---------- D: diagnostics recorder
+  {
+    const S = makeServer(); let shared = null;
+    const { root, fc, stop } = boot(S, { hooks: { onShare: (text, name) => { shared = { text, name }; }, timeScale: 0.05 }, settings: { record: true } });
+    await until(() => root.querySelector('.card[data-id="322454"]'));
+    S.addClicker(mcsa(840001)); S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 840001 });
+    await until(() => root.querySelector('.card[data-id="840001"]'));
+    await wait(500);
+    root.querySelector('[data-a="mark"]').click();
+    root.querySelector('.opt[data-id="840001"][data-e="2"]').click();
+    root.querySelector('.send[data-id="840001"]').click();
+    await until(() => /Confirmed/.test(st(root, 840001)));
+    root.querySelector('[data-a="menu"]').click();
+    root.querySelector('[data-a="share"]').click();
+    const out = shared && JSON.parse(shared.text);
+    const types = out ? new Set(out.log.map((x) => x.y)) : new Set();
+    check('D1 the recording has request timings, feed changes, events, alerts and the mark', !!out && ['r', 'f', 'e', 'a', 'm'].every((y) => types.has(y)), [...types].join());
+    check('D2 it also watched the timetable flags and the open question itself', types.has('g') && types.has('c') && S.log.filter((l) => l.startsWith('GET dashboard/upcoming-lectures')).length > 2);
+    const vote = out && out.log.find((x) => x.y === 'r' && x.k === 'vote');
+    check('D3 the vote is timed, but neither the answer nor any question text is recorded', !!vote && vote.s === 200 && typeof vote.ms === 'number' && !/selectedAnswer|2\+2|individualAnswer/.test(shared.text));
+    check('D4 the export is a named JSON file', /^fast-clicker-diagnostics-.*\.json$/.test(shared.name) && out.app === 'fast-clicker' && out.entries === out.log.length);
+    check('D5 the recording is kept on the device between starts', JSON.parse(fc.rec && root.ownerDocument.defaultView.localStorage.getItem('fast-clicker-rec') || '[]').length > 0 || (fc.rec.dirty === true));
+    const snaps = out ? out.log.filter((x) => x.y === 'c') : [];
+    check('D7 question snapshots hold counts only: not which options this student chose, not which are correct',
+      snaps.length > 0 && snaps.every((x) => x.snap.length === 9 && typeof x.snap[4] === 'number' && x.snap[6].every((e) => e.length === 2)));
+    check('D8 recording stops by itself after a few days', fc.CFG.recordUntil === 0 || fc.CFG.recordUntil - Date.now() < 5 * 86400e3);
+    stop();
+  }
+  {
+    // the iPhone app switches recording on once; after the student switches it off it stays off
+    const S = makeServer();
+    const first = boot(S, { hooks: { recordDefault: true } });
+    const on = first.fc.CFG.record && first.fc.CFG.recordUntil > Date.now();
+    first.root.querySelector('[data-a="menu"]').click();
+    first.root.querySelector('[data-a="record"]').click();
+    const off = !first.fc.CFG.record;
+    const store = first.w.localStorage;
+    const saved = { s: store.getItem('fast-clicker-settings'), d: store.getItem('fast-clicker-rec-default') };
+    first.stop();
+    const again = boot(S, { hooks: { recordDefault: true } });
+    again.w.localStorage.setItem('fast-clicker-settings', saved.s);
+    check('D9 the app turns recording on once by default; switched off, it is not turned on again', on && off && saved.d === '1');
+    again.stop();
+  }
+  {
+    const S = makeServer();
+    const { root, w, stop } = boot(S);
+    await until(() => root.querySelector('.card[data-id="322454"]'));
+    await wait(500);
+    check('D6 with recording off nothing is stored and no extra requests are made', (w.localStorage.getItem('fast-clicker-rec') || '[]') === '[]' && S.log.filter((l) => l.startsWith('GET dashboard/upcoming-lectures')).length === 1 && !root.querySelector('[data-a="mark"]'));
+    stop();
+  }
+
+  console.log(results.join('\n'));
+  const fails = results.filter((r) => r.startsWith('FAIL')).length;
+  console.log(`\n${results.length - fails}/${results.length} passed`);
+  process.exit(fails ? 1 : 0);
+})().catch((e) => { console.error(e); process.exit(2); });

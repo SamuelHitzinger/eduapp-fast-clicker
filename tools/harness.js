@@ -100,7 +100,8 @@ function boot(S, { settings = {}, hooks = {}, mode, url = 'https://eduapp.ethz.c
   if (mode) w.__FC_MODE = mode;
   w.eval(script);
   const root = w.document.getElementById('fast-clicker-host').shadowRoot;
-  return { w, root, fc: w.__fastClicker, stop: () => { try { w.__fastClicker.state.running = false; } catch {} w.close(); } };
+  // stop the client first; close its window a little later, so a request that is still under way can finish
+  return { w, root, fc: w.__fastClicker, stop: () => { try { w.__fastClicker.state.running = false; w.__fastClicker.state.leader = false; } catch {} setTimeout(() => w.close(), 3000).unref(); } };
 }
 const mcsa = (id, title = 'Q') => ({ id, type: 'MCSA', state: 'OPEN', title, question: '<p>2+2?</p>', answerState: 'UNANSWERED', entries: [{ id: 1, answer: '3', selected: false }, { id: 2, answer: '4', selected: false }, { id: 3, answer: '5', selected: false }], showResults: false, preview: false });
 const st = (root, id) => root.querySelector(`.card[data-id="${id}"] .st`)?.textContent || '';
