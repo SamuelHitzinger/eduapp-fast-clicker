@@ -56,7 +56,7 @@
     cadenceMs: 4000,         // start-to-start feed poll interval around lectures (feed takes ~1.2 s itself)
     hiddenCadenceMs: 15000,  // same, while the tab is in the background
     idleCadenceMs: 50000,    // outside lectures (stays below the server's ~75 s keep-alive, so the line stays warm)
-    maxBackoffMs: 30000,
+    maxBackoffMs: 30000, lectureBackoffMs: 10000,   // after failures: wait at most this long between tries (around lectures: shorter)
     authCadenceMs: 15000, loginCadenceMs: 5000, silentEveryMs: 60000,
     leadMin: 10, tailMin: 15, // "around a lecture" = 10 min before start … 15 min after end
     openFastMin: 30,          // an open clicker keeps fast polling for at most this long after its last event
@@ -110,7 +110,8 @@
   }
 
   // ---------------------------------------------------------------- network
-  const lat = { feed: 1300, detail: 500, vote: 500, other: 400, list: 3000, probe: 400 }; // EWMA of observed latency (ms)
+  const lat = { feed: 1300, detail: 500, vote: 500, other: 400, list: 3000, probe: 400 }; // EWMA of observed latency (ms), raised after a timeout: sets time limits
+  const latOk = { feed: 1300 };    // the feed's latency from answers that arrived (timeouts excluded): sets the pause between checks
   const minTimeout = { feed: 7000, detail: 7000, vote: 8000, other: 6000, list: 60000, probe: 6000 };
   const timeoutFor = (kind) => Math.round(TS * Math.min(kind === 'list' ? 120000 : 30000, Math.max(minTimeout[kind], Math.round(3 * lat[kind] + 2500))));
   let reqCounter = 0;
@@ -137,6 +138,7 @@
       });
     } catch (e) {
       clearTimeout(timer);
+      if (e && e.name === 'AbortError') lat[kind] = Math.max(lat[kind], 2 * timeoutMs / TS);   // next time wait (much) longer, up to the cap
       recAdd('r', { k: kind, p: path.split('?')[0], ms: Math.round(performance.now() - t0), e: e && e.name === 'AbortError' ? 'timeout' : 'network' });
       throw new NetError(e && e.name === 'AbortError' ? `no answer within ${Math.round(timeoutMs / 1000)} s` : 'network error');
     }
@@ -158,10 +160,11 @@
       if (text && !ct.includes('json')) throw new AuthError('signed out (got a web page instead of data)');
       const ms = performance.now() - t0;
       lat[kind] = Math.round(lat[kind] * 0.7 + ms * 0.3);
+      if (kind === 'feed') latOk.feed = Math.round(latOk.feed * 0.7 + ms * 0.3);
       state.lastLatency = Math.round(ms);
       return text ? JSON.parse(text) : null;
     } catch (e) {
-      if (e && e.name === 'AbortError') throw new NetError(`no answer within ${Math.round(timeoutMs / 1000)} s`);
+      if (e && e.name === 'AbortError') { lat[kind] = Math.max(lat[kind], 2 * timeoutMs / TS); throw new NetError(`no answer within ${Math.round(timeoutMs / 1000)} s`); }
       throw e;
     } finally {
       clearTimeout(timer);
@@ -735,7 +738,7 @@
   async function recProbe() {
     if (!CFG.record || !state.leader || !state.running || state.authLost || document.hidden || !state.semkez || !fastMode() || rec.busy) return;
     if (CFG.recordUntil && Date.now() > CFG.recordUntil) { CFG.record = false; saveCfg(); render(); return; }
-    if (state.errorStreak || lat.feed > 2500) return;            // EduApp is struggling: no extra requests
+    if (state.errorStreak || latOk.feed > 2500) return;          // EduApp is struggling: no extra requests
     rec.busy = true;
     try {
       if (rec.n++ % 2 === 0) {
@@ -815,7 +818,7 @@
     if (!state.running || !state.leader) return;
     if (ms === undefined) {
       const fast = fastMode();
-      const sp = fast && !state.authLost && !state.errorStreak && lat.feed <= 2500 ? sharedPlan() : null;
+      const sp = fast && !state.authLost ? sharedPlan() : null;
       if (sp) {
         // Shared discovery: the relay gave every checking client of this lecture a slot; together they ask the feed
         // about once per `every` ms, each one only every n-th time. Hints from the others arrive through the relay.
@@ -828,13 +831,16 @@
           const late = state.lastFeedStartAt + 1.5 * period - Date.now();          // …and whatever the relay says, never much later than one round
           ms = state.lastFeedStartAt ? Math.min(wait, Math.max(0, late)) : wait;
         } else ms = jitter(Math.min(60000, Math.max(CFG.hiddenCadenceMs, period)));          // not checking for others: slow safety check
+        if (state.errorStreak) ms = Math.max(ms, Math.min(CFG.maxBackoffMs, CFG.lectureBackoffMs, 2000 * 2 ** (state.errorStreak - 1)), state.retryAfterMs);
       } else {
         let cadence = !fast ? CFG.idleCadenceMs : document.hidden ? CFG.hiddenCadenceMs : CFG.cadenceMs;
         // relay configured but unreachable: check alone, but the more students were sharing, the slower (ETH load)
         if (fast && relayUrl && relay.want.size && !relay.open) cadence = Math.max(cadence, Math.min(CFG.soloMaxMs, relay.lastN * CFG.soloStepMs));
-        if (lat.feed > 2500) cadence = Math.max(cadence, Math.round(lat.feed * 3)); // server slower than usual: back off
+        // server slower than usual: back off (start to start), but less during a lecture, when finding the question matters
+        if (latOk.feed > 2500) cadence = Math.max(cadence, Math.round(Math.min(latOk.feed, 30000) * (fast ? 1.5 : 3)));
+        const maxBackoff = fast ? Math.min(CFG.maxBackoffMs, CFG.lectureBackoffMs) : CFG.maxBackoffMs;
         if (state.authLost) cadence = state.loginNeeded ? CFG.loginCadenceMs : CFG.authCadenceMs;
-        else if (state.errorStreak) cadence = Math.max(state.retryAfterMs, Math.min(CFG.maxBackoffMs, 2000 * 2 ** (state.errorStreak - 1)), Math.min(cadence, 8000));
+        else if (state.errorStreak) cadence = Math.max(state.retryAfterMs, Math.min(maxBackoff, 2000 * 2 ** (state.errorStreak - 1)), Math.min(cadence, 8000));
         ms = Math.max(0, jitter(cadence) - (Date.now() - startedAt));
       }
       const now = Date.now();

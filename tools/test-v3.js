@@ -458,6 +458,48 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     stop();
   }
 
+  // ---------- O: an overloaded EduApp during the lecture (everyone reloading the 1.4 MB list at once)
+  const slowFeed = (w, ms) => {                    // every feed answer takes `ms`; an aborted request is really aborted
+    const real = w.fetch;
+    w.fetch = (url, opts = {}) => !String(url).includes('activity-feed') ? real(url, opts) : new Promise((res, rej) => {
+      const t = setTimeout(() => res(real(url, opts)), ms);
+      if (opts.signal) opts.signal.addEventListener('abort', () => { clearTimeout(t); const e = new Error('aborted'); e.name = 'AbortError'; rej(e); });
+    });
+  };
+  {
+    // every answer from the feed takes longer than the first time limit (here 70 ms stands for 7 s, 200 ms for 20 s)
+    const S = makeServer(); const { root, w, fc, stop } = boot(S, { hooks: { timeScale: 0.01 } });
+    slowFeed(w, 200);
+    S.addClicker(mcsa(980001, 'Overloaded')); S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 980001, courseTitle: { de: 'Analysis I' } });
+    check('O1 when EduApp answers slower than the time limit, the limit grows and the question still comes through',
+      await until(() => root.querySelector('.card[data-id="980001"]'), 4000), `last error: ${fc.state.lastError}`);
+    stop();
+  }
+  {
+    // the feed fails many times in a row during a lecture, then recovers: the next check is not minutes away
+    const S = makeServer(); const { root, w, stop } = boot(S, { settings: { maxBackoffMs: 30000, lectureBackoffMs: 250 } });
+    await until(() => root.querySelector('.card[data-id="322454"]'));
+    const real = w.fetch; let fails = 0;
+    w.fetch = async (url, opts) => {
+      if (String(url).includes('activity-feed') && fails < 8) { fails++; return { ok: false, status: 503, type: 'basic', headers: { get: () => null }, text: async () => '' }; }
+      return real(url, opts);
+    };
+    await until(() => fails >= 8, 6000);
+    S.addClicker(mcsa(980002, 'After the storm')); S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 980002, courseTitle: { de: 'Analysis I' } });
+    check('O2 after 8 failures in a row during a lecture, checking continues at most a few seconds apart (here 0.25 s)',
+      fails >= 8 && await until(() => root.querySelector('.card[data-id="980002"]'), 1500), `${fails} failures`);
+    stop();
+  }
+  {
+    // EduApp's own app would show a stale saved list after 10 s; this client's requests can never be answered from a cache
+    const S = makeServer(); const { root, stop } = boot(S);
+    await until(() => root.querySelector('.card[data-id="322454"]'));
+    const gets = S.urls.filter((u) => u.startsWith('/web/gw/') && !u.includes('/vote'));
+    check('O3 every request is unique (so no cache, including EduApp\'s service worker, can answer it with old data)',
+      gets.length > 3 && gets.every((u) => /[?&]_fc=/.test(u)) && new Set(gets).size === gets.length);
+    stop();
+  }
+
   // ---------- D: diagnostics recorder
   {
     const S = makeServer(); let shared = null;
