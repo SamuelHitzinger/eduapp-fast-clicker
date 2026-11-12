@@ -146,8 +146,12 @@
     try {
       if (r.status === 401 || r.type === 'opaqueredirect' || (r.status >= 300 && r.status < 400)) throw new AuthError('signed out');
       if (!r.ok) {
-        const ra = Number(r.headers.get('retry-after'));
-        throw new HttpError(r.status, `HTTP ${r.status}`, Number.isFinite(ra) && ra > 0 ? Math.min(ra * 1000, 60000) : undefined);
+        const raw = r.headers.get('retry-after');
+        let ra = Number(raw);
+        if (raw && !Number.isFinite(ra)) { const d = Date.parse(raw); ra = d ? (d - Date.now()) / 1000 : NaN; }   // an HTTP date
+        const raMs = Number.isFinite(ra) && ra > 0 ? Math.min(ra * 1000, 60000) : undefined;
+        if (raMs) state.notBefore = Math.max(state.notBefore, Date.now() + raMs);   // ETH asked for a pause: no feed checks or hint reads before then
+        throw new HttpError(r.status, `HTTP ${r.status}`, raMs);
       }
       const text = await r.text();
       const ct = r.headers.get('content-type') || '';
@@ -197,7 +201,7 @@
     leader: false,
     evTurn: new Map(), evBusy: new Set(),       // per question: which feed event is the newest / is being handled
     hold: new Map(),                            // id -> {until, at}: answer retries wait for the feed's word on a possible new round
-    lastFeedStartAt: 0, serverOffset: 0,
+    lastFeedStartAt: 0, serverOffset: 0, notBefore: 0, dueAt: 0,
     list: { byDate: [], byCourse: [], fetchedAt: 0, partial: true }, listIndex: new Map(), listRev: 0, listError: null,   // partial = only what was seen live
   };
 
@@ -254,7 +258,7 @@
   }
   function resignLeader() {
     state.leader = false;
-    clearTimeout(state.timer);
+    clearTimeout(state.timer); state.dueAt = 0;
     if (releaseLeader) { const r = releaseLeader; releaseLeader = null; r(); }
   }
 
@@ -325,9 +329,9 @@
       if (!initial) fence(id);
       // A relay hint may already have made this client read this question right after it opened (hintRefresh). A feed
       // event dated no later than that read describes the same opening, not a new round after it.
-      const sameOpening = !initial && !!prev && !ROUND_KEEP.has(meta.type) && meta.type !== 'GAP' && prev.hintOpenAt > 0
-        && (Date.parse(meta.createdAt) || Infinity) <= prev.hintOpenAt + 2000;
-      if (prev && meta.type !== 'GAP') prev.hintOpenAt = 0;
+      // Only a lone "opened" event qualifies: a restarted round (or a close + reopen) is always a new round.
+      const sameOpening = !initial && !!prev && meta.type === 'CLICKER_OPEN' && meta.single === true && prev.hintOpenAt > 0
+        && (Date.parse(meta.createdAt) || Infinity) <= prev.hintOpenAt + 1500;
       // a (possible) new round: invalidate drafts and in-flight sends now, once per event, before downloading
       if (!initial && prev && !sameOpening && !ROUND_KEEP.has(meta.type) && !state.roundApplied.has(meta.activityId)) {
         prev.gen = (prev.gen || 0) + 1; state.roundApplied.add(meta.activityId); resetRound(id);
@@ -335,6 +339,7 @@
       }
       const { detail: c } = await fetchClicker(id);
       if (state.evTurn.get(id) !== turn) return;                 // a newer event for this question took over meanwhile
+      if (meta.type !== 'GAP') c.hintOpenAt = 0;                 // handled: from now on the feed alone speaks for this question
       if (meta.courseTitle) c.courseTitle = meta.courseTitle;
       if (meta.type !== 'GAP') c.lastEventAt = meta.createdAt ? Math.min(Date.now(), Date.parse(meta.createdAt) || Date.now()) : Date.now();
       if (meta.type === 'CLICKER_STOP_ROUND') c.roundStopped = true;
@@ -384,6 +389,7 @@
       }
       g.ids.push(a.id);
     }
+    for (const g of byClicker.values()) g.latest.single = g.ids.length === 1;
     sendHints(fresh);
     for (const [id, p] of state.pendingRefresh) if (!byClicker.has(id)) byClicker.set(id, p);
     if (gap) for (const c of state.clickers.values()) {
@@ -654,10 +660,10 @@
     if (!info || !state.leader || !state.running || state.authLost) return;
     if (!Number.isSafeInteger(m.k) || m.k <= 0 || typeof m.e !== 'string' || !/^CLICKER_[A-Z_]{1,24}$/.test(m.e)) return;
     const now = Date.now();
-    if (now < relay.quietUntil) return;                          // ETH asked for a pause
+    if (now < Math.max(relay.quietUntil, state.notBefore)) return;   // ETH asked for a pause
     relay.hints = relay.hints.filter((t) => now - t < 60000);
     if (relay.hints.length >= 12 || relay.queue.length >= 4 || now - (relay.hintAt.get(m.k) || 0) < TS * 1500) return;   // flood guard
-    relay.hints.push(now); relay.hintAt.set(m.k, now);
+    relay.hintAt.set(m.k, now);
     if (relay.hintAt.size > 200) relay.hintAt.clear();
     recAdd('h', { ev: 'hint', k: m.k, e: m.e, c: typeof m.c === 'string' ? m.c.slice(0, 32) : undefined, replay: m.replay ? 1 : undefined });
     const room = relay.rooms.get(m.room);
@@ -675,6 +681,11 @@
         if (h.at > Date.now()) await sleep(h.at - Date.now());
         for (let attempt = 0; attempt < 3; attempt++) {
           if (!state.leader || !state.running || state.authLost) break;
+          const now = Date.now();
+          if (now < Math.max(relay.quietUntil, state.notBefore)) { relay.queue.length = 0; break; }
+          relay.hints = relay.hints.filter((t) => now - t < 60000);
+          if (relay.hints.length >= 12) { relay.queue.length = 0; break; }   // budget: 12 question reads a minute for hints
+          relay.hints.push(now);
           try { await hintRefresh(h); break; } catch (e) {
             if (e instanceof AuthError) { state.authLost = true; relay.queue.length = 0; tryRelogin(); render(); break; }
             if (!isTransient(e)) break;                          // e.g. not this student's question: nothing to do
@@ -714,7 +725,7 @@
     if (relay.confirmDue || relay.confirms.length >= 6) return;  // one at a time, at most 6 in 5 minutes
     relay.confirms.push(now);
     relay.confirmDue = now + Math.random() * TS * Math.min(8000, 25 * members);
-    state.hold.set(id, { until: relay.confirmDue + TS * 6000, at: now });
+    state.hold.set(id, { at: now });
     if (state.leader && !state.polling) schedule();
   }
 
@@ -766,6 +777,7 @@
   async function tick() {
     if (!state.running || state.polling || !state.leader) return;
     state.polling = true;
+    state.dueAt = 0;
     const started = Date.now();
     try {
       if (state.authLost) { await tryRelogin(); if (state.authLost) return; }
@@ -812,7 +824,7 @@
           const now = Date.now() + relay.offset;
           let wait = (Math.round(sp.slot * period / sp.n) - (now % period) + 2 * period) % period;
           const gap = state.lastFeedStartAt + CFG.cadenceMs - Date.now();        // never sooner than the normal rhythm after the last check…
-          if (wait < gap - 0.15 * CFG.cadenceMs) wait += period * Math.ceil((gap - wait) / period);
+          if (wait < gap) wait += period * Math.ceil((gap - wait) / period);
           const late = state.lastFeedStartAt + 1.5 * period - Date.now();          // …and whatever the relay says, never much later than one round
           ms = state.lastFeedStartAt ? Math.min(wait, Math.max(0, late)) : wait;
         } else ms = jitter(Math.min(60000, Math.max(CFG.hiddenCadenceMs, period)));          // not checking for others: slow safety check
@@ -825,11 +837,14 @@
         else if (state.errorStreak) cadence = Math.max(state.retryAfterMs, Math.min(CFG.maxBackoffMs, 2000 * 2 ** (state.errorStreak - 1)), Math.min(cadence, 8000));
         ms = Math.max(0, jitter(cadence) - (Date.now() - startedAt));
       }
-      if (relay.confirmDue) {                                    // a hint asked for the feed's word on a round change
-        const gap = state.lastFeedStartAt + 0.85 * CFG.cadenceMs - Date.now();
-        ms = Math.min(ms, Math.max(0, relay.confirmDue - Date.now(), gap));
-      }
+      const now = Date.now();
+      if (state.dueAt) ms = Math.min(ms, state.dueAt - now);       // messages from the relay can bring a check forward, never push it back
+      if (relay.confirmDue) ms = Math.min(ms, relay.confirmDue - now);   // a hint asked for the feed's word on a round change
+      // floors that nothing overrides: the normal rhythm after the last feed check, and any pause ETH asked for
+      if (state.lastFeedStartAt && fastMode()) ms = Math.max(ms, state.lastFeedStartAt + CFG.cadenceMs - now);
+      ms = Math.max(0, ms, state.notBefore - now);
     }
+    state.dueAt = Date.now() + ms;
     state.timer = setTimeout(tick, ms);
   }
   const pokeNow = () => { if (state.leader && !state.polling) schedule(0); };
@@ -939,8 +954,14 @@
             if (!await waitForSession(deadline)) return;
             continue;
           }
-          const hold = attempt > 0 && state.hold.get(id);        // a retry (not a fresh tap) waits for the feed's word on a possible new round
-          if (hold && Date.now() < hold.until) { await sleep(Math.max(40, TS * 250)); continue; }
+          // An automatic send (a retry, or a repair after verification) waits while a hint has raised the possibility of a
+          // new round, until a feed check has actually succeeded. Only the student's own tap sends without waiting.
+          if ((attempt > 0 || repair > 0) && state.hold.has(id)) {
+            if (Date.now() > deadline) { setStatus(id, 'err', 'Could not check whether a new round started. Check your answer and tap Send again.'); attempt = -1; return; }
+            if (state.status.get(id)?.text !== 'Checking whether a new round started…') setStatus(id, 'pending', 'Checking whether a new round started…');
+            await sleep(Math.max(40, TS * 250));
+            continue;
+          }
           attempt++;
           try {
             await req(`clickers/${id}/vote`, { method: 'POST', body, kind: 'vote' });

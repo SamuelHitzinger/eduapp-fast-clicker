@@ -31,7 +31,7 @@ Fast Clicker:
 
 - **Looks like EduApp's clicker section.** A list by date or by lecture with the same colours, icons and wording, and a question page (options and Send while open; your result and the vote bars once closed). Fixed along the way: it updates by itself, a newly opened question comes on screen by itself (unless you are in the middle of answering another one), a stopped round is shown as "paused", bigger touch targets, formulas in the list preview, pictures readable in dark mode.
 - **The semester list is kept on the device.** It is downloaded once (never automatically during a lecture) and patched as questions change, instead of 1.4 MB on every visit.
-- **Detection:** it checks the feed one request at a time: every ~4 s from 10 min before to 15 min after each of your lectures (from your timetable), every 15 s in a background tab, every 50 s otherwise, backing off when the server or network struggles. Then it downloads only the question that changed.
+- **Detection:** it checks the feed one request at a time, never sooner than 4 s after the previous check: every ~4 s from 10 min before to 15 min after each of your lectures (from your timetable), every 15 s in a background tab, every 50 s otherwise, backing off when the server or network struggles. Then it downloads only the question that changed.
 - **Shared detection (optional relay).** With a relay configured, the clients in one lecture take turns: together they ask the feed about once a second, each one only every n-th time, and the one that sees a clicker event tells the others "question N changed". Everyone then reads the question from ETH directly. A full hall puts about 1 feed request per second on ETH instead of about 100. If the relay is unreachable, each client checks alone again, more slowly the more students were sharing.
 - **Sending:** one request per question at a time. It retries with backoff for up to 2 minutes, waits through offline periods and login renewal, shows **"Sent ✓"** the moment the server accepts, then re-reads the question to show **"✓ Confirmed"**, and re-sends if a late older request overwrote your answer. When a new round is seen, the old answer is dropped and you choose again.
 - **Login:** an expired session is renewed silently while ETH single sign-on is still valid; otherwise a **Log in** button opens the login once, and your chosen answer is kept.
@@ -51,8 +51,8 @@ Fast Clicker:
 
 - It sees: connections (IP address, timing), room names (a hash of semester + course number) and hints (`clicker id`, `event type`, `activity id`, `time`).
 - It never sees: ETH logins, cookies, question text, answers, names.
-- A hint can only make a client read `clickers/{id}` from ETH. It cannot make a client vote, navigate or run anything. Hints are only accepted for the course rooms the client joined from its own timetable.
-- Known weakness: a student who sends false "new round" hints can make others' chosen-but-unsent answers clear (rate-limited by the relay and the client).
+- A hint is an untrusted wake-up call. It can only make a client read `clickers/{id}` from ETH (at most 12 reads a minute, and not at all while ETH has asked for a pause). It cannot make a client vote, navigate or run anything, and it never decides about rounds: a newly open question is shown because ETH says it is open, and a "new round" hint only brings the next feed check forward. Until that check succeeds, automatic retries of an answer wait. Hints are only accepted for the course rooms the client joined from its own timetable.
+- What a hostile relay can still do: withhold hints (the client then finds questions at its own, slower pace) or cause a few extra question reads.
 
 The address goes into `relay/relay-url.txt`; `node tools/build.js` puts it into every build. Without that file each client checks for itself.
 
@@ -60,7 +60,8 @@ The address goes into `relay/relay-url.txt`; `node tools/build.js` puts it into 
 
 - `tools/test-mock.js`: 48 functional and regression checks: detection, vote format, retries, round changes, out-of-order and stale responses, login expiry and silent renewal, offline queueing, focus mode, verification with repair, question content.
 - `tools/test-tabs.js`: 9 checks: one poller across tabs, failover, serialized answers across tabs, login in every tab.
-- `tools/test-v3.js`: 39 checks: the list and question pages, auto-opening without interrupting an answer, shared detection against a fake relay (slots, hints both ways, de-duplication, junk and foreign hints, relay down, reconnect), the recorder.
+- `tools/test-v3.js`: 62 checks: the list and question pages, auto-opening without interrupting an answer, shared detection against a fake relay (slots, hints both ways, de-duplication, junk and foreign hints, relay down, reconnect), what a hostile relay cannot do (hide or fake a round change, push an old answer into a new round, flood ETH, override spacing or ETH's Retry-After), keyboard shortcuts, list freshness, the recorder.
+- `tools/test-relay-e2e.js`: real clients against the real relay on a local port: two and three phones sharing, a question found by one reaching the others, joining late, the relay going away.
 - `tools/test-chaos.js`: simulated terrible Wi-Fi (12% of requests hang, 8% fail, 10% get 503, 25% of vote replies lost after the server applied them), plus a login expiry, a changed mind mid-send and a round restart. Pass criterion: the server ends with exactly the student's latest answer, confirmed, with no overlapping polls and no parallel votes.
 - `tools/test-bookmarklet.js`, `tools/verify-site.js`: the built bookmark and the pinned file.
 - `relay/test/`: the relay's own tests.

@@ -311,6 +311,153 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     stop();
   }
 
+  // ---------- Q: round safety with the relay (second review)
+  const relayClient = async (opts = {}) => {
+    const S = makeServer(); const R = fakeRelay(); const alerts = [];
+    const b = boot(S, { hooks: { relayUrl: 'wss://relay.test/v1', WebSocket: R.WebSocket, onAlert: (q) => alerts.push(q.id), nativeAlerts: true }, settings: { shareMinMs: 10, ...(opts.settings || {}) } });
+    await until(() => R.joined());
+    return { S, R, alerts, room: R.joined().rooms[0], ...b };
+  };
+  const failing = (w, test, response) => {        // make matching requests fail until .off()
+    const real = w.fetch; let on = true; const ctl = { hits: 0, off() { on = false; } };
+    w.fetch = async (url, opts) => {
+      if (on && test(String(url), opts || {})) { ctl.hits++; return response(); }
+      return real(url, opts);
+    };
+    return ctl;
+  };
+  const resp = (status, headers = {}) => ({ ok: false, status, type: 'basic', headers: { get: (k) => headers[k.toLowerCase()] ?? null }, text: async () => '' });
+  const votesIn = (S, id, round) => S.votes.filter((v) => v.id === id && (round === undefined || v.round === round));
+  {
+    // a hint brings an open question; the answer's POST fails; within a second the lecturer restarts the round
+    const { S, R, root, fc, room, stop } = await relayClient();
+    S.addClicker(mcsa(910001, 'Quick restart'));
+    R.last().push({ t: 'hint', room, k: 910001, e: 'CLICKER_OPEN', a: 1, c: new Date().toISOString() });
+    await until(() => fc.ui.id === 910001 && root.querySelector('.opt[data-id="910001"]'));
+    S.failVotes = 3;
+    root.querySelector('.opt[data-id="910001"][data-e="2"]').click();
+    root.querySelector('.send[data-id="910001"]').click();
+    await until(() => /trying|Weak|Sending/.test(st(root, 910001)), 1500);
+    const c = S.clickers.get(910001); c.round = 1; c.entries.forEach((e) => { e.selected = false; });
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_START_ROUND', objectId: 910001, courseTitle: { de: 'Analysis I' } });
+    await wait(3500);
+    check('Q1 a round restart right after a hint-opened question is a new round: the old answer is not retried into it',
+      votesIn(S, 910001, 1).length === 0 && fc.state.clickers.get(910001).gen >= 1, `round-1 votes ${votesIn(S, 910001, 1).length}, gen ${fc.state.clickers.get(910001).gen}, status "${st(root, 910001)}"`);
+    stop();
+  }
+  {
+    // "maybe a new round" hint while a retry is pending, and the feed keeps failing: the retry must not go out
+    const { S, R, root, w, fc, room, stop } = await relayClient();
+    S.addClicker(mcsa(920001, 'Held')); S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 920001, courseTitle: { de: 'Analysis I' } });
+    await until(() => root.querySelector('.opt[data-id="920001"]'));
+    S.failVotes = 1000;
+    root.querySelector('.opt[data-id="920001"][data-e="2"]').click();
+    root.querySelector('.send[data-id="920001"]').click();
+    await until(() => /trying|Weak/.test(st(root, 920001)), 2000);
+    R.last().push({ t: 'hint', room, k: 920001, e: 'CLICKER_START_ROUND', a: 2, c: new Date().toISOString() });
+    await until(() => fc.state.hold.has(920001), 2000);
+    const feedDown = failing(w, (u) => u.includes('activity-feed'), () => resp(503));
+    const c = S.clickers.get(920001); c.round = 1; c.entries.forEach((e) => { e.selected = false; });
+    S.failVotes = 0;
+    await wait(2500);
+    check('Q2 while the feed cannot be reached, a retry under a "maybe new round" hold is not sent', votesIn(S, 920001).length === 0 && fc.state.hold.has(920001) && /new round/.test(st(root, 920001)), `votes ${votesIn(S, 920001).length}, status "${st(root, 920001)}"`);
+    feedDown.off();
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_START_ROUND', objectId: 920001, courseTitle: { de: 'Analysis I' } });
+    await until(() => fc.state.clickers.get(920001).gen >= 1, 3000);
+    await wait(800);
+    check('Q3 once the feed confirms the new round, the old answer is dropped instead of sent', votesIn(S, 920001).length === 0 && !fc.state.hold.has(920001), `votes ${votesIn(S, 920001).length}`);
+    stop();
+  }
+  {
+    // the automatic repair after verification also waits for the hold
+    const { S, R, root, w, fc, room, stop } = await relayClient();
+    S.addClicker(mcsa(930001, 'Repair')); S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 930001, courseTitle: { de: 'Analysis I' } });
+    await until(() => root.querySelector('.opt[data-id="930001"]'));
+    root.querySelector('.opt[data-id="930001"][data-e="2"]').click();
+    root.querySelector('.send[data-id="930001"]').click();
+    await until(() => /Confirmed/.test(st(root, 930001)));
+    R.last().push({ t: 'hint', room, k: 930001, e: 'CLICKER_START_ROUND', a: 3, c: new Date().toISOString() });
+    await until(() => fc.state.hold.has(930001), 2000);
+    failing(w, (u) => u.includes('activity-feed'), () => resp(503));
+    const before = votesIn(S, 930001).length;
+    fc.sendVote(930001, { repair: 1 });
+    await wait(1500);
+    check('Q4 an automatic repair does not post while a "maybe new round" hold is on', votesIn(S, 930001).length === before);
+    stop();
+  }
+  {
+    // a hint opened the question; the feed's own "opened" event comes, but reading the question fails once
+    const { S, R, root, fc, room, alerts, stop } = await relayClient();
+    S.addClicker(mcsa(940001, 'Flaky read'));
+    R.last().push({ t: 'hint', room, k: 940001, e: 'CLICKER_OPEN', a: 4, c: new Date().toISOString() });
+    await until(() => fc.ui.id === 940001 && root.querySelector('.opt[data-id="940001"]'));
+    root.querySelector('.opt[data-id="940001"][data-e="3"]').click();               // chosen, not sent yet
+    S.failDetail.set(940001, 1);
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 940001, courseTitle: { de: 'Analysis I' } });
+    await until(() => S.failDetail.get(940001) === 0, 2000);
+    await wait(800);
+    check('Q5 a failed read while confirming the same opening does not turn it into a second round',
+      fc.state.clickers.get(940001).gen === 0 && !!root.querySelector('.opt.sel[data-id="940001"][data-e="3"]') && alerts.filter((x) => x === 940001).length === 1,
+      `gen ${fc.state.clickers.get(940001).gen}, alerts ${alerts.filter((x) => x === 940001).length}`);
+    stop();
+  }
+  {
+    // feed errors while the relay keeps sending roster updates: checking resumes anyway
+    const { S, R, w, room, stop } = await relayClient({ settings: { cadenceMs: 300 } });
+    const at = []; const real = w.fetch; let down = true;
+    w.fetch = async (url, opts) => {
+      if (String(url).includes('activity-feed')) { at.push(Date.now()); if (down) return resp(503); }
+      return real(url, opts);
+    };
+    const spam = setInterval(() => R.last() && R.last().push({ t: 'roster', room, n: 3, slot: Math.floor(Math.random() * 3), m: 3, every: 100, now: Date.now() }), 37);
+    await wait(700); down = false;
+    const t1 = Date.now(); await wait(2000);
+    clearInterval(spam);
+    const after = at.filter((t) => t > t1).length;
+    check('Q6 relay messages cannot keep postponing the feed check after an error', after >= 2, `${after} checks in 2 s after the errors stopped`);
+    stop();
+  }
+  {
+    // ETH asks for a pause (Retry-After, as seconds on the feed, as a date on a question): everything waits
+    const { S, R, w, root, room, stop } = await relayClient({ settings: { cadenceMs: 200 } });
+    S.addClicker(mcsa(950001, 'Paused')); S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 950001, courseTitle: { de: 'Analysis I' } });
+    await until(() => root.querySelector('.card[data-id="950001"]'), 3000);
+    const at = []; const real = w.fetch; let first = true;
+    w.fetch = async (url, opts) => {
+      const u = String(url);
+      if (u.includes('activity-feed')) { at.push(Date.now()); if (first) { first = false; return resp(429, { 'retry-after': '2' }); } }
+      return real(url, opts);
+    };
+    await until(() => !first, 2000);
+    const t429 = at[0], reads0 = S.log.filter((l) => l === 'GET clickers/950001').length;
+    R.last().push({ t: 'hint', room, k: 950001, e: 'CLICKER_START_ROUND', a: 5, c: new Date().toISOString() });
+    await wait(2600);
+    const next = at.find((t) => t > t429);
+    check('Q7 after "Retry-After: 2" on the feed, neither feed checks nor hint reads happen for 2 s',
+      !!next && next - t429 >= 1950 && S.log.filter((l) => l === 'GET clickers/950001').length === reads0,
+      `next feed after ${next ? next - t429 : 'none'} ms; reads ${reads0}→${S.log.filter((l) => l === 'GET clickers/950001').length}; log tail ${S.log.slice(-6).join(' | ')}`);
+    stop();
+  }
+  {
+    const { R, w, room, stop } = await relayClient();
+    const ctl = failing(w, (u) => /clickers\/960001(\?|$)/.test(u), () => resp(503, { 'retry-after': new Date(Date.now() + 60000).toUTCString() }));
+    R.last().push({ t: 'hint', room, k: 960001, e: 'CLICKER_OPEN', a: 6, c: new Date().toISOString() });
+    await wait(1500);
+    check('Q8 a Retry-After given as a date is honoured too', ctl.hits === 1, `${ctl.hits} requests`);
+    stop();
+  }
+  {
+    // retries count against the hint budget: at most 12 question reads a minute caused by hints
+    const { R, w, room, stop } = await relayClient();
+    const ctl = failing(w, (u) => /clickers\/97\d{4}(\?|$)/.test(u), () => resp(503));
+    for (let round = 0; round < 4; round++) {
+      for (let i = 0; i < 4; i++) R.last().push({ t: 'hint', room, k: 970000 + round * 10 + i, e: 'CLICKER_OPEN', a: 100 + round * 10 + i, c: new Date().toISOString() });
+      await wait(1800);
+    }
+    check('Q9 failing hint reads and their retries stay within 12 requests a minute', ctl.hits <= 12 && ctl.hits >= 4, `${ctl.hits} requests`);
+    stop();
+  }
+
   // ---------- D: diagnostics recorder
   {
     const S = makeServer(); let shared = null;
