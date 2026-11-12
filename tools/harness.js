@@ -17,7 +17,7 @@ function makeServer({ lectureNow = true, chaos = null } = {}) {
   const S = {
     feed: clone(feed0), clickers: new Map([[322454, clone(detail)]]), list: clone(list),
     votes: [], log: [], urls: [], auth: true,
-    failVotes: 0, voteDelay: 0, failDetail: new Map(), detailDelay: new Map(),
+    failVotes: 0, voteDelay: 0, failDetail: new Map(), detailDelay: new Map(), forbid: new Set(),
     feedInFlight: 0, feedMaxInFlight: 0, voteInFlight: new Map(), voteMaxInFlight: 0,
     lectures: lectureNow ? [{ code: '401-0261-00', title: { en: 'Analysis I' }, start: new Date(now - 30 * 60e3).toISOString(), end: new Date(now + 60 * 60e3).toISOString() }] : [],
     chaos,
@@ -77,6 +77,7 @@ function makeServer({ lectureNow = true, chaos = null } = {}) {
         const snapshot = S.clickers.has(id) ? clone(S.clickers.get(id)) : null;
         if (S.detailDelay.get(id)) await abortable(opts.signal, S.detailDelay.get(id));
         if (S.failDetail.get(id) > 0) { S.failDetail.set(id, S.failDetail.get(id) - 1); return respond(503); }
+        if (S.forbid.has(id)) return respond(403, {});
         return snapshot ? respond(200, snapshot) : respond(404);
       }
       return respond(404);

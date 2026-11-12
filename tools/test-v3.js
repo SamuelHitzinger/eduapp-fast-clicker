@@ -500,6 +500,61 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     stop();
   }
 
+  // ---------- K: peek the next id (#3) — measure whether a direct poll beats the feed, read-only, own course
+  const courseBase = (S) => Math.max(...S.list.byCourse.filter((c) => c.code === '401-0261-00').flatMap((c) => c.clickers.map((x) => x.id)));
+  const logOf = (fc, y) => fc.rec.log.filter((e) => e.y === y);
+  {
+    const S = makeServer();
+    const { root, fc, stop } = boot(S, { hooks: { timeScale: 0.02 }, settings: { record: true, peekNext: true, peekEveryMs: 30 } });
+    await fc.fullScan();                                   // so the client knows this course's highest id
+    const base = courseBase(S);
+    S.addClicker(mcsa(base + 1, 'Peeked open'));           // opens, but NOT announced through the feed
+    S.forbid.add(base + 2);                                // an id ETH will not show this student
+    // base + 3 is unknown -> 404
+    const detected = await until(() => logOf(fc, 'P').some((e) => e.id === base + 1), 3000);
+    await wait(200);
+    const peeks = logOf(fc, 'p');
+    const byOff = (o, pred) => peeks.some((e) => e.off === o && pred(e));
+    check('K1 a direct poll of the next id notices the open question with no feed event', detected && logOf(fc, 'P').some((e) => e.id === base + 1 && e.off === 1));
+    check('K2 the recording captures what each un-announced id returns (open / forbidden / not found)',
+      byOff(1, (e) => e.s === 200 && e.st === 'OPEN') && byOff(2, (e) => e.s === 403) && byOff(3, (e) => e.s === 404),
+      JSON.stringify(peeks.map((e) => [e.off, e.s, e.st])));
+    check('K3 by default it only measures: the question is not put on screen, and nothing is ever voted', !root.querySelector(`.card[data-id="${base + 1}"]`) && fc.ui.id !== base + 1 && S.votes.length === 0);
+    const allowed = new Set(['t', 'y', 'off', 's', 'st', 'q', 'pv', 'ans']);
+    check('K4 the peek records hold ids and counts only — no question text or chosen answer',
+      peeks.length > 0 && peeks.every((e) => Object.keys(e).every((k) => allowed.has(k)) && (e.st === null || typeof e.st === 'string')) && !/question|individualAnswer|2\+2|selectedAnswer/.test(JSON.stringify(fc.rec.log)));
+    // it stays bounded: only a few ids above the base, only the current course
+    check('K5 it probes only a small window in the current lecture\'s course', S.log.filter((l) => /^GET clickers\/\d+$/.test(l) && Number(l.split('/')[1]) > base).every((l) => Number(l.split('/')[1]) <= base + 3));
+    stop();
+  }
+  {
+    // the prototype: with peekAct on, a question found by the id-poll is actually shown (still never voted)
+    const S = makeServer(); const alerts = [];
+    const { root, fc, stop } = boot(S, { hooks: { timeScale: 0.02, onAlert: (q) => alerts.push(q.id), nativeAlerts: true }, settings: { record: true, peekNext: true, peekAct: true, peekEveryMs: 30 } });
+    await fc.fullScan();
+    const base = courseBase(S);
+    S.addClicker(mcsa(base + 1, 'Peeked and shown'));
+    const shown = await until(() => root.querySelector(`.card[data-id="${base + 1}"]`), 3000);
+    check('K6 prototype: with peekAct on, an id-poll detection shows the question (via the hint path) and alerts once',
+      shown && fc.ui.id === base + 1 && alerts.filter((x) => x === base + 1).length === 1 && logOf(fc, 'e').some((e) => e.id === base + 1 && e.via === 'peek'));
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: base + 1, courseTitle: { de: 'Analysis I' } });   // the feed catches up
+    await wait(400);
+    check('K7 the feed event for the same opening does not alert again or start a new round', alerts.filter((x) => x === base + 1).length === 1 && fc.state.clickers.get(base + 1).gen === 0);
+    check('K8 still nothing is voted automatically', S.votes.length === 0);
+    stop();
+  }
+  {
+    // switched off, it makes no candidate requests at all
+    const S = makeServer();
+    const { fc, stop } = boot(S, { hooks: { timeScale: 0.02 }, settings: { record: true, peekNext: false, peekEveryMs: 30 } });
+    await fc.fullScan();
+    const base = courseBase(S);
+    S.addClicker(mcsa(base + 1, 'Not peeked'));
+    await wait(600);
+    check('K9 with the experiment off, no ids above the known ones are requested', !S.log.some((l) => /^GET clickers\/\d+$/.test(l) && Number(l.split('/')[1]) > base) && logOf(fc, 'p').length === 0);
+    stop();
+  }
+
   // ---------- D: diagnostics recorder
   {
     const S = makeServer(); let shared = null;

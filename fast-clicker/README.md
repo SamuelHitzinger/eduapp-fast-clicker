@@ -45,7 +45,18 @@ Fast Clicker:
 - **A new round cannot be detected with certainty.** ETH's vote request carries no round number. The client stops sending as soon as it sees a round change (from the feed or a hint), but a retry that was already on its way can still land in the next round. After a connection gap it asks you to check your answer.
 - **`OPEN` does not mean "accepting answers".** A stopped round still reports `OPEN`; the page shows "paused".
 - **No vote has been sent to the real server by us.** The request format is copied from EduApp's own code; its speed is unmeasured.
-- **The floor for detection is the feed's own 1.4 s** unless a faster signal turns up in the recordings.
+- **The floor for detection is the feed's own 1.4 s** unless a faster signal turns up in the recordings (see the next section).
+
+## Beating the feed: the "peek next id" experiment (#3)
+
+Within one lecture the next question's id is almost always the previous one **+ 1** (e.g. 322453 → 322454; measured across a semester of one course). So while recording during a lecture, the client reads a few ids just above the highest question it has seen in the current lecture's course (default the next 3, at most once every 8 s, one small request each). If a direct poll finds one `OPEN`, that would be detection without the ~1.4 s feed and without the feed at all under load.
+
+This is an **experiment and a measurement**, on by default while recording (so it runs on the iPhone app's first measurement lecture with no action needed):
+
+- It is read-only, bounded, and only touches the student's **own enrolled course**. It never votes.
+- By default (`peekAct` off) it does **not** put anything on screen. It records what each un-announced id returns (open, forbidden, not found) and, when one turns out open, logs that a direct poll found it — so afterwards we can compare that time against the feed's event for the same question and see whether, and by how much, the poll wins. The recording holds ids and counts only, no question text or answers.
+- `peekAct` (off by default, a tested prototype) would actually surface a question the poll found, through the same path as a relay hint. It stays off until the measurement shows an un-opened id returns something safe and distinguishable.
+- Caveat, flagged honestly: these ids have not been "announced" to the student through the feed yet, and a question never opened is not in the list, so this guesses the id rather than being handed it. It is the student's own course material, read-only; the measurement is to decide whether building on it is worthwhile.
 
 ## The relay
 
@@ -62,7 +73,7 @@ The address goes into `relay/relay-url.txt`; `node tools/build.js` puts it into 
 
 - `tools/test-mock.js`: 48 functional and regression checks: detection, vote format, retries, round changes, out-of-order and stale responses, login expiry and silent renewal, offline queueing, focus mode, verification with repair, question content.
 - `tools/test-tabs.js`: 9 checks: one poller across tabs, failover, serialized answers across tabs, login in every tab.
-- `tools/test-v3.js`: 65 checks: the list and question pages, auto-opening without interrupting an answer, shared detection against a fake relay (slots, hints both ways, de-duplication, junk and foreign hints, relay down, reconnect), what a hostile relay cannot do (hide or fake a round change, push an old answer into a new round, flood ETH, override spacing or ETH's Retry-After), an overloaded EduApp (answers slower than the time limit, many failures in a row, no cached answers), keyboard shortcuts, list freshness, the recorder.
+- `tools/test-v3.js`: 74 checks: the list and question pages, auto-opening without interrupting an answer, shared detection against a fake relay (slots, hints both ways, de-duplication, junk and foreign hints, relay down, reconnect), what a hostile relay cannot do (hide or fake a round change, push an old answer into a new round, flood ETH, override spacing or ETH's Retry-After), an overloaded EduApp (answers slower than the time limit, many failures in a row, no cached answers), keyboard shortcuts, list freshness, the "peek next id" experiment and its prototype, the recorder.
 - `tools/test-relay-e2e.js`: real clients against the real relay on a local port: two and three phones sharing, a question found by one reaching the others, joining late, the relay going away.
 - `tools/test-chaos.js`: simulated terrible Wi-Fi (12% of requests hang, 8% fail, 10% get 503, 25% of vote replies lost after the server applied them), plus a login expiry, a changed mind mid-send and a round restart. Pass criterion: the server ends with exactly the student's latest answer, confirmed, with no overlapping polls and no parallel votes.
 - `tools/test-bookmarklet.js`, `tools/verify-site.js`: the built bookmark and the pinned file.

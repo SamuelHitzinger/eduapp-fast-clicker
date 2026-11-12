@@ -17,7 +17,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: ch.students.fastclicker
         PRODUCT_NAME: FastClicker
         MARKETING_VERSION: "3.0.0"
-        CURRENT_PROJECT_VERSION: "6"
+        CURRENT_PROJECT_VERSION: "7"
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_VERSION: "5.0"

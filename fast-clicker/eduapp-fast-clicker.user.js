@@ -68,8 +68,13 @@
     shareMinMs: 500, shareMaxMs: 180000,  // sharing: a client's own check is never further apart than shareMaxMs
     soloStepMs: 1000, soloMaxMs: 30000,   // relay unreachable: check alone every (students last seen sharing) x step, at most max
     record: false, recordUntil: 0,
+    // Experiment (#3): while recording during a lecture, read the next question ids in your own course, to measure
+    // whether a direct poll notices a new question faster than the ~1.4 s activity feed, and to learn what an
+    // id that has not been announced to you yet returns. Read-only, your own course, bounded. peekAct (off) is the
+    // prototype that would actually act on it; it stays off until the measurement says it is safe.
+    peekNext: true, peekWindow: 3, peekEveryMs: 8000, peekAct: false,
   }, JSON.parse(localStorage.getItem(LS_KEY) || '{}'));
-  const saveCfg = () => { try { localStorage.setItem(LS_KEY, JSON.stringify({ oneTap: CFG.oneTap, turbo: CFG.turbo, sound: CFG.sound, keepAwake: CFG.keepAwake, groupBy: CFG.groupBy, theme: CFG.theme, expanded: CFG.expanded, autoOpen: CFG.autoOpen, record: CFG.record, recordUntil: CFG.recordUntil })); } catch {} };
+  const saveCfg = () => { try { localStorage.setItem(LS_KEY, JSON.stringify({ oneTap: CFG.oneTap, turbo: CFG.turbo, sound: CFG.sound, keepAwake: CFG.keepAwake, groupBy: CFG.groupBy, theme: CFG.theme, expanded: CFG.expanded, autoOpen: CFG.autoOpen, record: CFG.record, recordUntil: CFG.recordUntil, peekNext: CFG.peekNext, peekAct: CFG.peekAct })); } catch {} };
   const hooks = window.__FC_HOOKS || {}; // test seams and the native app's bridge
   const TS = hooks.timeScale || 1;
   // Recording stops by itself after a few days. The iPhone app switches it on once (a first measurement run).
@@ -344,6 +349,7 @@
       if (state.evTurn.get(id) !== turn) return;                 // a newer event for this question took over meanwhile
       if (meta.type !== 'GAP') c.hintOpenAt = 0;                 // handled: from now on the feed alone speaks for this question
       if (meta.courseTitle) c.courseTitle = meta.courseTitle;
+      if (meta.courseCode) c.courseCode = meta.courseCode;
       if (meta.type !== 'GAP') c.lastEventAt = meta.createdAt ? Math.min(Date.now(), Date.parse(meta.createdAt) || Date.now()) : Date.now();
       if (meta.type === 'CLICKER_STOP_ROUND') c.roundStopped = true;
       else if (meta.type !== 'CLICKER_CLOSE' && meta.type !== 'GAP') c.roundStopped = false;
@@ -760,7 +766,77 @@
           if (recChanged('c' + c.id, snap)) recAdd('c', { id: c.id, snap });
         } catch {}
       }
+      await peekProbe();
     } finally { rec.busy = false; }
+  }
+
+  // ---------------------------------------------------------------- peek: does polling the next id beat the feed? (#3)
+  // During a lecture, read a few ids just above the highest question already seen in the current lecture's course.
+  // Within one lecture the next question's id is almost always the previous one + 1, so this can catch a question
+  // the instant it opens, without the ~1.4 s feed. It is an EXPERIMENT and a MEASUREMENT: by default it only records
+  // what each id returns and, when one turns out OPEN, logs that a direct poll found it (compare its time to the feed
+  // event for the same id in the recording). It never votes and, unless CFG.peekAct is on, never changes the screen.
+  const peek = { seenOpen: new Set(), last: 0, n: 0 };
+  function peekBaseFor(code) {
+    let base = 0;
+    for (const co of (state.list && state.list.byCourse) || []) if (co.code === code) for (const x of co.clickers || []) if (x.id > base) base = x.id;
+    for (const c of state.clickers.values()) if (c.id > base && c.courseCode === code) base = c.id;   // a question opened this lecture
+    return base;
+  }
+  async function peekProbe() {
+    if (!CFG.record || !CFG.peekNext) return;
+    const now = Date.now();
+    if (now - peek.last < CFG.peekEveryMs * TS) return;
+    const lects = currentLectures().slice(0, 2);
+    if (!lects.length) return;
+    peek.last = now;
+    const started = now;
+    for (const lec of lects) {
+      if (!lec.code) continue;
+      const base = peekBaseFor(lec.code);
+      if (!base) continue;                                       // no id known for this course yet (list not loaded)
+      for (let off = 1; off <= CFG.peekWindow; off++) {
+        const id = base + off;
+        if (peek.seenOpen.has(id)) continue;
+        const known = state.clickers.get(id);
+        if (known && known.state === 'OPEN') { peek.seenOpen.add(id); continue; }   // already have it via the feed/relay
+        let status = 0, st = null, q = 0, pv = 0, ans = 0;
+        try {
+          const d = await req(`clickers/${id}`, { kind: 'probe', priority: 'low' });
+          status = 200; st = d.state || null; q = (d.question || '').length ? 1 : 0; pv = d.preview ? 1 : 0;
+          ans = d.answerState && d.answerState !== 'UNANSWERED' ? 1 : 0;
+          if (st === 'OPEN' && lec.code) d.courseCode = lec.code;
+        } catch (e) {
+          if (e instanceof AuthError) return;
+          status = (e instanceof HttpError) ? e.status : (e instanceof NetError) ? -1 : 0;
+        }
+        if (recChanged('peek' + id, [status, st, q, pv, ans])) recAdd('p', { off, s: status, st, q, pv, ans });
+        if (status === 200 && st === 'OPEN') {
+          peek.seenOpen.add(id);
+          recAdd('P', { id, base, off });                        // a direct poll found it OPEN — this is the measurement
+          if (CFG.peekAct) await peekAct(id, lec);               // prototype: actually show it (off by default)
+        }
+        if (Date.now() - started > 1500) return;                 // never let one sweep run long
+      }
+    }
+  }
+  // Prototype (off by default): surface a question that the id-poll found OPEN, through the same path as a relay hint.
+  async function peekAct(id, lec) {
+    try {
+      const before = state.clickers.get(id);
+      if (before && before.state === 'OPEN') return;
+      const { detail: c, applied } = await fetchClicker(id);
+      if (!applied || c.state !== 'OPEN') return;
+      if (before) { c.gen = (c.gen || 0) + 1; resetRound(id); }
+      if (lec) { c.courseCode = lec.code; if (!c.courseTitle) c.courseTitle = tr(lec.title); }
+      c.lastEventAt = Date.now(); c.roundStopped = false; c.hintOpenAt = serverNow();
+      recAdd('e', { id, e: 'OPEN', via: 'peek', state: c.state, alert: 1 });
+      state.dismissed.delete(id);
+      patchList(c, true);
+      notify(c, true);
+      publish(c, true);
+      render();
+    } catch {}
   }
   function exportRecording() {
     recSave();
@@ -1662,6 +1738,7 @@
       </div>
       <h3>Diagnostics</h3><div class="row2" style="margin:0">
         ${chip('record', CFG.record, 'Record timing', 'Keeps a timeline of requests on this device, to measure how fast questions arrive. Stops by itself after 4 days.')}
+        ${CFG.record ? chip('peek', CFG.peekNext, 'Peek next id', 'Experiment: during a lecture, read the next question ids in your own course to measure whether that is faster than the feed. Read-only.') : ''}
         ${CFG.record || rec.log.length ? chip('share', false, `Export (${rec.log.length})`) + chip('recclear', false, 'Clear') : ''}
       </div>
       <div class="foot">${share ? share + '<br>' : ''}v${VERSION} · unofficial · reads questions and sends your answers only to eduapp.ethz.ch${relayUrl ? '; the sharing service only learns that a question changed' : ''}.</div>
@@ -1772,6 +1849,7 @@
       case 'focus': ui.menu = false; show('focus'); return;
       case 'exit': location.href = '/'; return;
       case 'record': CFG.record = !CFG.record; CFG.recordUntil = CFG.record ? Date.now() + REC_DAYS_MS : 0; saveCfg(); if (CFG.record) recAdd('s', { ev: 'start', v: VERSION }); recSave(); break;
+      case 'peek': CFG.peekNext = !CFG.peekNext; saveCfg(); break;
       case 'mark': recAdd('m', {}); rec.marked = Date.now(); recSave(); setTimeout(render, 4100); break;
       case 'share': exportRecording(); break;
       case 'recclear': rec.log = []; rec.last.clear(); rec.dirty = true; recSave(); break;
