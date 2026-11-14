@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         EduApp Fast Clicker
 // @namespace    https://eduapp.ethz.ch/
-// @version      3.0.0
+// @version      3.0.1
 // @description  Shows opened ETH EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi.
 // @match        https://eduapp.ethz.ch/*
 // @run-at       document-idle
@@ -37,7 +37,7 @@
 //   * optional diagnostics recorder (off by default; stays on this device until you export it).
 (() => {
   'use strict';
-  const VERSION = '3.0.0';
+  const VERSION = '3.0.1';
   const RELAY_URL = '';     // wss://… of the hint relay; empty = every client checks the feed itself (set by tools/build.js)
   const MODE = window.__FC_MODE === 'focus' ? 'focus' : 'panel';
   if (window.__fastClicker) { window.__fastClicker.show(MODE); return; }
@@ -62,6 +62,8 @@
     openFastMin: 30,          // an open clicker keeps fast polling for at most this long after its last event
     voteDeadlineMs: 120000,   // keep trying to deliver an answer this long
     feedSmall: 8, feedLarge: 60,
+    catchUpMax: 25,           // at start, read at most this many questions that closed while the app was off
+    catchUpRecentH: 12,       // …and with no saved list yet, only those of the last 12 hours
     scanIfFeedSpanH: 6,       // skip the 1.1 MB list at start-up if the 25 newest events reach back this far
     oneTap: false, turbo: false, sound: true, keepAwake: true,
     groupBy: 'date', theme: 'auto', expanded: {}, autoOpen: true,
@@ -384,6 +386,7 @@
       const oldest = feed.length ? Date.parse(feed[feed.length - 1].createdAt) : 0;
       state.feedSpanOk = feed.length < n || (oldest && Date.now() - oldest > CFG.scanIfFeedSpanH * 3600e3);
       if (state.feedSpanOk) state.scanDone = true;                   // the feed already covers everything recent
+      state.feedReachAt = feed.length >= n && oldest ? oldest : 0;   // the feed only reaches back to here (0 = everything)
     }
     if (recChanged('feed', feed.slice(0, 3).map((a) => a.id))) recAdd('f', { n: feed.length, top: feed.slice(0, 4).map((a) => [a.id, a.type, a.objectId, a.createdAt]) });
     const byClicker = new Map();
@@ -405,9 +408,19 @@
       if (c.state === 'OPEN' && !byClicker.has(c.id)) byClicker.set(c.id, { latest: { type: 'GAP', activityId: `gap-${state.gapCount}-${c.id}` }, ids: [] });
     }
     let authErr = null;
+    // Catch-up at start: questions that opened and closed while the app was not running are read once (small requests)
+    // and filed in the list, unless the saved list already has them as closed. Beyond the cap the list download does it.
+    let catchUp = 0;
+    const listClosed = (id) => !state.list.partial && (state.listIndex.get(id) || []).some((h) => h.item.state === 'CLOSED');
     await Promise.all([...byClicker].map(async ([id, g]) => {
       const ack = () => g.ids.forEach((x) => state.seenActivities.add(x));
-      if (initial && g.latest.type === 'CLICKER_CLOSE' && !state.clickers.has(id)) { ack(); return; }
+      if (initial && g.latest.type === 'CLICKER_CLOSE' && !state.clickers.has(id)) {
+        if (listClosed(id)) { ack(); return; }
+        // No saved list yet: outside lectures the list download right after this covers everything in one go; during a
+        // lecture only today's questions are read one by one, the rest comes with the list after the lecture.
+        const recent = Date.now() - (Date.parse(g.latest.createdAt) || 0) < CFG.catchUpRecentH * 3600e3;
+        if ((state.list.partial && (!fastMode() || !recent)) || ++catchUp > CFG.catchUpMax) { ack(); state.scanDone = false; return; }
+      }
       try {
         await processClickerEvent(id, g.latest, initial);
         ack();                                                  // acknowledge only after success
@@ -501,7 +514,8 @@
   let listCacheTried = false;
   async function autoLoadList() {                               // after a successful feed check
     if (!listCacheTried) { listCacheTried = true; await loadListCache(); }
-    const stale = !state.scanDone || state.list.partial || Date.now() - (state.list.fetchedAt || 0) > 12 * 3600e3;
+    const stale = !state.scanDone || state.list.partial || Date.now() - (state.list.fetchedAt || 0) > 12 * 3600e3
+      || (state.list.fetchedAt || 0) < (state.feedReachAt || 0);   // the saved list is older than what the feed still shows
     // never during a lecture (1.4 MB); after a failure not again for 5 minutes
     if (stale && !fastMode() && !state.scanning && Date.now() - (state.listErrorAt || 0) > 5 * 60e3) startScan();
   }
@@ -862,6 +876,7 @@
       if (state.authLost) { await tryRelogin(); if (state.authLost) return; }
       if (!state.semkez) state.semkez = (await req('semesters/current')).semkez;
       if (Date.now() - state.lecturesFetchedAt > 10 * 60e3) await loadLectures();
+      if (!listCacheTried) { listCacheTried = true; await loadListCache(); }   // before the first feed check, so catch-up knows what is saved
       state.lastError = null;
       await pollFeed(!state.feedPrimed);           // first own poll (also after taking over from another tab)
       state.feedPrimed = true;

@@ -89,13 +89,23 @@ function makeServer({ lectureNow = true, chaos = null } = {}) {
   return S;
 }
 
-function boot(S, { settings = {}, hooks = {}, mode, url = 'https://eduapp.ethz.ch/clickers', locks, BroadcastChannel } = {}) {
+// A Cache Storage stand-in that survives from one boot to the next (the app being closed and opened again).
+function fakeCaches() {
+  const store = new Map();
+  return { store, open: async () => ({
+    put: async (k, r) => { store.set(String(k), await r.text()); },
+    match: async (k) => (store.has(String(k)) ? { json: async () => JSON.parse(store.get(String(k))) } : undefined),
+  }) };
+}
+
+function boot(S, { settings = {}, hooks = {}, mode, url = 'https://eduapp.ethz.ch/clickers', locks, BroadcastChannel, caches } = {}) {
   const dom = new JSDOM('<!doctype html><head></head><body><div id="app"></div></body>', { url, runScripts: 'outside-only', pretendToBeVisual: true });
   const w = dom.window;
   w.fetch = S.fetch; w.alert = () => {}; w.confirm = () => false;
   w.AbortController = AbortController;
   if (locks) Object.defineProperty(w.navigator, 'locks', { value: locks, configurable: true });
   if (BroadcastChannel) w.BroadcastChannel = BroadcastChannel;
+  if (caches) { w.caches = caches; w.Response = Response; }
   w.localStorage.setItem('fast-clicker-settings', JSON.stringify({ cadenceMs: 120, hiddenCadenceMs: 120, idleCadenceMs: 120, maxBackoffMs: 300, authCadenceMs: 150, loginCadenceMs: 150, silentEveryMs: 300, ...settings }));
   w.__FC_HOOKS = hooks;
   if (mode) w.__FC_MODE = mode;
@@ -113,4 +123,4 @@ function boot(S, { settings = {}, hooks = {}, mode, url = 'https://eduapp.ethz.c
 const mcsa = (id, title = 'Q') => ({ id, type: 'MCSA', state: 'OPEN', title, question: '<p>2+2?</p>', answerState: 'UNANSWERED', entries: [{ id: 1, answer: '3', selected: false }, { id: 2, answer: '4', selected: false }, { id: 3, answer: '5', selected: false }], showResults: false, preview: false });
 const st = (root, id) => root.querySelector(`.card[data-id="${id}"] .st`)?.textContent || '';
 
-module.exports = { makeServer, boot, mcsa, st, until, wait, clone, detail, script };
+module.exports = { makeServer, boot, fakeCaches, mcsa, st, until, wait, clone, detail, script };

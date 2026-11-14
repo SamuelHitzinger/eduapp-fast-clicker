@@ -1,6 +1,6 @@
 // v3 tests: EduApp-style list and question pages, shared discovery through the relay, diagnostics recorder.
 // Mock server + jsdom, a fake WebSocket instead of the relay. Run: node tools/test-v3.js
-const { makeServer, boot, mcsa, st, until, wait } = require('./harness');
+const { makeServer, boot, fakeCaches, mcsa, st, until, wait } = require('./harness');
 const results = [];
 const check = (name, cond, extra = '') => results.push(`${cond ? 'PASS' : 'FAIL'}  ${name}${extra ? '  — ' + extra : ''}`);
 
@@ -498,6 +498,60 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     check('O3 every request is unique (so no cache, including EduApp\'s service worker, can answer it with old data)',
       gets.length > 3 && gets.every((u) => /[?&]_fc=/.test(u)) && new Set(gets).size === gets.length);
     stop();
+  }
+
+  // ---------- M: questions that ran while the app was closed
+  {
+    const listKey = '/__fast-clicker/list-' ;
+    const saved = (S, ageMs) => { const C = fakeCaches(); C.store.set(listKey + '2026W', JSON.stringify({ ...JSON.parse(JSON.stringify(S.list)), fetchedAt: Date.now() - ageMs })); return C; };
+    const missed = (S, id, title) => {
+      S.addClicker({ ...closedWithResults(id), title });
+      S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: id, courseTitle: { de: 'Analysis I' } });
+      S.push({ objectType: 'CLICKER', type: 'CLICKER_CLOSE', objectId: id, courseTitle: { de: 'Analysis I' } });
+    };
+    const reads = (S, id) => S.log.filter((l) => l === `GET clickers/${id}`).length;
+    {
+      // during a lecture: the saved list is shown, and the question that opened and closed meanwhile is added to it
+      const S = makeServer(); const C = saved(S, 3600e3); const alerts = [];
+      missed(S, 820001, 'Missed while closed');
+      const { root, fc, stop } = boot(S, { caches: C, hooks: { onAlert: (q) => alerts.push(q.id), nativeAlerts: true } });
+      const shown = await until(() => root.querySelector('.row[data-id="820001"]'));
+      await wait(300);
+      check('M1 a question that opened and closed while the app was closed appears in the list on the next start', shown && !fc.state.list.partial
+        && root.querySelector('.row[data-id="820001"]').closest('.co').querySelector('.ct').textContent.includes('Analysis I'));
+      check('M2 it is read once, not announced as new, and the semester list is not downloaded during the lecture',
+        reads(S, 820001) === 1 && !alerts.includes(820001) && fc.ui.id !== 820001 && !S.log.some((l) => l.startsWith('GET clickers?')));
+      check('M3 questions the saved list already has as closed are not read again', reads(S, 322453) === 0 && reads(S, 322458) === 0);
+      root.querySelector('.row[data-id="820001"]').click();
+      check('M4 its page shows the result', await until(() => root.querySelector('.card.closed[data-id="820001"] .fill')));
+      stop();
+    }
+    {
+      // very first start, no saved list, during a lecture: today's missed question is still added (older ones wait for the list)
+      const S = makeServer(); missed(S, 820002, 'Missed, first start');
+      const { root, stop } = boot(S, { caches: fakeCaches() });
+      check('M7 with no saved list yet, a question from earlier today still shows up, without the semester download',
+        await until(() => root.querySelector('.row[data-id="820002"]')) && reads(S, 322453) === 0 && !S.log.some((l) => l.startsWith('GET clickers?')));
+      stop();
+    }
+    {
+      // the app was closed so long that the feed no longer reaches back to the saved list: outside lectures the list is reloaded
+      const S = makeServer({ lectureNow: false }); const C = saved(S, 3 * 3600e3);
+      for (let i = 0; i < 70; i++) S.push({ objectType: 'DOCUMENT', type: 'DOCUMENT_NEW', objectId: 1 });
+      const { stop } = boot(S, { caches: C, settings: { feedLarge: 60 } });
+      check('M5 a saved list older than what the feed still shows is downloaded again outside lectures', await until(() => S.log.some((l) => l.startsWith('GET clickers?'))));
+      stop();
+    }
+    {
+      // the same during a lecture: no 1.4 MB download, the saved list stays
+      const S = makeServer(); const C = saved(S, 3 * 3600e3);
+      for (let i = 0; i < 70; i++) S.push({ objectType: 'DOCUMENT', type: 'DOCUMENT_NEW', objectId: 1 });
+      const { root, fc, stop } = boot(S, { caches: C, settings: { feedLarge: 60 } });
+      await until(() => root.querySelectorAll('.row').length > 50);
+      await wait(400);
+      check('M6 …but never during a lecture', !S.log.some((l) => l.startsWith('GET clickers?')) && !fc.state.list.partial);
+      stop();
+    }
   }
 
   // ---------- K: peek the next id (#3) — measure whether a direct poll beats the feed, read-only, own course
