@@ -559,7 +559,7 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
   const logOf = (fc, y) => fc.rec.log.filter((e) => e.y === y);
   {
     const S = makeServer();
-    const { root, fc, stop } = boot(S, { hooks: { timeScale: 0.02 }, settings: { record: true, peekNext: true, peekEveryMs: 30 } });
+    const { root, fc, stop } = boot(S, { hooks: { timeScale: 0.02 }, settings: { record: true, peekNext: true, peekEveryMs: 30, peekWindow: 3 } });
     await fc.fullScan();                                   // so the client knows this course's highest id
     const base = courseBase(S);
     S.addClicker(mcsa(base + 1, 'Peeked open'));           // opens, but NOT announced through the feed
@@ -617,7 +617,6 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     S.addClicker(mcsa(840001)); S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 840001 });
     await until(() => root.querySelector('.card[data-id="840001"]'));
     await wait(500);
-    root.querySelector('[data-a="mark"]').click();
     root.querySelector('.opt[data-id="840001"][data-e="2"]').click();
     root.querySelector('.send[data-id="840001"]').click();
     await until(() => /Confirmed/.test(st(root, 840001)));
@@ -625,7 +624,12 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     root.querySelector('[data-a="share"]').click();
     const out = shared && JSON.parse(shared.text);
     const types = out ? new Set(out.log.map((x) => x.y)) : new Set();
-    check('D1 the recording has request timings, feed changes, events, alerts and the mark', !!out && ['r', 'f', 'e', 'a', 'm'].every((y) => types.has(y)), [...types].join());
+    check('D1 the recording has request timings, feed changes, events and alerts', !!out && ['r', 'f', 'e', 'a'].every((y) => types.has(y)), [...types].join());
+    const uis = out ? out.log.filter((x) => x.y === 'u' && x.id === 840001).map((x) => x.ev) : [];
+    check('D10 it records when a question came on screen, the first tap on an option and the send (not which option)',
+      uis.join() === 'show,pick,send' && out.log.filter((x) => x.y === 'u').every((x) => !('e' in x) && !('answer' in x)), uis.join());
+    const boot0 = out && out.log.find((x) => x.y === 's' && x.ev === 'boot');
+    check('D11 it records each start with the version and whether the app was on screen', !!boot0 && boot0.v === fc.version && boot0.h === 0);
     check('D2 it also watched the timetable flags and the open question itself', types.has('g') && types.has('c') && S.log.filter((l) => l.startsWith('GET dashboard/upcoming-lectures')).length > 2);
     const vote = out && out.log.find((x) => x.y === 'r' && x.k === 'vote');
     check('D3 the vote is timed, but neither the answer nor any question text is recorded', !!vote && vote.s === 200 && typeof vote.ms === 'number' && !/selectedAnswer|2\+2|individualAnswer/.test(shared.text));
@@ -634,7 +638,7 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     const snaps = out ? out.log.filter((x) => x.y === 'c') : [];
     check('D7 question snapshots hold counts only: not which options this student chose, not which are correct',
       snaps.length > 0 && snaps.every((x) => x.snap.length === 9 && typeof x.snap[4] === 'number' && x.snap[6].every((e) => e.length === 2)));
-    check('D8 recording stops by itself after a few days', fc.CFG.recordUntil === 0 || fc.CFG.recordUntil - Date.now() < 5 * 86400e3);
+    check('D8 recording stops by itself after two weeks', fc.CFG.recordUntil === 0 || fc.CFG.recordUntil - Date.now() <= 14 * 86400e3);
     stop();
   }
   {
@@ -648,10 +652,29 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     const store = first.w.localStorage;
     const saved = { s: store.getItem('fast-clicker-settings'), d: store.getItem('fast-clicker-rec-default') };
     first.stop();
-    const again = boot(S, { hooks: { recordDefault: true } });
-    again.w.localStorage.setItem('fast-clicker-settings', saved.s);
-    check('D9 the app turns recording on once by default; switched off, it is not turned on again', on && off && saved.d === '1');
+    const again = boot(S, { hooks: { recordDefault: true }, preset: { 'fast-clicker-settings': saved.s, 'fast-clicker-rec-default': saved.d } });
+    check('D9 the app turns recording on once by default; switched off, it is not turned on again', on && off && saved.d === '2' && !again.fc.CFG.record);
     again.stop();
+  }
+  {
+    // a new measurement run: an app whose first run (v3.0.0) has expired records again after the update, for two weeks
+    const S = makeServer();
+    const { fc, stop } = boot(S, { hooks: { recordDefault: true }, settings: { record: false, recordUntil: 0 }, preset: { 'fast-clicker-rec-default': '1' } });
+    check('D12 after the update, recording is on again for the next lectures (two weeks)', fc.CFG.record && fc.CFG.recordUntil - Date.now() > 13 * 86400e3);
+    stop();
+  }
+  {
+    // the app going to the background and coming back is recorded: it cannot check while it is not on screen
+    const S = makeServer();
+    const { w, fc, stop } = boot(S, { settings: { record: true } });
+    await until(() => fc.state.lastPollAt > 0);
+    Object.defineProperty(w.document, 'hidden', { value: true, configurable: true });
+    w.document.dispatchEvent(new w.Event('visibilitychange'));
+    Object.defineProperty(w.document, 'hidden', { value: false, configurable: true });
+    w.document.dispatchEvent(new w.Event('visibilitychange'));
+    const vs = fc.rec.log.filter((x) => x.y === 'v').map((x) => x.h);
+    check('D13 leaving and returning to the app are recorded', vs.join() === '1,0', vs.join());
+    stop();
   }
   {
     const S = makeServer();

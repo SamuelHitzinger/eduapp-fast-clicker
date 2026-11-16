@@ -10,7 +10,7 @@ const check = (name, cond, extra = '') => results.push(`${cond ? 'PASS' : 'FAIL'
     check('A1 open clicker detected at start-up', await until(() => root.querySelector('.card[data-id="322454"]')));
     check('A2 start-up does not fetch closed clickers or the 1 MB list', !S.log.some((l) => /clickers\/3224(53|57|58)$/.test(l) || l.startsWith('GET clickers?')), S.log.filter((l) => l.startsWith('GET clickers')).join(', '));
     check('A3 start-up STOP_ROUND shown as stopped round', /stopped this round/.test(root.querySelector('.card[data-id="322454"]').textContent));
-    check('A4 live mode during lecture', /live/.test(root.getElementById('stat').textContent), root.getElementById('stat').textContent);
+    check('A4 live mode during lecture', /live/i.test(root.getElementById('stat').textContent), root.getElementById('stat').textContent);
     S.failVotes = 1;
     const e = detail.entries;
     root.querySelector(`.opt[data-e="${e[0].id}"]`).click();
@@ -189,7 +189,7 @@ const check = (name, cond, extra = '') => results.push(`${cond ? 'PASS' : 'FAIL'
     const { root, stop } = boot(S, { settings: { idleCadenceMs: 60000 } });
     await until(() => root.querySelector('.card[data-id="460001"]'));
     await wait(300);
-    check('B8 stale open clicker → standby polling outside lectures', /standby/.test(root.getElementById('stat').textContent), root.getElementById('stat').textContent);
+    check('B8 stale open clicker → standby polling outside lectures', /standby/i.test(root.getElementById('stat').textContent), root.getElementById('stat').textContent);
     stop();
   }
   // ---------- R1: a slow download requested before a new round must not carry the old round's answer over

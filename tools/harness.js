@@ -98,7 +98,7 @@ function fakeCaches() {
   }) };
 }
 
-function boot(S, { settings = {}, hooks = {}, mode, url = 'https://eduapp.ethz.ch/clickers', locks, BroadcastChannel, caches } = {}) {
+function boot(S, { settings = {}, hooks = {}, mode, url = 'https://eduapp.ethz.ch/clickers', locks, BroadcastChannel, caches, preset = {} } = {}) {
   const dom = new JSDOM('<!doctype html><head></head><body><div id="app"></div></body>', { url, runScripts: 'outside-only', pretendToBeVisual: true });
   const w = dom.window;
   w.fetch = S.fetch; w.alert = () => {}; w.confirm = () => false;
@@ -107,6 +107,7 @@ function boot(S, { settings = {}, hooks = {}, mode, url = 'https://eduapp.ethz.c
   if (BroadcastChannel) w.BroadcastChannel = BroadcastChannel;
   if (caches) { w.caches = caches; w.Response = Response; }
   w.localStorage.setItem('fast-clicker-settings', JSON.stringify({ cadenceMs: 120, hiddenCadenceMs: 120, idleCadenceMs: 120, maxBackoffMs: 300, authCadenceMs: 150, loginCadenceMs: 150, silentEveryMs: 300, ...settings }));
+  for (const [k, v] of Object.entries(preset)) w.localStorage.setItem(k, v);
   w.__FC_HOOKS = hooks;
   if (mode) w.__FC_MODE = mode;
   w.eval(script);

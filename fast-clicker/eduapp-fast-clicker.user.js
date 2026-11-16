@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         EduApp Fast Clicker
 // @namespace    https://eduapp.ethz.ch/
-// @version      3.0.1
+// @version      3.1.0
 // @description  Shows opened ETH EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi.
 // @match        https://eduapp.ethz.ch/*
 // @run-at       document-idle
@@ -37,7 +37,7 @@
 //   * optional diagnostics recorder (off by default; stays on this device until you export it).
 (() => {
   'use strict';
-  const VERSION = '3.0.1';
+  const VERSION = '3.1.0';
   const RELAY_URL = '';     // wss://… of the hint relay; empty = every client checks the feed itself (set by tools/build.js)
   const MODE = window.__FC_MODE === 'focus' ? 'focus' : 'panel';
   if (window.__fastClicker) { window.__fastClicker.show(MODE); return; }
@@ -74,16 +74,17 @@
     // whether a direct poll notices a new question faster than the ~1.4 s activity feed, and to learn what an
     // id that has not been announced to you yet returns. Read-only, your own course, bounded. peekAct (off) is the
     // prototype that would actually act on it; it stays off until the measurement says it is safe.
-    peekNext: true, peekWindow: 3, peekEveryMs: 8000, peekAct: false,
+    peekNext: true, peekWindow: 2, peekEveryMs: 8000, peekAct: false,
   }, JSON.parse(localStorage.getItem(LS_KEY) || '{}'));
   const saveCfg = () => { try { localStorage.setItem(LS_KEY, JSON.stringify({ oneTap: CFG.oneTap, turbo: CFG.turbo, sound: CFG.sound, keepAwake: CFG.keepAwake, groupBy: CFG.groupBy, theme: CFG.theme, expanded: CFG.expanded, autoOpen: CFG.autoOpen, record: CFG.record, recordUntil: CFG.recordUntil, peekNext: CFG.peekNext, peekAct: CFG.peekAct })); } catch {} };
   const hooks = window.__FC_HOOKS || {}; // test seams and the native app's bridge
   const TS = hooks.timeScale || 1;
-  // Recording stops by itself after a few days. The iPhone app switches it on once (a first measurement run).
-  const REC_DAYS_MS = 4 * 86400e3;
+  // Recording stops by itself after two weeks. The iPhone app switches it on once per measurement run (REC_RUN):
+  // run 1 was v3.0.0; run 2 starts with v3.1.0, so the next lectures are measured without anyone switching it on.
+  const REC_DAYS_MS = 14 * 86400e3, REC_RUN = '2';
   try {
-    if (hooks.recordDefault && !localStorage.getItem('fast-clicker-rec-default')) {
-      localStorage.setItem('fast-clicker-rec-default', '1');
+    if (hooks.recordDefault && localStorage.getItem('fast-clicker-rec-default') !== REC_RUN) {
+      localStorage.setItem('fast-clicker-rec-default', REC_RUN);
       CFG.record = true; CFG.recordUntil = Date.now() + REC_DAYS_MS; saveCfg();
     }
     if (CFG.record && CFG.recordUntil && Date.now() > CFG.recordUntil) { CFG.record = false; saveCfg(); }
@@ -99,7 +100,7 @@
   // ---------------------------------------------------------------- diagnostics recorder (opt-in, stays on this device)
   // Compact timeline of what was asked from EduApp and when it answered, to measure how fast questions can be
   // noticed. No names, logins, question texts or answer texts are recorded.
-  const REC_KEY = 'fast-clicker-rec', REC_MAX = 9000;
+  const REC_KEY = 'fast-clicker-rec', REC_MAX = 20000;
   const rec = { log: [], dirty: false, last: new Map(), n: 0 };
   try { rec.log = JSON.parse(localStorage.getItem(REC_KEY) || '[]'); if (!Array.isArray(rec.log)) rec.log = []; } catch { rec.log = []; }
   function recAdd(type, data) {
@@ -1213,7 +1214,17 @@
       fetchClicker(id).then(render).catch(() => {});
     }
   }
+  let recLifeHooked = false;
+  function recLifecycle() {                 // whether the app was on screen and online: it can only check while it is
+    if (recLifeHooked) return;
+    recLifeHooked = true;
+    recAdd('s', { ev: 'boot', v: VERSION, h: document.hidden ? 1 : 0, on: navigator.onLine === false ? 0 : 1, lec: currentLectures().length });
+    document.addEventListener('visibilitychange', () => { recAdd('v', { h: document.hidden ? 1 : 0 }); recSave(); });
+    window.addEventListener('online', () => recAdd('n', { on: 1 }));
+    window.addEventListener('offline', () => recAdd('n', { on: 0 }));
+  }
   function startTimers() {
+    recLifecycle();
     for (const k in myTimers) clearInterval(myTimers[k]);
     myTimers.stat = setInterval(updateStat, 1000);
     myTimers.sweep = setInterval(sweepSwCache, 60e3);
@@ -1263,6 +1274,24 @@
     tapoff: `<path d="${HAND}"/><path class="strike" d="M-5.384 19.371h21.241v1.531H-5.384z" transform="matrix(.62245 -.78266 .441 .8975 0 0)"/>`,
     chevron: '<path d="M7.41 8.58 12 13.17l4.59-4.59L18 10l-6 6-6-6z"/>',
     dots: '<circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>',
+    menu: '<path d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z"/>',
+    refresh: '<path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/>',
+    night: '<path d="M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z"/>',
+    sunny: '<path d="M12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,2L14.39,5.42C13.65,5.15 12.84,5 12,5C11.16,5 10.35,5.15 9.61,5.42L12,2M3.34,7L7.5,6.65C6.9,7.16 6.36,7.78 5.94,8.5C5.5,9.24 5.25,10 5.11,10.79L3.34,7M3.36,17L5.12,13.23C5.26,14 5.53,14.78 5.95,15.5C6.37,16.24 6.91,16.86 7.5,17.37L3.36,17M20.65,7L18.88,10.79C18.74,10 18.47,9.23 18.05,8.5C17.63,7.78 17.1,7.15 16.5,6.64L20.65,7M20.64,17L16.5,17.36C17.09,16.85 17.62,16.22 18.04,15.5C18.46,14.77 18.73,14 18.87,13.21L20.64,17M12,22L9.59,18.56C10.33,18.83 11.14,19 12,19C12.82,19 13.63,18.83 14.37,18.56L12,22Z"/>',
+    gesture: '<path d="M10,9A1,1 0 0,1 11,8A1,1 0 0,1 12,9V13.47L13.21,13.6L18.15,15.79C18.68,16.03 19,16.56 19,17.14V21.5C18.97,22.32 18.32,22.97 17.5,23H11C10.62,23 10.26,22.85 10,22.57L5.1,18.37L5.84,17.6C6.03,17.39 6.3,17.28 6.58,17.28H6.8L10,19V9M11,5A4,4 0 0,1 15,9C15,10.5 14.2,11.77 13,12.46V11.24C13.61,10.69 14,9.89 14,9A3,3 0 0,0 11,6A3,3 0 0,0 8,9C8,9.89 8.39,10.69 9,11.24V12.46C7.8,11.77 7,10.5 7,9A4,4 0 0,1 11,5Z"/>',
+    sound: '<path d="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z"/>',
+    screen: '<path d="M17,19H7V5H17M17,1H7C5.89,1 5,1.89 5,3V21A2,2 0 0,0 7,23H17A2,2 0 0,0 19,21V3C19,1.89 18.1,1 17,1Z"/>',
+    fast: '<path d="M11 9.47V11H14.76L13 14.53V13H9.24L11 9.47M13 1L6 15H11V23L18 9H13V1Z"/>',
+    bell: '<path d="M10 21H14C14 22.1 13.1 23 12 23S10 22.1 10 21M21 19V20H3V19L5 17V11C5 7.9 7 5.2 10 4.3V4C10 2.9 10.9 2 12 2S14 2.9 14 4V4.3C17 5.2 19 7.9 19 11V17L21 19M17 11C17 8.2 14.8 6 12 6S7 8.2 7 11V18H17V11Z"/>',
+    download: '<path d="M13,5V11H14.17L12,13.17L9.83,11H11V5H13M15,3H9V9H5L12,16L19,9H15V3M19,18H5V20H19V18Z"/>',
+    record: '<path d="M3,14L3.5,14.07L8.07,9.5C7.89,8.85 8.06,8.11 8.59,7.59C9.37,6.8 10.63,6.8 11.41,7.59C11.94,8.11 12.11,8.85 11.93,9.5L14.5,12.07L15,12C15.18,12 15.35,12 15.5,12.07L19.07,8.5C19,8.35 19,8.18 19,8A2,2 0 0,1 21,6A2,2 0 0,1 23,8A2,2 0 0,1 21,10C20.82,10 20.65,10 20.5,9.93L16.93,13.5C17,13.65 17,13.82 17,14A2,2 0 0,1 15,16A2,2 0 0,1 13,14L13.07,13.5L10.5,10.93C10.18,11 9.82,11 9.5,10.93L4.93,15.5L5,16A2,2 0 0,1 3,18A2,2 0 0,1 1,16A2,2 0 0,1 3,14Z"/>',
+    export: '<path d="M12,1L8,5H11V14H13V5H16M18,23H6C4.89,23 4,22.1 4,21V9A2,2 0 0,1 6,7H9V9H6V21H18V9H15V7H18A2,2 0 0,1 20,9V21A2,2 0 0,1 18,23Z"/>',
+    del: '<path d="M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19M8,9H16V19H8V9M15.5,4L14.5,3H9.5L8.5,4H5V6H19V4H15.5Z"/>',
+    exit: '<path d="M19,3H5C3.89,3 3,3.89 3,5V9H5V5H19V19H5V15H3V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M10.08,15.58L11.5,17L16.5,12L11.5,7L10.08,8.41L12.67,11H3V13H12.67L10.08,15.58Z"/>',
+    fullscreen: '<path d="M5,5H10V7H7V10H5V5M14,5H19V10H17V7H14V5M17,14H19V19H14V17H17V14M10,17V19H5V14H7V17H10Z"/>',
+    minus: '<path d="M19,13H5V11H19V13Z"/>',
+    autorenew: '<path d="M12,6V9L16,5L12,1V4A8,8 0 0,0 4,12C4,13.57 4.46,15.03 5.24,16.26L6.7,14.8C6.25,13.97 6,13 6,12A6,6 0 0,1 12,6M18.76,7.74L17.3,9.2C17.74,10.04 18,11 18,12A6,6 0 0,1 12,18V15L8,19L12,23V20A8,8 0 0,0 20,12C20,10.43 19.54,8.97 18.76,7.74Z"/>',
+    clicker: '<path d="M12.0325 20.2597a1 1 0 10.0001 0ZM8.948 19.6295h6.0564l-.0024-8.9143H8.9481ZM11.8981 8.8136q1.389.0036 2.7767.0024c.806-.0181 1.5974.5988 1.6738 1.4205.0206 3.5572.0049 7.1169.0097 10.6741.1357.9199-.5648 1.8435-1.5102 1.8956-1.7271.0194-3.4554.0049-5.1813.0097-.9175.1212-1.961-.4315-2.0483-1.4253-.0218-3.5548-.0036-7.1132-.0097-10.6692-.1345-.9199.5648-1.8459 1.5102-1.898q1.3901-.0121 2.7791-.0097m.0897-4.5947c2.0156 0 4.0323.7515 5.4637 2.2495L15.9317 7.9896c-2.0241-1.9949-5.8031-2.167-7.8453.0364L6.5266 6.4686c1.4326-1.4981 3.4457-2.2495 5.4613-2.2495M12.0073 1a10.8353 10.8353 90 017.7144 3.23L18.3534 5.5996C15.081 2.2544 8.9713 2.086 5.6698 5.6238L4.3402 4.2906C6.0164 2.2023 9.1906.9855 12 1"></path>',
   };
   const icon = (name, cls = '', label = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="currentColor" ${label ? `role="img" aria-label="${esc(label)}"` : 'aria-hidden="true"'}>${ICON[name]}</svg>`;
   // course colours exactly as EduApp picks them (hash of course number + type into its palette)
@@ -1279,7 +1308,7 @@
   const root = host.attachShadow({ mode: 'open' });
   let panelOpen = true;
   let mode = MODE;
-  const ui = { view: 'list', id: null, group: [], pending: null, menu: false, err: null, loading: false };
+  const ui = { view: 'list', id: null, group: [], pending: null, menu: false, err: null, loading: false, picked: new Set(), spinUntil: 0 };
   const css = `
     :host{all:initial}
     *{box-sizing:border-box}
@@ -1300,13 +1329,36 @@
     .strike{fill:rgb(var(--on))}
     .iconbtn{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;flex:none}
     .iconbtn:active{background:rgba(var(--on),.1)}
-    .bar{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:8px;min-height:56px;padding:0 8px 0 16px;background:rgb(var(--sf));border-bottom:2px solid rgba(var(--on),var(--bo))}
-    .bar b{font-size:20px;font-weight:500;letter-spacing:.0125em}
-    .dot{width:10px;height:10px;border-radius:50%;background:#2a9d8f;flex:none}
-    .dot.slow{background:#999}.dot.err{background:#c1121f}.dot.warn{background:#e9a100}
+    /* app bar and navigation drawer as in EduApp (Vuetify v-app-bar 64px, temporary v-navigation-drawer) */
+    .bar{position:sticky;top:0;z-index:7;display:flex;align-items:center;height:64px;padding:0 4px;background:rgb(var(--sf));border-bottom:2px solid rgba(var(--on),var(--bo))}
+    .bar .iconbtn{width:48px;height:48px}
+    .brand{display:flex;align-items:center;gap:8px;min-width:0;padding:0 8px}
+    .brand h1{margin:0;font-size:20px;line-height:32px;font-weight:500;letter-spacing:.0125em;white-space:nowrap}
     .grow{flex:1;min-width:0}
-    #stat{font-size:12px;line-height:1.3;color:rgba(var(--on),var(--med));text-align:right;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-    .recdot{font-size:11px;font-weight:700;color:#c1121f;animation:pulse 1.6s infinite}
+    .rf{position:relative}.rf.busy .ic{animation:spin .8s linear infinite}
+    .dot,.sdot{width:8px;height:8px;border-radius:50%;background:#2a9d8f;flex:none}
+    .dot{position:absolute;top:11px;right:11px;box-shadow:0 0 0 2px rgb(var(--sf))}
+    .dot.slow,.sdot.slow{background:#9ca3af}.dot.err,.sdot.err{background:#c1121f}.dot.warn,.sdot.warn{background:#e9a100}
+    .scrim{position:fixed;left:0;right:0;top:64px;bottom:0;z-index:5;background:rgba(0,0,0,.2)}
+    .drawer{position:fixed;left:0;top:64px;bottom:0;z-index:6;width:280px;max-width:85%;overflow:auto;background:rgb(var(--sf));
+      padding:8px 8px calc(16px + env(safe-area-inset-bottom));box-shadow:0 8px 10px -5px rgba(0,0,0,.2),0 16px 24px 2px rgba(0,0,0,.14),0 6px 30px 5px rgba(0,0,0,.12);
+      transform:translateX(-105%);visibility:hidden;transition:transform .2s cubic-bezier(.4,0,.2,1),visibility 0s .2s}
+    .drawer.on{transform:none;visibility:visible;transition:transform .2s cubic-bezier(.4,0,.2,1)}
+    :host(:not(.focus)) .scrim,:host(:not(.focus)) .drawer{position:absolute}
+    .sbox{padding:8px 8px 4px}
+    .stline{display:flex;align-items:center;gap:10px;font-size:14px;line-height:20px}
+    #stat{color:rgba(var(--on),var(--hi))}
+    .sinfo{font-size:12px;line-height:16px;color:rgba(var(--on),var(--med));margin:4px 0 0 18px}
+    .sinfo b{font-weight:500;color:rgba(var(--on),var(--hi))}
+    .sub{display:flex;align-items:center;min-height:40px;margin-top:16px;padding:0 8px;font-size:14px;text-transform:uppercase;color:rgba(var(--on),var(--med))}
+    .ni{display:flex;align-items:center;width:100%;min-height:44px;padding:4px 8px;border-radius:4px;font-size:16px;line-height:20px;letter-spacing:.009375em}
+    .ni:active{background:rgba(var(--on),.08)}
+    .ni>.ic{opacity:.7;margin-right:24px}.ni>.t{flex:1;min-width:0}
+    .sw{position:relative;width:36px;height:14px;margin:0 2px 0 12px;border-radius:7px;background:rgba(var(--on),.38);flex:none;transition:background .2s}
+    .sw::after{content:"";position:absolute;top:-3px;left:-2px;width:20px;height:20px;border-radius:50%;background:#fafafa;transition:transform .2s;
+      box-shadow:0 2px 4px -1px rgba(0,0,0,.2),0 4px 5px 0 rgba(0,0,0,.14),0 1px 10px 0 rgba(0,0,0,.12)}
+    .sw.on{background:rgba(8,64,126,.5)}.sw.on::after{transform:translateX(18px);background:#08407e}
+    :host(.dark) .sw.on{background:rgba(147,197,253,.5)}:host(.dark) .sw.on::after{background:#93c5fd}
     .tabs{display:flex;padding:10px 8px 0;background:rgb(var(--sl))}
     .tab{height:48px;padding:0 16px}
     .tab.on{background:rgb(var(--bg))}
@@ -1407,20 +1459,19 @@
     .chip{font-size:14px;line-height:1.2;border:1px solid rgba(var(--on),.3);border-radius:18px;padding:8px 12px;min-height:36px}
     .chip.on{background:#08407e;color:#fff;border-color:#08407e}
     .chip.big{font-size:16px;padding:10px 18px;background:#08407e;color:#fff;border-color:#08407e;margin-top:6px}
-    .sheet{position:fixed;inset:0;z-index:9;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.45)}
-    .sheetin{width:100%;max-width:768px;max-height:85vh;overflow:auto;background:rgb(var(--sf));border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
-    .sheetin h3{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(var(--on),var(--med));margin:14px 0 8px}
-    .sheetin h3:first-child{margin-top:0}
-    .foot{font-size:12px;line-height:1.4;color:rgba(var(--on),var(--med));margin-top:14px}
+    .foot{font-size:12px;line-height:16px;color:rgba(var(--on),var(--med));margin:24px 8px 0}
   `;
   root.innerHTML = `<style>${css}</style>
     <button class="fab" data-a="open"></button>
     <div class="app">
-      <div class="bar"><b>Clicker</b><span class="dot"></span><span class="grow" id="stat"></span><span class="recdot" hidden>REC</span><button class="iconbtn x" data-a="min" title="Minimize">–</button><button class="iconbtn" data-a="menu" title="Settings" aria-label="Settings">${icon('dots')}</button></div>
+      <header class="bar"><button class="iconbtn" data-a="menu" aria-label="Open navigation" aria-expanded="false">${icon('menu')}</button>
+        <div class="brand">${icon('clicker')}<h1>Clicker</h1></div><span class="grow"></span>
+        <button class="iconbtn x" data-a="min" title="Minimize" aria-label="Minimize">${icon('minus')}</button>
+        <button class="iconbtn rf" data-a="now" aria-label="Check now">${icon('refresh')}<span class="dot"></span></button>
+        <button class="iconbtn" data-a="theme" id="themebtn"></button></header>
       <div id="banner"></div>
       <div id="listview">
         <div class="tabs"><button class="tab" data-a="grp" data-g="date">${L.byDate}</button><button class="tab" data-a="grp" data-g="lecture">${L.byLecture}</button></div>
-        <div id="empty" class="empty"></div>
         <div id="list" class="pad"></div>
       </div>
       <div id="detailview" hidden>
@@ -1431,11 +1482,12 @@
         </div>
         <div class="gnav" id="gnav"></div>
       </div>
-      <div class="sheet" id="sheet" hidden><div class="sheetin" id="menu"></div></div>
+      <div class="scrim" id="sheet" data-a="closemenu" hidden></div>
+      <nav class="drawer" id="drawer" aria-label="Settings"><div class="sbox"><div class="stline"><span class="sdot"></span><span id="stat"></span></div><div id="empty" class="sinfo"></div></div><div id="menu"></div></nav>
       <div class="zoom" hidden></div>
     </div>`;
   const $ = (sel) => root.querySelector(sel);
-  const el = { fab: $('.fab'), app: $('.app'), dot: $('.dot'), stat: $('#stat'), recdot: $('.recdot'), banner: $('#banner'), empty: $('#empty'), list: $('#list'), listview: $('#listview'),
+  const el = { fab: $('.fab'), app: $('.app'), dot: $('.dot'), sdot: $('.sdot'), stat: $('#stat'), drawer: $('#drawer'), themebtn: $('#themebtn'), menubtn: $('[data-a="menu"]'), refresh: $('.rf'), banner: $('#banner'), empty: $('#empty'), list: $('#list'), listview: $('#listview'),
     detailview: $('#detailview'), dtitle: $('#dtitle'), dmsg: $('#dmsg'), cards: $('#cards'), gnav: $('#gnav'), sheet: $('#sheet'), menu: $('#menu') };
   const setHtml = (node, html) => { if (node.__html !== html) { node.__html = html; node.innerHTML = html; } };
   let bannerOverride = null;
@@ -1585,11 +1637,6 @@
   }
   function renderList() {
     for (const b of root.querySelectorAll('.tab')) b.classList.toggle('on', b.dataset.g === CFG.groupBy);
-    const cl = currentLecture(), nl = nextLecture();
-    const title = (l) => esc(tr(l.title) || l.code);
-    setHtml(el.empty, cl ? `Watching closely: <b>${title(cl)}</b> (until ${fmtTime(cl.end)}). A new question opens here by itself.`
-      : nl ? `Next lecture: <b>${title(nl)}</b> at ${fmtTime(nl.start)}. Fast checking starts ${CFG.leadMin} min before.`
-        : 'No lecture right now. Keep this open: a new question still shows up within a minute.');
     const sig = JSON.stringify([CFG.groupBy, CFG.expanded, state.listRev, state.scanning, state.listError, isDark(),
       [...state.clickers.values()].filter((c) => c.state === 'OPEN').map((c) => [c.id, c.roundStopped, isLive(c), answeredLocally(c)])]);
     if (el.list.__sig === sig) return;
@@ -1606,6 +1653,7 @@
     return ids.includes(id) ? ids : [id];
   }
   function openDetail(id, g) {
+    if (ui.view !== 'detail' || ui.id !== id) { const c0 = state.clickers.get(id); if (c0 && c0.state === 'OPEN') recAdd('u', { id, ev: 'show', auto: g === undefined ? 1 : 0 }); }
     ui.view = 'detail'; ui.id = id; ui.group = groupOf(id, g); ui.err = null;
     state.dismissed.delete(id);
     if (ui.pending === id) ui.pending = null;
@@ -1732,33 +1780,25 @@
   function renderMenu() {
     const sp = sharedPlan();
     const share = !relayUrl ? '' : sp ? `Checking is shared with ${sp.n} ${sp.n === 1 ? 'device' : 'devices'} in this lecture.` : relay.want.size ? 'Shared checking is not connected. Checking alone.' : 'Shared checking starts with your next lecture.';
-    const chip = (a, on, text, title) => `<button class="chip ${on ? 'on' : ''}" data-a="${a}"${title ? ` title="${esc(title)}"` : ''}>${text}</button>`;
+    const item = (a, ic, text, on, title) => `<button class="ni" data-a="${a}"${on !== undefined ? ` role="switch" aria-checked="${!!on}"` : ''}${title ? ` title="${esc(title)}"` : ''}>${icon(ic)}<span class="t">${text}</span>${on !== undefined ? `<span class="sw${on ? ' on' : ''}"></span>` : ''}</button>`;
     setHtml(el.menu, `
-      <h3>Answering</h3><div class="row2" style="margin:0">
-        ${chip('onetap', CFG.oneTap, '1-tap send', 'One-answer questions: tapping an option sends it immediately')}
-        ${chip('autoopen', CFG.autoOpen, 'Open new questions by themselves')}
-        ${chip('sound', CFG.sound, 'Sound')}
-        ${mode === 'focus' ? chip('awake', CFG.keepAwake, 'Screen on', 'Keep the screen on around lectures') : ''}
-        ${'Notification' in window && Notification.permission === 'default' ? chip('notif', false, 'Notifications') : ''}
-      </div>
-      <h3>Checking</h3><div class="row2" style="margin:0">
-        ${chip('turbo', CFG.turbo, 'Always fast', 'Check fast even outside your timetable (e.g. exercise sessions)')}
-        ${chip('now', false, 'Check now')}
-        ${chip('scan', false, 'Refresh list', 'Download the full clicker list again (about 1 MB)')}
-        ${chip('pause', false, state.running ? 'Pause' : 'Resume')}
-      </div>
-      <h3>Display</h3><div class="row2" style="margin:0">
-        ${chip('theme', CFG.theme !== 'auto', 'Theme: ' + CFG.theme)}
-        ${mode === 'focus' ? (hooks.noExit ? '' : chip('exit', false, 'Back to EduApp')) : chip('focus', false, 'Focus mode', 'Full screen, stops EduApp\'s own background downloads')}
-      </div>
-      <h3>Diagnostics</h3><div class="row2" style="margin:0">
-        ${chip('record', CFG.record, 'Record timing', 'Keeps a timeline of requests on this device, to measure how fast questions arrive. Stops by itself after 4 days.')}
-        ${CFG.record ? chip('peek', CFG.peekNext, 'Peek next id', 'Experiment: during a lecture, read the next question ids in your own course to measure whether that is faster than the feed. Read-only.') : ''}
-        ${CFG.record || rec.log.length ? chip('share', false, `Export (${rec.log.length})`) + chip('recclear', false, 'Clear') : ''}
-      </div>
-      <div class="foot">${share ? share + '<br>' : ''}v${VERSION} · unofficial · reads questions and sends your answers only to eduapp.ethz.ch${relayUrl ? '; the sharing service only learns that a question changed' : ''}.</div>
-      <div class="sendrow"><button class="send" data-a="closemenu">Done</button></div>`);
+      <div class="sub">Clicker</div>
+      ${item('autoopen', 'clicker', 'Open new questions', CFG.autoOpen, 'A question that opens comes on screen by itself')}
+      ${item('onetap', 'gesture', '1-tap send', CFG.oneTap, 'Single-choice questions: tapping an option sends it')}
+      ${item('sound', 'sound', hooks.nativeAlerts ? 'Sound & vibration' : 'Sound', CFG.sound)}
+      ${mode === 'focus' ? item('awake', 'screen', 'Keep screen on', CFG.keepAwake, 'Around your lectures') : ''}
+      ${item('turbo', 'fast', 'Always check fast', CFG.turbo, 'Also outside your timetable, e.g. in exercise sessions')}
+      ${'Notification' in window && Notification.permission === 'default' ? item('notif', 'bell', 'Allow notifications') : ''}
+      ${item('scan', 'download', 'Reload all questions', undefined, "Downloads this semester's questions again (about 1 MB)")}
+      <div class="sub">Diagnostics</div>
+      ${item('record', 'record', 'Record timing', CFG.record, 'Keeps a timeline of requests on this device to measure how fast questions arrive. Stops by itself after 14 days.')}
+      ${rec.log.length ? item('share', 'export', `Export recording (${rec.log.length})`) + item('recclear', 'del', 'Clear recording') : ''}
+      ${item('pause', 'autorenew', 'Check for questions', state.running)}
+      ${mode === 'focus' ? (hooks.noExit ? '' : item('exit', 'exit', 'Back to EduApp')) : item('focus', 'fullscreen', 'Focus mode', undefined, "Full screen; stops EduApp's own background downloads")}
+      <div class="foot">${share ? share + '<br>' : ''}v${VERSION} · unofficial · talks only to eduapp.ethz.ch${relayUrl ? ' (and the sharing service, which only learns that a question changed)' : ''}</div>`);
     el.sheet.hidden = !ui.menu;
+    el.drawer.classList.toggle('on', ui.menu);
+    el.menubtn.setAttribute('aria-expanded', String(ui.menu));
   }
 
   function render() {
@@ -1771,8 +1811,12 @@
     el.fab.className = 'fab' + (alerting ? ' alert' : '');
     el.fab.textContent = live.length ? `Clicker open (${live.length})` : 'Clicker';
     $('.x').style.display = mode === 'focus' ? 'none' : '';
-    el.dot.className = 'dot ' + (state.authLost ? 'warn' : state.lastError ? 'err' : fastMode() ? '' : 'slow');
-    el.recdot.hidden = !CFG.record;
+    const tone = !state.running ? 'slow' : state.authLost ? 'warn' : state.lastError ? 'err' : fastMode() ? '' : 'slow';
+    el.dot.className = 'dot ' + tone; el.sdot.className = 'sdot ' + tone;
+    el.refresh.classList.toggle('busy', Date.now() < ui.spinUntil);
+    const dk = isDark();
+    setHtml(el.themebtn, icon(dk ? 'sunny' : 'night'));
+    el.themebtn.setAttribute('aria-label', dk ? 'Switch to light mode' : 'Switch to dark mode');
     let banner = '';
     if (state.authLost && state.loginNeeded) banner = `<div class="note">Your EduApp login expired. <button class="chip big" data-a="login">Log in</button><br>Opens the ETH login. Come back here afterwards. Answers you've chosen are kept.</div>`;
     else if (state.authLost) banner = `<div class="note">${esc(bannerOverride || 'Login expired. Renewing…')}</div>`;
@@ -1781,7 +1825,6 @@
     const pend = ui.pending != null ? state.clickers.get(ui.pending) : null;
     if (pend && pend.state === 'OPEN' && !(ui.view === 'detail' && ui.id === pend.id)) banner += `<div class="note">New question: <b>${esc(pend.title)}</b> <button class="chip big" data-a="view" data-id="${pend.id}">Show</button></div>`;
     else ui.pending = null;
-    if (CFG.record && fastMode()) banner += `<div class="note gray">Recording timing. When you see the lecturer open or restart a question: <button class="chip" data-a="mark">Mark now</button>${rec.marked && Date.now() - rec.marked < 4000 ? ' ✓ marked' : ''}</div>`;
     setHtml(el.banner, banner);
     if (ui.view === 'detail' && ui.id != null && state.dismissed.has(ui.id)) { ui.view = 'list'; ui.id = null; }
     const detail = ui.view === 'detail';
@@ -1800,7 +1843,11 @@
     else if (state.authLost) s = 'login expired';
     else if (navigator.onLine === false) s = 'offline, waiting for network';
     else s = `${fastMode() ? 'live' : 'standby (no lecture now)'} · checked ${ago}`;
-    el.stat.textContent = s;
+    el.stat.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+    const cl = currentLecture(), nl = nextLecture();
+    const title = (l) => esc(tr(l.title) || l.code);
+    setHtml(el.empty, CFG.turbo && !cl ? 'Checking fast all the time' : cl ? `Watching <b>${title(cl)}</b> until ${fmtTime(cl.end)}`
+      : nl ? `Next: <b>${title(nl)}</b> at ${fmtTime(nl.start)}` : 'No more lectures today');
   }
 
   // pictures in a question: tap to see them full screen, tap again to close
@@ -1812,7 +1859,6 @@
       const img = document.createElement('img'); img.src = ev.target.src; img.alt = ev.target.alt || '';
       zoom.replaceChildren(img); zoom.hidden = false; return;
     }
-    if (ev.target === el.sheet) { ui.menu = false; render(); return; }
     const b = ev.target.closest('[data-a]');
     if (!b) return;
     const id = b.dataset.id ? Number(b.dataset.id) : null;
@@ -1820,7 +1866,7 @@
     switch (b.dataset.a) {
       case 'open': panelOpen = true; break;
       case 'min': panelOpen = false; break;
-      case 'menu': ui.menu = true; break;
+      case 'menu': ui.menu = !ui.menu; if (ui.menu && mode !== 'focus') el.app.scrollTop = 0; break;
       case 'closemenu': ui.menu = false; break;
       case 'grp': CFG.groupBy = b.dataset.g === 'lecture' ? 'lecture' : 'date'; saveCfg(); break;
       case 'toggle': {
@@ -1837,6 +1883,7 @@
       }
       case 'pick': {
         if (!c) break;
+        if (!ui.picked.has(id + ':' + c.gen)) { ui.picked.add(id + ':' + c.gen); recAdd('u', { id, ev: 'pick', g: c.gen || 0 }); }
         const e = Number(b.dataset.e);
         if (c.type === 'MCSA') {
           setDraft(c, [e]);
@@ -1848,7 +1895,7 @@
         }
         break;
       }
-      case 'send': sendVote(id); return;
+      case 'send': recAdd('u', { id, ev: 'send' }); sendVote(id); return;
       case 'dismiss': state.dismissed.add(id); break;
       case 'reload': ui.err = null; fetchClicker(id).then(render).catch((e) => { if (c) setStatus(id, 'err', e.message); else { ui.err = e.message; render(); } }); return;
       case 'turbo': CFG.turbo = !CFG.turbo; saveCfg(); pokeNow(); break;
@@ -1856,8 +1903,8 @@
       case 'autoopen': CFG.autoOpen = !CFG.autoOpen; saveCfg(); break;
       case 'sound': CFG.sound = !CFG.sound; saveCfg(); unlockAudio(); break;
       case 'awake': CFG.keepAwake = !CFG.keepAwake; saveCfg(); updateWakeLock(); break;
-      case 'theme': CFG.theme = CFG.theme === 'auto' ? 'dark' : CFG.theme === 'dark' ? 'light' : 'auto'; saveCfg(); applyMode(); break;
-      case 'now': pokeNow(); break;
+      case 'theme': CFG.theme = isDark() ? 'light' : 'dark'; saveCfg(); applyMode(); break;
+      case 'now': ui.spinUntil = Date.now() + 900; setTimeout(render, 950); pokeNow(); break;
       case 'scan': state.listError = null; startScan(); break;
       case 'notif': Notification.requestPermission().then(render); return;
       case 'login': openLogin(); break;
@@ -1865,7 +1912,6 @@
       case 'exit': location.href = '/'; return;
       case 'record': CFG.record = !CFG.record; CFG.recordUntil = CFG.record ? Date.now() + REC_DAYS_MS : 0; saveCfg(); if (CFG.record) recAdd('s', { ev: 'start', v: VERSION }); recSave(); break;
       case 'peek': CFG.peekNext = !CFG.peekNext; saveCfg(); break;
-      case 'mark': recAdd('m', {}); rec.marked = Date.now(); recSave(); setTimeout(render, 4100); break;
       case 'share': exportRecording(); break;
       case 'recclear': rec.log = []; rec.last.clear(); rec.dirty = true; recSave(); break;
       case 'pause':
