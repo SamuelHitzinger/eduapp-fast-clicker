@@ -143,16 +143,28 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
         let title = body["title"] as? String ?? ""
         let course = body["course"] as? String ?? ""
         let id = body["id"] as? String ?? UUID().uuidString
+        let round = body["round"] as? Bool ?? false               // the lecturer restarted voting: vote again
 
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
         AudioServicesPlayAlertSound(SystemSoundID(1007))      // tri-tone; vibrates instead when the phone is on silent
 
         if UIApplication.shared.applicationState != .active {
             let content = UNMutableNotificationContent()
-            content.title = title.isEmpty ? "Clicker question open" : "Clicker open: \(title)"
-            content.body = course.isEmpty ? "Tap to answer." : "\(course) · tap to answer."
+            if round {
+                content.title = title.isEmpty ? "New round: vote again" : "New round: vote again · \(title)"
+                content.body = (course.isEmpty ? "" : "\(course) · ") + "Your earlier answer does not count. Tap to answer."
+            } else {
+                content.title = title.isEmpty ? "Clicker question open" : "Clicker open: \(title)"
+                content.body = course.isEmpty ? "Tap to answer." : "\(course) · tap to answer."
+            }
             content.sound = .default
-            UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "clicker-\(id)", content: content, trigger: nil))
+            let center = UNUserNotificationCenter.current()
+            center.add(UNNotificationRequest(identifier: "clicker-\(id)", content: content, trigger: nil))
+            // Still not back after 20 s: remind once (cancelled as soon as the app is opened).
+            let reminder = content.mutableCopy() as! UNMutableNotificationContent
+            reminder.title = "Reminder: " + content.title
+            center.add(UNNotificationRequest(identifier: "clicker-reminder-\(id)", content: reminder,
+                                             trigger: UNTimeIntervalNotificationTrigger(timeInterval: 20, repeats: false)))
         }
     }
 
@@ -161,6 +173,11 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
     @objc private func didBecomeActive() {
         UIApplication.shared.isIdleTimerDisabled = true      // keep the screen on while the app is open
         endBackgroundTask()
+        let center = UNUserNotificationCenter.current()     // back in the app: reminders are no longer needed
+        center.getPendingNotificationRequests { requests in
+            let ids = requests.map(\.identifier).filter { $0.hasPrefix("clicker-reminder-") }
+            if !ids.isEmpty { center.removePendingNotificationRequests(withIdentifiers: ids) }
+        }
         webView.evaluateJavaScript("window.dispatchEvent(new Event('online'))", completionHandler: nil) // check right away
     }
 
@@ -178,8 +195,18 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
         backgroundTask = .invalid
     }
 
+    /// Pulling down checks for questions right away. It only restarts the page when the clicker is not running
+    /// (e.g. the "No connection" page): a restart throws away a check in progress and costs seconds.
     @objc private func pullToReload(_ sender: UIRefreshControl) {
-        webView.load(URLRequest(url: Self.startURL))
+        let js = "(function(){var f=window.__fastClicker;if(f&&typeof f.checkNow==='function'){f.checkNow();return true}return false})()"
+        webView.evaluateJavaScript(js) { [weak self] result, _ in
+            guard let self = self else { return }
+            if (result as? Bool) == true {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { sender.endRefreshing() }
+            } else {
+                self.webView.load(URLRequest(url: Self.startURL))
+            }
+        }
     }
 
     // MARK: - Navigation

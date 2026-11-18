@@ -574,7 +574,7 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
       byOff(1, (e) => e.s === 200 && e.st === 'OPEN') && byOff(2, (e) => e.s === 403) && byOff(3, (e) => e.s === 404),
       JSON.stringify(peeks.map((e) => [e.off, e.s, e.st])));
     check('K3 by default it only measures: the question is not put on screen, and nothing is ever voted', !root.querySelector(`.card[data-id="${base + 1}"]`) && fc.ui.id !== base + 1 && S.votes.length === 0);
-    const allowed = new Set(['t', 'y', 'off', 's', 'st', 'q', 'pv', 'ans']);
+    const allowed = new Set(['t', 'y', 'id', 'off', 's', 'st', 'q', 'pv', 'ans']);
     check('K4 the peek records hold ids and counts only — no question text or chosen answer',
       peeks.length > 0 && peeks.every((e) => Object.keys(e).every((k) => allowed.has(k)) && (e.st === null || typeof e.st === 'string')) && !/question|individualAnswer|2\+2|selectedAnswer/.test(JSON.stringify(fc.rec.log)));
     // it stays bounded: only a few ids above the base, only the current course
@@ -653,7 +653,7 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     const saved = { s: store.getItem('fast-clicker-settings'), d: store.getItem('fast-clicker-rec-default') };
     first.stop();
     const again = boot(S, { hooks: { recordDefault: true }, preset: { 'fast-clicker-settings': saved.s, 'fast-clicker-rec-default': saved.d } });
-    check('D9 the app turns recording on once by default; switched off, it is not turned on again', on && off && saved.d === '2' && !again.fc.CFG.record);
+    check('D9 the app turns recording on once by default; switched off, it is not turned on again', on && off && saved.d === '3' && !again.fc.CFG.record);
     again.stop();
   }
   {
@@ -674,6 +674,112 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     w.document.dispatchEvent(new w.Event('visibilitychange'));
     const vs = fc.rec.log.filter((x) => x.y === 'v').map((x) => x.h);
     check('D13 leaving and returning to the app are recorded', vs.join() === '1,0', vs.join());
+    stop();
+  }
+  {
+    // a draft (+1) that opens later: the recording brackets the moment it turned open (last seen as a draft, first seen open)
+    const S = makeServer();
+    const { fc, stop } = boot(S, { hooks: { timeScale: 0.02 }, settings: { record: true, peekNext: true, peekEveryMs: 30 } });
+    await fc.fullScan();
+    const base = courseBase(S);
+    S.addClicker({ ...mcsa(base + 1, 'Draft first'), state: 'DRAFT' });
+    const sawDraft = await until(() => logOf(fc, 'p').some((e) => e.id === base + 1 && e.st === 'DRAFT'), 3000);
+    S.clickers.get(base + 1).state = 'OPEN';
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: base + 1, courseTitle: { de: 'Analysis I' } });
+    await until(() => logOf(fc, 'P').some((e) => e.id === base + 1), 3000);
+    const P = logOf(fc, 'P').find((e) => e.id === base + 1);
+    check('K6 the last moment the next question was still a draft is recorded with its opening (whoever saw it first)',
+      sawDraft && !!P && P.prev > 0 && P.prev <= P.t, JSON.stringify(P));
+    stop();
+  }
+  {
+    // the peek runs between feed checks, never on its own: with no feed check (paused) there is no peek either
+    const S = makeServer();
+    const { fc, stop } = boot(S, { hooks: { timeScale: 0.02 }, settings: { record: true, peekNext: true, peekEveryMs: 30 } });
+    await fc.fullScan();
+    await until(() => logOf(fc, 'p').length > 0, 3000);
+    fc.state.running = false;
+    await wait(300);
+    const n = S.log.length;
+    await wait(600);
+    check('K7 the peek only follows feed checks', S.log.length === n, S.log.slice(n).join());
+    stop();
+  }
+
+  // ---------- S: start-up on a weak connection: the first feed check waits for nothing it does not need
+  {
+    const S = makeServer();
+    const { w, fc, stop } = boot(S);
+    await until(() => fc.state.lastPollAt > 0);
+    const saved = JSON.parse(w.localStorage.getItem('fast-clicker-semkez') || 'null');
+    check('S1 the first start asks for the semester and remembers it', S.log[0] === 'GET semesters/current' && !!saved && saved.k === '2026W');
+    stop();
+  }
+  {
+    const S = makeServer();
+    const { fc, stop } = boot(S, { preset: { 'fast-clicker-semkez': JSON.stringify({ k: '2026W', at: Date.now() - 86400e3 }) } });
+    await until(() => fc.state.lastPollAt > 0 && S.log.includes('GET semesters/current'));
+    const iFeed = S.log.findIndex((l) => l.startsWith('GET dashboard/activity-feed'));
+    const iLec = S.log.findIndex((l) => l.startsWith('GET dashboard/upcoming-lectures'));
+    const iSem = S.log.indexOf('GET semesters/current');
+    check('S2 later starts check the feed at once: the timetable loads alongside, the semester is confirmed afterwards',
+      iFeed >= 0 && iFeed <= 1 && iLec >= 0 && iLec <= 1 && iSem > iFeed, S.log.slice(0, 5).join(' | '));
+    stop();
+  }
+  {
+    const S = makeServer();
+    const { fc, stop } = boot(S, { preset: { 'fast-clicker-semkez': JSON.stringify({ k: '2026S', at: Date.now() }) } });
+    const ok = await until(() => fc.state.semkez === '2026W' && S.log.some((l) => l.includes('activity-feed?semkez=2026W')));
+    check('S3 a remembered semester that has ended is replaced right after the first check', ok, S.log.slice(0, 6).join(' | '));
+    stop();
+  }
+  {
+    // too old to trust: ask first, as on the very first start
+    const S = makeServer();
+    const { fc, stop } = boot(S, { preset: { 'fast-clicker-semkez': JSON.stringify({ k: '2026W', at: Date.now() - 40 * 86400e3 }) } });
+    await until(() => fc.state.lastPollAt > 0);
+    check('S4 a semester remembered more than a month ago is asked for again first', S.log[0] === 'GET semesters/current');
+    stop();
+  }
+
+  // ---------- V: a restarted round (peer instruction: vote, discuss, vote again) cannot be missed
+  {
+    const S = makeServer(); const alerts = [];
+    const { root, fc, stop } = boot(S, { hooks: { onAlert: (q) => alerts.push(q), nativeAlerts: true } });
+    await until(() => fc.state.lastPollAt > 0);
+    S.addClicker(mcsa(860001, 'Two rounds'));
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 860001, courseTitle: { de: 'Analysis I' } });
+    await until(() => root.querySelector('.opt[data-id="860001"]'));
+    const banner = () => !!root.querySelector('.card[data-id="860001"] .note.round');
+    const none1 = !banner();
+    root.querySelector('.opt[data-id="860001"][data-e="2"]').click();
+    root.querySelector('.send[data-id="860001"]').click();
+    await until(() => S.votes.length === 1 && /Confirmed/.test(st(root, 860001)));
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_STOP_ROUND', objectId: 860001, courseTitle: { de: 'Analysis I' } });
+    await until(() => fc.state.clickers.get(860001).roundStopped);
+    const none2 = !banner();
+    S.clickers.get(860001).round = 1;
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_START_ROUND', objectId: 860001, courseTitle: { de: 'Analysis I' } });
+    const shown = await until(banner);
+    check('V1 after a restart the question says "New round: vote again" (not in round 1, not while stopped)', none1 && none2 && shown, [none1, none2, shown].join());
+    check('V2 the alert for the restart tells the app it is a new round', alerts.length >= 2 && alerts[0].round === false && alerts[alerts.length - 1].round === true,
+      JSON.stringify(alerts.map((a) => a.round)));
+    root.querySelector('.opt[data-id="860001"][data-e="3"]').click();
+    root.querySelector('.send[data-id="860001"]').click();
+    const gone = await until(() => !banner() && votesIn(S, 860001, 1).length === 1);
+    check("V3 once this round's answer is in, the note goes away", gone);
+    stop();
+  }
+  {
+    // pulling down in the iPhone app = "check now": no restart, the feed is asked right away
+    const S = makeServer();
+    const { fc, stop } = boot(S, { settings: { cadenceMs: 5000, idleCadenceMs: 5000 } });
+    await until(() => fc.state.lastPollAt > 0);
+    await wait(100);
+    const n = S.log.filter((l) => l.includes('activity-feed')).length;
+    fc.checkNow();
+    const asked = await until(() => S.log.filter((l) => l.includes('activity-feed')).length > n, 1000);
+    check('V4 "check now" asks the feed right away', asked);
     stop();
   }
   {

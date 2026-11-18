@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         EduApp Fast Clicker
 // @namespace    https://eduapp.ethz.ch/
-// @version      3.1.0
+// @version      3.1.1
 // @description  Shows opened ETH EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi.
 // @match        https://eduapp.ethz.ch/*
 // @run-at       document-idle
@@ -37,7 +37,7 @@
 //   * optional diagnostics recorder (off by default; stays on this device until you export it).
 (() => {
   'use strict';
-  const VERSION = '3.1.0';
+  const VERSION = '3.1.1';
   const RELAY_URL = '';     // wss://… of the hint relay; empty = every client checks the feed itself (set by tools/build.js)
   const MODE = window.__FC_MODE === 'focus' ? 'focus' : 'panel';
   if (window.__fastClicker) { window.__fastClicker.show(MODE); return; }
@@ -74,14 +74,16 @@
     // whether a direct poll notices a new question faster than the ~1.4 s activity feed, and to learn what an
     // id that has not been announced to you yet returns. Read-only, your own course, bounded. peekAct (off) is the
     // prototype that would actually act on it; it stays off until the measurement says it is safe.
-    peekNext: true, peekWindow: 2, peekEveryMs: 8000, peekAct: false,
+    // Run 3 (v3.1.1): only the next id (+1, which was the next question on 2026-11-18), once per feed check, halfway
+    // between two checks, so the moment it turns OPEN is pinned down to within ~2 s and compared with the feed.
+    peekNext: true, peekWindow: 1, peekEveryMs: 3000, peekAct: false,
   }, JSON.parse(localStorage.getItem(LS_KEY) || '{}'));
   const saveCfg = () => { try { localStorage.setItem(LS_KEY, JSON.stringify({ oneTap: CFG.oneTap, turbo: CFG.turbo, sound: CFG.sound, keepAwake: CFG.keepAwake, groupBy: CFG.groupBy, theme: CFG.theme, expanded: CFG.expanded, autoOpen: CFG.autoOpen, record: CFG.record, recordUntil: CFG.recordUntil, peekNext: CFG.peekNext, peekAct: CFG.peekAct })); } catch {} };
   const hooks = window.__FC_HOOKS || {}; // test seams and the native app's bridge
   const TS = hooks.timeScale || 1;
   // Recording stops by itself after two weeks. The iPhone app switches it on once per measurement run (REC_RUN):
-  // run 1 was v3.0.0; run 2 starts with v3.1.0, so the next lectures are measured without anyone switching it on.
-  const REC_DAYS_MS = 14 * 86400e3, REC_RUN = '2';
+  // run 1 was v3.0.0; run 2 v3.1.0; run 3 starts with v3.1.1, so the next lectures are measured without anyone switching it on.
+  const REC_DAYS_MS = 14 * 86400e3, REC_RUN = '3';
   try {
     if (hooks.recordDefault && localStorage.getItem('fast-clicker-rec-default') !== REC_RUN) {
       localStorage.setItem('fast-clicker-rec-default', REC_RUN);
@@ -202,6 +204,7 @@
     dismissed: new Set(),
     draft: new Map(), draftVer: 0,
     sending: new Set(), resend: new Set(),
+    sentGen: new Map(),          // id -> the round (gen) whose answer the server accepted: "vote again" until it matches
     stamp: new Map(),            // id -> stamp of the newest send in ANY tab (time-based, broadcast to other tabs)
     unverified: new Map(),       // id -> {ans, gen, ver, stamp, took, repair, rechecks}: accepted, not yet re-read
     status: new Map(),
@@ -781,7 +784,6 @@
           if (recChanged('c' + c.id, snap)) recAdd('c', { id: c.id, snap });
         } catch {}
       }
-      await peekProbe();
     } finally { rec.busy = false; }
   }
 
@@ -791,49 +793,69 @@
   // the instant it opens, without the ~1.4 s feed. It is an EXPERIMENT and a MEASUREMENT: by default it only records
   // what each id returns and, when one turns out OPEN, logs that a direct poll found it (compare its time to the feed
   // event for the same id in the recording). It never votes and, unless CFG.peekAct is on, never changes the screen.
-  const peek = { seenOpen: new Set(), last: 0, n: 0 };
-  function peekBaseFor(code) {
+  const peek = { seenOpen: new Set(), last: 0, n: 0, busy: false, timer: null, draftAt: new Map() };
+  function peekBaseFor(lec) {
     let base = 0;
-    for (const co of (state.list && state.list.byCourse) || []) if (co.code === code) for (const x of co.clickers || []) if (x.id > base) base = x.id;
-    for (const c of state.clickers.values()) if (c.id > base && c.courseCode === code) base = c.id;   // a question opened this lecture
+    for (const co of (state.list && state.list.byCourse) || []) if (co.code === lec.code) for (const x of co.clickers || []) if (x.id > base) base = x.id;
+    for (const c of state.clickers.values()) {                   // a question opened this lecture
+      if (c.id > base && (c.courseCode === lec.code || (lec.title && sameTitle(lec.title, c.courseTitle)))) base = c.id;
+    }
     return base;
   }
-  async function peekProbe() {
+  // once per feed check, halfway to the next one: the two together look every ~2 s, the feed alone every ~4 s
+  function schedulePeek(feedStartedAt) {
     if (!CFG.record || !CFG.peekNext) return;
+    clearTimeout(peek.timer);
+    peek.timer = setTimeout(peekProbe, Math.max(0, feedStartedAt + CFG.cadenceMs / 2 - Date.now()));
+  }
+  async function peekProbe() {
+    if (!CFG.record || !CFG.peekNext || peek.busy) return;
+    if (!state.leader || !state.running || state.authLost || document.hidden || !state.semkez) return;
+    if (state.errorStreak || Date.now() < state.notBefore || latOk.feed > 4000) return;   // EduApp is struggling: no extra requests
+    if (CFG.recordUntil && Date.now() > CFG.recordUntil) return;
     const now = Date.now();
     if (now - peek.last < CFG.peekEveryMs * TS) return;
-    const lects = currentLectures().slice(0, 2);
+    const lects = currentLectures().slice(0, 2);                 // only during your own lectures
     if (!lects.length) return;
     peek.last = now;
-    const started = now;
-    for (const lec of lects) {
-      if (!lec.code) continue;
-      const base = peekBaseFor(lec.code);
-      if (!base) continue;                                       // no id known for this course yet (list not loaded)
-      for (let off = 1; off <= CFG.peekWindow; off++) {
-        const id = base + off;
-        if (peek.seenOpen.has(id)) continue;
-        const known = state.clickers.get(id);
-        if (known && known.state === 'OPEN') { peek.seenOpen.add(id); continue; }   // already have it via the feed/relay
-        let status = 0, st = null, q = 0, pv = 0, ans = 0;
-        try {
-          const d = await req(`clickers/${id}`, { kind: 'probe', priority: 'low' });
-          status = 200; st = d.state || null; q = (d.question || '').length ? 1 : 0; pv = d.preview ? 1 : 0;
-          ans = d.answerState && d.answerState !== 'UNANSWERED' ? 1 : 0;
-          if (st === 'OPEN' && lec.code) d.courseCode = lec.code;
-        } catch (e) {
-          if (e instanceof AuthError) return;
-          status = (e instanceof HttpError) ? e.status : (e instanceof NetError) ? -1 : 0;
-        }
-        if (recChanged('peek' + id, [status, st, q, pv, ans])) recAdd('p', { off, s: status, st, q, pv, ans });
-        if (status === 200 && st === 'OPEN') {
-          peek.seenOpen.add(id);
-          recAdd('P', { id, base, off });                        // a direct poll found it OPEN — this is the measurement
-          if (CFG.peekAct) await peekAct(id, lec);               // prototype: actually show it (off by default)
-        }
-        if (Date.now() - started > 1500) return;                 // never let one sweep run long
+    peek.busy = true;
+    try {
+      // ids that were drafts and that the feed has meanwhile reported open: the feed won this one
+      for (const [id, at] of peek.draftAt) {
+        const c = state.clickers.get(id);
+        if (c && c.state === 'OPEN' && !peek.seenOpen.has(id)) { peek.seenOpen.add(id); recAdd('P', { id, feed: 1, prev: at }); }
       }
-    }
+      for (const lec of lects) {
+        if (!lec.code) continue;
+        const base = peekBaseFor(lec);
+        if (!base) continue;                                     // no id known for this course yet (list not loaded)
+        for (let off = 1; off <= CFG.peekWindow; off++) {
+          const id = base + off;
+          if (peek.seenOpen.has(id)) continue;
+          const known = state.clickers.get(id);
+          if (known && known.state === 'OPEN') continue;         // already have it via the feed/relay (recorded above)
+          let status = 0, st = null, q = 0, pv = 0, ans = 0;
+          try {
+            const d = await req(`clickers/${id}`, { kind: 'probe', priority: 'low' });
+            status = 200; st = d.state || null; q = (d.question || '').length ? 1 : 0; pv = d.preview ? 1 : 0;
+            ans = d.answerState && d.answerState !== 'UNANSWERED' ? 1 : 0;   // flags only: no text is ever kept or shown
+          } catch (e) {
+            if (e instanceof AuthError) return;
+            status = (e instanceof HttpError) ? e.status : (e instanceof NetError) ? -1 : 0;
+          }
+          if (recChanged('peek' + id, [status, st, q, pv, ans])) recAdd('p', { id, off, s: status, st, q, pv, ans });
+          if (status === 200 && st === 'OPEN') {
+            peek.seenOpen.add(id);
+            recAdd('P', { id, base, off, prev: peek.draftAt.get(id) || 0 });   // a direct poll found it OPEN first: the measurement
+            if (CFG.peekAct) await peekAct(id, lec);             // prototype: actually show it (off by default)
+          } else if (status === 200) {
+            peek.draftAt.set(id, Date.now());                    // still a draft at this moment
+            if (peek.draftAt.size > 50) peek.draftAt.delete(peek.draftAt.keys().next().value);
+          }
+          if (Date.now() - now > 1500) return;                   // never let one sweep run long
+        }
+      }
+    } finally { peek.busy = false; }
   }
   // Prototype (off by default): surface a question that the id-poll found OPEN, through the same path as a relay hint.
   async function peekAct(id, lec) {
@@ -867,6 +889,33 @@
     } catch { try { navigator.clipboard.writeText(text); } catch {} }
   }
 
+  // ---------------------------------------------------------------- the semester, remembered between runs
+  const SEM_KEY = 'fast-clicker-semkez';
+  let semChecked = false, semChecking = false;
+  function savedSemkez() {
+    try {
+      const s = JSON.parse(localStorage.getItem(SEM_KEY) || 'null');
+      return s && typeof s.k === 'string' && /^\d{4}[A-Z]$/.test(s.k) && Date.now() - s.at < 30 * 86400e3 ? s.k : null;
+    } catch { return null; }
+  }
+  function saveSemkez() { try { localStorage.setItem(SEM_KEY, JSON.stringify({ k: state.semkez, at: Date.now() })); } catch {} }
+  async function checkSemester() {
+    if (semChecking) return;
+    semChecking = true;
+    try {
+      const s = await req('semesters/current', { priority: 'low' });
+      semChecked = true;
+      if (!s || !s.semkez) return;
+      if (s.semkez !== state.semkez) {                          // a new semester began since the last run: start over with it
+        state.semkez = s.semkez;
+        state.list = { byDate: [], byCourse: [], fetchedAt: 0, partial: true }; indexList(); state.listRev++;
+        state.scanDone = false; state.feedPrimed = false; listCacheTried = false;
+        render(); pokeNow();
+      }
+      saveSemkez();
+    } catch {} finally { semChecking = false; }
+  }
+
   // ---------------------------------------------------------------- poll loop (leader only)
   async function tick() {
     if (!state.running || state.polling || !state.leader) return;
@@ -875,16 +924,27 @@
     const started = Date.now();
     try {
       if (state.authLost) { await tryRelogin(); if (state.authLost) return; }
-      if (!state.semkez) state.semkez = (await req('semesters/current')).semkez;
-      if (Date.now() - state.lecturesFetchedAt > 10 * 60e3) await loadLectures();
+      // Start-up on a weak connection: every request can take seconds, so the first feed check waits for nothing it
+      // does not need. The semester comes from the last run (checked again afterwards), the timetable loads alongside.
+      if (!state.semkez) {
+        state.semkez = savedSemkez();
+        if (!state.semkez) { state.semkez = (await req('semesters/current')).semkez; saveSemkez(); semChecked = true; }
+      }
+      const lecP = Date.now() - state.lecturesFetchedAt > 10 * 60e3 ? loadLectures().catch(() => {}) : null;   // a login problem shows in the feed check too
       if (!listCacheTried) { listCacheTried = true; await loadListCache(); }   // before the first feed check, so catch-up knows what is saved
       state.lastError = null;
-      await pollFeed(!state.feedPrimed);           // first own poll (also after taking over from another tab)
+      try {
+        await pollFeed(!state.feedPrimed);         // first own poll (also after taking over from another tab)
+      } finally {
+        if (lecP) await lecP;
+      }
       state.feedPrimed = true;
+      if (!semChecked) checkSemester();            // the remembered semester: confirm it, not awaited
       state.lastPollAt = state.lastOwnPollAt = Date.now();
       state.errorStreak = 0; state.retryAfterMs = 0;
       for (const [id, h] of state.hold) if (h.at < started) state.hold.delete(id);   // the feed has spoken
       autoLoadList();                                           // low priority, not awaited
+      schedulePeek(started);
     } catch (e) {
       state.errorStreak++;
       state.retryAfterMs = e.retryAfterMs || 0;
@@ -946,6 +1006,8 @@
     state.timer = setTimeout(tick, ms);
   }
   const pokeNow = () => { if (state.leader && !state.polling) schedule(0); };
+  // the refresh button, and pulling down in the iPhone app: check right away, without restarting anything
+  function checkNow() { ui.spinUntil = Date.now() + 900; setTimeout(render, 950); render(); pokeNow(); }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) pokeNow(); updateWakeLock(); relaySync(); recSave(); });
   window.addEventListener('online', pokeNow);
   if (navigator.connection && navigator.connection.addEventListener) navigator.connection.addEventListener('change', pokeNow);
@@ -1084,6 +1146,7 @@
         return;
       }
       fence(id);                                                 // only re-reads issued after the vote count
+      if (state.clickers.get(id).gen === gen) state.sentGen.set(id, gen);   // this round has an answer from this device
       const took = fmtMs(Math.round(performance.now() - t0)) + (attempt > 1 ? `, attempt ${attempt}` : '');
       if (state.stamp.get(id) === stamp) {
         setStatus(id, 'ok', `Sent ✓ accepted by the server (${took}). Verifying…`);
@@ -1142,10 +1205,13 @@
       if (audioCtx.state === 'suspended') audioCtx.resume();
     } catch {}
   }
+  // a later round of a question (the lecturer stopped and restarted voting): answers of the earlier round do not count
+  const newRound = (c) => (c.gen || 0) > 0;
+  const voteAgain = (c) => c.state === 'OPEN' && !c.roundStopped && newRound(c) && state.sentGen.get(c.id) !== c.gen;
   function notify(c, desktop) {
     recAdd('a', { id: c.id });
     if (hooks.onAlert) {                 // native app shell: it plays sound, vibrates and notifies
-      try { hooks.onAlert({ id: c.id, title: c.title || '', course: c.courseTitle || '' }); } catch {}
+      try { hooks.onAlert({ id: c.id, title: c.title || '', course: c.courseTitle || '', round: newRound(c) }); } catch {}
       autoShow(c.id);
       return;
     }
@@ -1160,7 +1226,7 @@
       } catch {}
     }
     if (desktop && document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-      try { new Notification('Clicker open: ' + (c.title || ''), { body: c.courseTitle || 'EduApp', tag: 'fast-clicker-' + c.id }); } catch {}
+      try { new Notification((newRound(c) ? 'New round, vote again: ' : 'Clicker open: ') + (c.title || ''), { body: c.courseTitle || 'EduApp', tag: 'fast-clicker-' + c.id }); } catch {}
     }
     autoShow(c.id);
   }
@@ -1368,6 +1434,8 @@
     .note{background:#fefce8;color:#854d0e;border-left:4px solid #facc15;padding:12px 16px;font-size:14px;line-height:1.43;margin:8px 16px}
     :host(.dark) .note{background:#3a3212;color:#fde68a}
     .note.gray{background:rgba(var(--on),.08);color:inherit;border-color:rgba(var(--on),.45)}
+    .note.round{margin:0 0 12px;background:#fff4e5;color:#7a3e00;border-color:#f57c00;animation:pulse 1.6s 3}
+    :host(.dark) .note.round{background:#3d2a12;color:#ffcc80}
     .dg{display:flex;min-height:100px}
     .day{display:flex;flex-direction:column;align-items:center;width:56px;padding:0 8px 16px 0;flex:none}
     .mon{font-size:12px;line-height:1.3333;padding-bottom:8px}
@@ -1680,7 +1748,7 @@
     if (c.state !== 'OPEN') return JSON.stringify(['closed', c.title, c.type, c.question, c.answerState, c.showResults, c.individualAnswer, c.voteCount,
       (c.entries || []).map((e) => [e.id, e.answer, e.selected, e.correct, e.voteCount, e.voteRatio])]);
     const cur = c.type === 'TEXT' ? null : currentAnswer(c);
-    return JSON.stringify([c.gen, c.title, c.courseTitle, c.type, c.question, c.roundStopped,
+    return JSON.stringify([c.gen, c.title, c.courseTitle, c.type, c.question, c.roundStopped, voteAgain(c),
       c.type === 'TEXT' ? c.individualAnswer : c.entries.map((e) => [e.id, e.answer, e.selected, cur.includes(e.id)])]);
   }
   const kindText = (c) => c.type === 'MCMA' ? L.many : c.type === 'MCSA' ? L.one : L.text;
@@ -1689,6 +1757,7 @@
     div.className = 'card'; div.dataset.id = c.id;
     let h = `<h3 class="sr-only">${esc(c.title)}</h3><div class="course">${c.courseTitle ? esc(c.courseTitle) + ' · ' : ''}${kindText(c)}</div>`;
     if (c.roundStopped) h += `<div class="note gray" style="margin:0 0 12px">The lecturer stopped this round. You'll be alerted when the next round starts.</div>`;
+    else if (voteAgain(c)) h += `<div class="note round" role="alert"><b>New round: vote again.</b> The lecturer restarted voting; your earlier answer does not count for this round. Choose and tap ${L.send}.</div>`;
     h += `<div class="q">${c.question || ''}</div>`;
     if (c.type === 'TEXT') {
       h += `<textarea data-a="text" data-id="${c.id}" placeholder="${esc(L.yourAnswer)}">${esc(currentAnswer(c))}</textarea>`;
@@ -1904,7 +1973,7 @@
       case 'sound': CFG.sound = !CFG.sound; saveCfg(); unlockAudio(); break;
       case 'awake': CFG.keepAwake = !CFG.keepAwake; saveCfg(); updateWakeLock(); break;
       case 'theme': CFG.theme = isDark() ? 'light' : 'dark'; saveCfg(); applyMode(); break;
-      case 'now': ui.spinUntil = Date.now() + 900; setTimeout(render, 950); pokeNow(); break;
+      case 'now': checkNow(); break;
       case 'scan': state.listError = null; startScan(); break;
       case 'notif': Notification.requestPermission().then(render); return;
       case 'login': openLogin(); break;
@@ -1955,7 +2024,7 @@
   }
 
   // ---------------------------------------------------------------- start
-  window.__fastClicker = { show, state, CFG, hooks, tick, fullScan, sendVote, relay, rec, ui, openDetail, version: VERSION };
+  window.__fastClicker = { show, state, CFG, hooks, tick, fullScan, sendVote, relay, rec, ui, openDetail, checkNow, peek, version: VERSION };
   if (mode === 'focus') quietEduApp(); else document.body.appendChild(host);
   applyMode();
   startTimers();
