@@ -215,9 +215,11 @@ class MainActivity : ComponentActivity() {
             if (!request.isForMainFrame) return
             // No connection at launch: a small retry page instead of a blank screen.
             val dark = isSystemDark()
+            val bg = if (dark) "#121212" else "#fff"
+            val fg = if (dark) "#eee" else "#333"
             val html = """
                 <meta name="viewport" content="width=device-width,initial-scale=1">
-                <body style="font:17px sans-serif;padding:40px 24px;background:${if (dark) "#121212" : "#fff"};color:${if (dark) "#eee" : "#333"}">
+                <body style="font:17px sans-serif;padding:40px 24px;background:$bg;color:$fg">
                 <h2>No connection to EduApp</h2><p>Check the Wi-Fi, then try again.</p>
                 <p><a href="$START_URL" style="display:inline-block;padding:12px 20px;border-radius:6px;background:#08407e;color:#fff;text-decoration:none">Try again</a></p></body>
             """.trimIndent()
@@ -310,9 +312,12 @@ class MainActivity : ComponentActivity() {
 
     private fun vibrate() {
         val v: Vibrator? = if (Build.VERSION.SDK_INT >= 31) getSystemService(VibratorManager::class.java)?.defaultVibrator
-            else @Suppress("DEPRECATION") getSystemService(VIBRATOR_SERVICE) as? Vibrator
+            else legacyVibrator()
         try { v?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 150, 80, 150), -1)) } catch (_: Exception) {}
     }
+
+    @Suppress("DEPRECATION")
+    private fun legacyVibrator(): Vibrator? = getSystemService(VIBRATOR_SERVICE) as? Vibrator
 
     private fun alert(id: String, title: String, course: String, round: Boolean) {
         val heading = if (round) (if (title.isEmpty()) "New round: vote again" else "New round: vote again · $title")

@@ -1,13 +1,13 @@
-# Fast Clicker hint relay
+# ETH Clicker hint relay
 
 A small public WebSocket server that lets the students in one lecture share the work of noticing a new clicker question.
 
-Without it, every student's client polls ETH's EduApp endpoint. With it, only one or two clients (the *scouts*) poll at any moment. When one of them sees a clicker event, it sends a tiny hint ("clicker 322454 changed") to the relay. The relay passes the hint on to everyone else in the same room, and each client then fetches the question straight from ETH with its own login.
+Without it, every student's client polls ETH's EduApp endpoint. With it, the clients of a room take turns (the *scouts*, at most 60 of them; together about one feed request per second however big the room). When one of them sees a clicker event, it sends a tiny hint ("clicker 322454 changed") to the relay. The relay passes the hint on to everyone else in the same room, and each client then fetches the question straight from ETH with its own login.
 
 ```
 src/hub.js          platform-neutral core: rooms, slots, limits (no I/O, injectable clock)
 src/node-server.js  the hub on Node + `ws` (local tests, self-hosting)
-src/worker.js       the hub on Cloudflare Workers (one Durable Object)
+src/worker.js       the hub on Cloudflare Workers: one Durable Object per room, hibernating between messages
 wrangler.toml       Worker + Durable Object config (Free-plan compatible)
 test/               `node test/run.js`: unit tests (fake clock) + integration tests (real sockets)
 ```
@@ -24,7 +24,7 @@ It stores nothing durable: no database writes and no files. Everything lives in 
 
 ## Protocol v1
 
-All frames are JSON text frames on the WebSocket at `/v1`.
+All frames are JSON text frames. Clients connect once per room to `/v1/room/<room id>` (the id: 32 hex digits, a hash the client makes from semester + course number) and join exactly that room. On Cloudflare each room is its own Durable Object; the Node server also still accepts `/v1` for any rooms.
 
 ### Client → relay
 
@@ -32,7 +32,7 @@ All frames are JSON text frames on the WebSocket at `/v1`.
 | --- | --- |
 | `{"t":"join","rooms":["<id>",...],"scout":true\|false}` | **Replaces** the full room set and the scout flag. A room id is 16–64 chars of `[0-9a-f]`; at most 8 rooms; duplicates are collapsed. `[]` leaves all rooms. If `scout` is missing, it counts as `false`. Can be sent at any time. |
 | `{"t":"hint","room":"<id>","k":<int>0>,"e":"<[A-Z_]{1,32}>","a":<int>0>,"c":"<timestamp ≤32 chars>"}` | Only accepted for a joined room. |
-| `{"t":"ping"}` | The relay answers `{"t":"pong","now":<server ms>}`. Send one about every 40 s. |
+| `{"t":"ping"}` (exactly this text) | The relay answers `{"t":"pong"}` (Node adds `"now"`). Send one about every 25–40 s. On Cloudflare the platform answers it without waking the room. |
 
 ### Relay → client
 
@@ -59,11 +59,13 @@ All frames are JSON text frames on the WebSocket at `/v1`.
 | Same room + clicker `k` + event `e` | 1 / s | dropped + `err rate` |
 | Dedupe on activity id `a` | 10 min, ≤300 ids per room | dropped silently |
 | Replay on join | hints from the last 30 s, only for rooms not already joined | – |
-| Connections per IP | 700 (a lecture hall on campus Wi-Fi can share one address) | `err full` + close `4000` |
-| Connections in total | 2000 | `err full` + close `4000` |
-| Members per room | 600 | `err full` + close `4000` |
-| Rooms | 200 (empty rooms are evicted first) | `err full` + close `4000` |
-| Idle (nothing received) | 120 s | close `4003` |
+| Connections per IP | 700 (Cloudflare: 1000 per room; a lecture hall on campus Wi-Fi can share one address) | `err full` + close `4000` |
+| Connections in total | 5000 (Cloudflare: 2500 per room, no total) | `err full` + close `4000` |
+| Members per room | 2000 | `err full` + close `4000` |
+| Scouts with a slot | 60 per room; later scouts get `slot: -1` and move up when one leaves | – |
+| Rooms | 200 (empty rooms are evicted first; Cloudflare: one per object) | `err full` + close `4000` |
+| Room of a connection | the one in its URL (`/v1/room/<id>`) | `err room` |
+| Idle (nothing received) | 120 s (Cloudflare: none; the platform closes dead sockets) | close `4003` |
 
 An empty room is deleted once its dedupe and replay data have expired.
 
@@ -86,7 +88,7 @@ curl http://127.0.0.1:8787/health   # {"ok":true,"connections":0,"rooms":0}
 
 On PowerShell: `$env:PORT=8787; node src/node-server.js`.
 
-The Node server allows WebSocket upgrades on `/v1` only. An upgrade with an `Origin` header other than `https://eduapp.ethz.ch` gets `403`; a missing Origin, as from native apps and tests, is allowed. When the Node server runs behind a proxy, set `TRUST_PROXY=1` so the IP is taken from `CF-Connecting-IP` / `X-Forwarded-For`.
+The Node server allows WebSocket upgrades on `/v1/room/<id>` (one room, as the clients use it) and `/v1` (any rooms). An upgrade with an `Origin` header other than `https://eduapp.ethz.ch` gets `403`; a missing Origin, as from native apps and tests, is allowed. When the Node server runs behind a proxy, set `TRUST_PROXY=1` so the IP is taken from `CF-Connecting-IP` / `X-Forwarded-For`.
 
 To test the Worker locally, with no Cloudflare account and no network:
 
@@ -95,20 +97,24 @@ npx wrangler dev --port 8799
 RELAY_URL=http://127.0.0.1:8799 node test/integration-only.js   # in a second terminal
 ```
 
-## Deploy to Cloudflare (later, only with the owner's OK)
+## Deploy to Cloudflare
+
+Hosting was approved by the owner on 2026-11-12. One-time login, then deploy:
 
 ```sh
 cd relay
 npm install
 npx wrangler login           # opens the browser; one time
-npx wrangler deploy          # publishes the Worker and creates the Durable Object class (migration v1)
-# -> https://fast-clicker-relay.<your-subdomain>.workers.dev  (WebSocket: wss://.../v1, health: /health)
-npx wrangler tail            # optional live logs (counts and errors only)
+npx wrangler deploy          # publishes the Worker and the RelayRoom Durable Object class (migration v1)
+# -> https://fast-clicker-relay.<your-subdomain>.workers.dev  (rooms: wss://.../v1/room/<id>, health: /health)
 ```
 
-Notes on the Worker:
-- **One Durable Object instance** (`idFromName("hub")`) holds every room in memory. The outer Worker rejects bad paths and foreign Origins before they reach it, and the client IP comes from `CF-Connecting-IP`.
-- **Plain `server.accept()`, no WebSocket hibernation.** That keeps the state model identical to Node: the object stays in memory while any socket is open, and a 100 ms `setInterval` drives `hub.tick()` while there are connections. The trade-off is that the object is billed for wall-clock time while sockets are open. That fits a few hours of lectures a day, but it is the first thing to revisit (hibernation plus `serializeAttachment`) if usage grows. When the last socket closes the object may be evicted, which only forgets dedupe and replay data.
-- The class uses a **SQLite-backed** migration (`new_sqlite_classes`), which the Free plan requires. The relay never writes to storage.
-- Free-plan quotas apply (Durable Object requests and duration per day). Check the Cloudflare dashboard after the first busy lecture.
-- To allow another origin, edit `ALLOWED_ORIGINS` in `src/hub.js`.
+Put `wss://fast-clicker-relay.<your-subdomain>.workers.dev/v1` into `relay/relay-url.txt` and run `node tools/build.js`.
+
+How it scales and what it costs (Workers Free plan: 100,000 Durable Object requests and 13,000 GB-s per day):
+- **One Durable Object per room.** Rooms never compete; there is no global cap. A big lecture is one object with up to 2000 sockets (the platform allows 32,768).
+- **Hibernation.** A room is evicted from memory between messages while its sockets stay open, and is not billed for that time. Keep-alive pings are answered by the platform (`setWebSocketAutoResponse`) without waking it. After a wake-up the hub is rebuilt silently from each socket's attachment (its room, scout flag and scout order); a room's recent hints (dedupe ids, 30 s replay, rate window) are kept in storage, written only when a hint is accepted.
+- **Requests:** a connection is one request; incoming messages count 1/20 (a join, a hint, a ping). 1000 students in lectures for 2 hours make roughly 1000 connects + 1000 × 288 pings / 20 ≈ 15,000 requests a day.
+- **Duration:** only while a room handles a message or a roster broadcast (milliseconds), not while students sit in the lecture.
+- `GET /health` answers `{"ok":true}` from the Worker without touching a room.
+- Check the Cloudflare dashboard (Workers & Pages → fast-clicker-relay → Metrics) after the first busy lecture.
