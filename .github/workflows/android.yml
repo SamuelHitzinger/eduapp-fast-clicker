@@ -48,9 +48,12 @@ jobs:
 
       - name: Check the signature
         run: |
-          APK=android/app/build/outputs/apk/release/app-release.apk
-          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)
-          "$BT/apksigner" verify --print-certs "$APK" | grep -E "Signer #1 certificate (DN|SHA-256)"
+          set -o pipefail
+          ls -la android/app/build/outputs/apk/release/
+          APK=$(ls android/app/build/outputs/apk/release/*.apk | head -n 1)
+          SIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          echo "apksigner: $SIGNER"
+          "$SIGNER" verify --print-certs "$APK" 2>&1 | grep -v -i "warning" | head -n 8
           mkdir -p out && cp "$APK" out/ETHClicker.apk
           ls -la out
 
