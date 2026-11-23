@@ -834,6 +834,28 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     stop();
   }
 
+  {
+    // two ETH accounts on one device: the second never sees the first one's saved answers
+    const C = fakeCaches();
+    const SA = makeServer({ lectureNow: false }); SA.user = 'anna@student.ethz.ch';
+    const A = boot(SA, { caches: C });
+    await until(() => A.fc.state.account && C.store.size > 0, 8000);
+    const keyA = [...C.store.keys()][0];
+    const accA = A.fc.state.account;
+    const storeA = A.w.localStorage;
+    const accountSaved = storeA.getItem('fast-clicker-account');
+    A.stop();
+    const SB = makeServer({ lectureNow: false }); SB.user = 'ben@student.ethz.ch';
+    const B = boot(SB, { caches: C, preset: { 'fast-clicker-account': accountSaved } });
+    await until(() => B.fc.state.account, 5000);
+    await wait(300);
+    const keysNow = [...C.store.keys()];
+    check("X9 a saved list belongs to one ETH account: another account on the same device starts without the first one's answers",
+      !!accA && B.fc.state.account !== accA && keyA.endsWith('-' + accA) && !keysNow.includes(keyA) && !/anna/.test(keyA + keysNow.join()),
+      JSON.stringify({ keyA, keysNow, a: accA, b: B.fc.state.account }));
+    B.stop();
+  }
+
   // ---------- E: ETH Clicker (v3.2): one simple screen, no settings drawer, no timing experiment
   {
     const S = makeServer();

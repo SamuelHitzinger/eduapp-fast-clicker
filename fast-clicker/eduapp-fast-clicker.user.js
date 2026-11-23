@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ETH Clicker (unofficial)
 // @namespace    https://eduapp.ethz.ch/
-// @version      3.4.1
+// @version      3.4.2
 // @description  Shows opened ETH EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi.
 // @match        https://eduapp.ethz.ch/*
 // @run-at       document-idle
@@ -36,7 +36,7 @@
 //     The relay never sees logins, questions or answers (relay/README.md).
 (() => {
   'use strict';
-  const VERSION = '3.4.1';
+  const VERSION = '3.4.2';
   const RELAY_URL = '';     // wss://… of the hint relay; empty = every client checks the feed itself (set by tools/build.js)
   const MODE = window.__FC_MODE === 'focus' ? 'focus' : 'panel';
   if (window.__fastClicker) { window.__fastClicker.show(MODE); return; }
@@ -367,6 +367,7 @@
     state.lastFeedStartAt = Date.now();
     relay.confirmDue = 0;
     let feed = await req(`dashboard/activity-feed?semkez=${state.semkez}&maxActivities=${n}`, { kind: 'feed' }) || [];
+    if (state.cacheP) { const p = state.cacheP; state.cacheP = null; await p; }
     const burst = state.burstIds || null;                         // what the narrow check of a burst already took in
     const allNew = (f) => f.length >= n && f.every((a) => !state.receivedActivities.has(a.id) || (burst && burst.has(a.id)));
     // burst (everything new): the next check, at the normal spacing, asks for the wider window (never two at once)
@@ -468,7 +469,32 @@
   // downloaded at most once in a while, never automatically during a lecture, kept on the device, and patched
   // whenever a question is read.
   const LIST_CACHE = 'fast-clicker-data';
-  const listCacheKey = () => '/__fast-clicker/list-' + state.semkez;
+  // The saved list holds this student's own answer marks and results, so it belongs to one ETH account: it is filed
+  // under a code made from the logged-in account (never sent anywhere), and a different account on the same device
+  // starts with nothing saved. If the account cannot be told (no userinfo), a fresh manual login also clears it.
+  const ACCOUNT_KEY = 'fast-clicker-account';
+  const listCacheKey = () => '/__fast-clicker/list-' + state.semkez + (state.account ? '-' + state.account : '');
+  async function wipeAccountData() {
+    try { if (window.caches) { if (caches.delete) await caches.delete(LIST_CACHE); else { const c = await caches.open(LIST_CACHE); if (c.delete) await c.delete(listCacheKey()); } } } catch {}
+    state.list = { byDate: [], byCourse: [], fetchedAt: 0, partial: true }; state.listIndex = new Map(); state.listRev++;
+    state.scanDone = false; listCacheTried = false;
+    for (const id of [...state.draft.keys()]) state.draft.delete(id);   // an answer chosen by the previous person is never sent for the next one
+    state.resend.clear(); state.unverified.clear();
+  }
+  async function checkAccount() {
+    let id = null;
+    try {
+      const r = await fetch('/oauth2/userinfo?_fc=' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8), { credentials: 'same-origin', cache: 'no-store', redirect: 'manual' });
+      if (r.ok) { const j = await r.json(); id = j && (j.email || j.preferredUsername || j.user) || null; }
+    } catch {}
+    if (!id) return;                                            // unknown: keep what we have
+    const acct = hash32('acct|' + String(id).toLowerCase()).slice(0, 16);
+    let last = null;
+    try { last = localStorage.getItem(ACCOUNT_KEY); } catch {}
+    if (last && last !== acct) await wipeAccountData();          // someone else logged in on this device
+    try { localStorage.setItem(ACCOUNT_KEY, acct); } catch {}
+    state.account = acct;
+  }
   let listSaveTimer = null;
   function indexList() {
     state.listIndex = new Map();
@@ -505,7 +531,7 @@
   }
   let listCacheTried = false;
   async function autoLoadList() {                               // after a successful feed check
-    if (!listCacheTried) { listCacheTried = true; await loadListCache(); }
+    if (!listCacheTried) { listCacheTried = true; await checkAccount(); await loadListCache(); }
     const stale = !state.scanDone || state.list.partial || Date.now() - (state.list.fetchedAt || 0) > 12 * 3600e3
       || (state.list.fetchedAt || 0) < (state.feedReachAt || 0);   // the saved list is older than what the feed still shows
     // never during a lecture (1.4 MB); after a failure not again for 5 minutes
@@ -820,7 +846,9 @@
         if (!state.semkez) { state.semkez = (await req('semesters/current')).semkez; saveSemkez(); semChecked = true; }
       }
       const lecP = Date.now() - state.lecturesFetchedAt > 10 * 60e3 ? loadLectures().catch(() => {}) : null;   // a login problem shows in the feed check too
-      if (!listCacheTried) { listCacheTried = true; await loadListCache(); }   // before the first feed check, so catch-up knows what is saved
+      // the saved list (after checking whose it is) loads alongside the first feed check; the feed's answer waits for
+      // it before catch-up, so catch-up knows what is saved, and the feed request itself is never held up
+      if (!listCacheTried) { listCacheTried = true; state.cacheP = sleep(0).then(checkAccount).then(loadListCache).catch(() => {}); }
       state.lastError = null;
       try {
         await pollFeed(!state.feedPrimed);         // first own poll (also after taking over from another tab)
@@ -936,11 +964,15 @@
       setBanner('Login expired. Renewing…');
       if (await silentRelogin() && await checkSession()) return loggedIn();
     }
-    if (await checkSession()) return loggedIn();      // e.g. the user logged in in another tab
+    if (await checkSession()) return loggedIn(true);  // e.g. the user logged in in another tab (or in the app's login window)
     state.loginNeeded = true;
     render();
   }
-  function loggedIn() {
+  function loggedIn(manual) {
+    if (manual) {
+      const before = state.account;
+      checkAccount().then(async () => { if (!state.account || state.account !== before && before) { if (!state.account) await wipeAccountData(); render(); } });
+    }
     state.authLost = false; state.loginNeeded = false; state.lastError = null;
     if (loginWin && !loginWin.closed) { try { loginWin.close(); } catch {} }
     loginWin = null;
@@ -953,7 +985,7 @@
       if (!state.authLost) { clearInterval(iv); return; }
       let back = false;
       try { back = !loginWin || loginWin.closed || loginWin.location.pathname.startsWith('/web/gw/'); } catch {}
-      if (back && await checkSession()) { clearInterval(iv); loggedIn(); }
+      if (back && await checkSession()) { clearInterval(iv); loggedIn(true); }   // a login on ETH's page: maybe another person
     }, 2000);
   }
   async function waitForSession(deadline) {

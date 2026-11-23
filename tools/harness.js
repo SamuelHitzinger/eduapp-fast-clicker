@@ -41,6 +41,7 @@ function makeServer({ lectureNow = true, chaos = null } = {}) {
     const p = u.pathname.replace('/web/gw/', '') + (u.search || '');
     const method = opts.method || 'GET';
     S.log.push(`${method} ${p}`);
+    if (u.pathname === '/oauth2/userinfo') return S.user ? new Response(JSON.stringify({ email: S.user, user: S.user }), { status: 200, headers: { 'content-type': 'application/json' } }) : new Response('', { status: 404 });
     const isFeed = p.startsWith('dashboard/activity-feed');
     const voteM = p.match(/^clickers\/(\d+)\/vote$/);
     if (isFeed) { S.feedInFlight++; S.feedMaxInFlight = Math.max(S.feedMaxInFlight, S.feedInFlight); }
@@ -93,9 +94,10 @@ function makeServer({ lectureNow = true, chaos = null } = {}) {
 // A Cache Storage stand-in that survives from one boot to the next (the app being closed and opened again).
 function fakeCaches() {
   const store = new Map();
-  return { store, open: async () => ({
+  return { store, delete: async () => { const had = store.size > 0; store.clear(); return had; }, open: async () => ({
     put: async (k, r) => { store.set(String(k), await r.text()); },
     match: async (k) => (store.has(String(k)) ? { json: async () => JSON.parse(store.get(String(k))) } : undefined),
+    delete: async (k) => store.delete(String(k)),
   }) };
 }
 
