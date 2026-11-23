@@ -59,6 +59,7 @@ class MainActivity : ComponentActivity() {
     private var needsLogin = false
     private var login: Dialog? = null
     private var inForeground = false
+    private var destroyed = false
     private var nextNotificationId = (System.currentTimeMillis() / 1000 % 100_000).toInt()
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -145,7 +146,9 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        destroyed = true
         login?.dismiss()
+        root.removeView(web)
         web.destroy()
         super.onDestroy()
     }
@@ -185,7 +188,7 @@ class MainActivity : ComponentActivity() {
         })();
     """.trimIndent()
 
-    private fun isEthHost(host: String?) = host != null && (host == "ethz.ch" || host.endsWith(".ethz.ch"))
+    private fun isEthHost(host: String?) = host?.lowercase()?.let { it == "ethz.ch" || it.endsWith(".ethz.ch") } == true
 
     private fun openOutside(uri: Uri) {
         try { startActivity(Intent(Intent.ACTION_VIEW, uri)) } catch (_: ActivityNotFoundException) {}
@@ -205,10 +208,12 @@ class MainActivity : ComponentActivity() {
         }
 
         override fun onPageFinished(view: WebView, url: String?) {
+            // Not logged in: only ETH's login (the clicker would start its own silent login next to it, and two
+            // logins at once break ETH's check of the login request)
+            if (needsLogin) { needsLogin = false; showLogin(LOGIN_URL); return }
             val uri = url?.let(Uri::parse)
             if (uri?.host == "eduapp.ethz.ch") view.evaluateJavascript(injected, null)
             view.evaluateJavascript(loginFieldScript, null)
-            if (needsLogin) { needsLogin = false; showLogin(LOGIN_URL) }
         }
 
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
@@ -247,7 +252,15 @@ class MainActivity : ComponentActivity() {
         popup.settings.javaScriptEnabled = true
         popup.settings.domStorageEnabled = true
         val dialog = Dialog(this, android.R.style.Theme_DeviceDefault_NoActionBar)
-        dialog.setContentView(popup)
+        val frame = FrameLayout(this)
+        frame.setBackgroundColor(if (isSystemDark()) Color.rgb(18, 18, 18) else Color.WHITE)
+        frame.addView(popup, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        ViewCompat.setOnApplyWindowInsetsListener(frame) { v, insets ->      // the login form clear of bars and keyboard
+            val b = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime())
+            v.setPadding(b.left, b.top, b.right, b.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
+        dialog.setContentView(frame)
         var done = false
         var loggedIn = false
         fun finish() {
@@ -257,8 +270,14 @@ class MainActivity : ComponentActivity() {
         }
         popup.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                if (request.isForMainFrame && !isEthHost(request.url.host)) { openOutside(request.url); return true }
+                // the login may pass through other sign-in pages (e.g. a second factor): those redirects stay here;
+                // only a link the student taps to another website opens in the browser
+                if (request.isForMainFrame && request.hasGesture() && !request.isRedirect && !isEthHost(request.url.host)) { openOutside(request.url); return true }
                 return false
+            }
+            override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                finish()                                         // its page was killed (memory): close, never crash
+                return true
             }
             override fun onPageFinished(view: WebView, url: String?) {
                 view.evaluateJavascript(loginFieldScript, null)
@@ -272,7 +291,9 @@ class MainActivity : ComponentActivity() {
         dialog.setOnDismissListener {
             login = null
             CookieManager.getInstance().flush()
+            frame.removeView(popup)
             popup.destroy()
+            if (destroyed || isFinishing) return@setOnDismissListener
             when {
                 url == null -> web.evaluateJavascript("window.dispatchEvent(new Event('online'))", null)   // the page's own button
                 loggedIn -> web.loadUrl(START_URL)           // the app asked for the login: start the clicker

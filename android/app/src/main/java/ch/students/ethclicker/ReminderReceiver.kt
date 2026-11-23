@@ -49,7 +49,14 @@ object Alerts {
             .putExtra("at", System.currentTimeMillis())
         val pi = PendingIntent.getBroadcast(ctx, nid, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val am = ctx.getSystemService(AlarmManager::class.java) ?: return
-        am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + REMINDER_MS, pi)
+        val at = SystemClock.elapsedRealtime() + REMINDER_MS
+        // exact when the phone allows it (otherwise Android may deliver it a few minutes late)
+        try {
+            if (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, at, pi)
+            else am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, at, pi)
+        } catch (_: SecurityException) {
+            am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, at, pi)
+        }
     }
 
     /** The app is on screen: reminders scheduled before now are no longer needed. */

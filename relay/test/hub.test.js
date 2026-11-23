@@ -681,3 +681,17 @@ test('standby members hear when the room has grown noticeably (they check on the
   assert.ok(seen.length >= 1 && seen.length <= 15, `told ${seen.length} times`);
   assert.equal(seen.at(-1), 100);
 });
+
+test('a scout that enters a room later is restored behind the ones already there', () => {
+  const states = new Map();
+  const { hub, clock, conn, join, advance } = setup();
+  hub.onConnState = (c, s) => states.set(c, s);
+  const a = conn(), b = conn();
+  join(a, [], true);           // a scout with no room yet
+  join(b, [R1], true); advance(400);
+  join(a, [R1], true); advance(400);
+  assert.deepEqual(hub.rooms.get(R1).scouts.map((s) => s.conn), [b, a]);
+  const again = new Hub({ now: () => clock.t });
+  again.restore([a, b].map((c) => ({ conn: c, ...states.get(c) })));
+  assert.deepEqual(again.rooms.get(R1).scouts.map((s) => s.conn), [b, a]);
+});

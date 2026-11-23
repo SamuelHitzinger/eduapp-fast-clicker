@@ -657,7 +657,8 @@
     if (m.t === 'roster' && relay.want.has(m.room)) {
       const n = Math.max(0, Math.min(5000, m.n | 0));
       relay.rooms.set(m.room, { n, slot: Math.max(-1, Math.min(n - 1, m.slot | 0)), m: Math.max(0, Math.min(5000, m.m | 0)), every: Math.max(CFG.shareMinMs, Math.min(5000, Number(m.every) || 1000)) });
-      if (n > 0 && n !== relay.lastN) { relay.lastN = n; try { localStorage.setItem('fast-clicker-relay-n', String(n)); } catch {} }
+      const busiest = sharedPlan();                              // remembered for checking alone if the relay goes away
+      if (busiest && busiest.n !== relay.lastN) { relay.lastN = busiest.n; try { localStorage.setItem('fast-clicker-relay-n', String(busiest.n)); } catch {} }
       if (state.leader && !state.polling && sharedPlan()) schedule();   // move to the (new) slot
       render();
     } else if (m.t === 'hint') onHint(m);

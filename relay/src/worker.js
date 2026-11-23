@@ -38,15 +38,18 @@ export class RelayRoom extends DurableObject {
     this.room = null;
     this.conns = new Map(); // WebSocket -> conn handed to the hub
     this.memory = null; // the room's recent hints, as last stored
+    this.alarmAt = null; // when the next alarm is set for (null: none)
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG));
     ctx.blockConcurrencyWhile(async () => {
       this.memory = (await ctx.storage.get('mem')) || null;
+      this.alarmAt = await ctx.storage.getAlarm();         // a roster broadcast was pending when the room went to sleep
     });
   }
 
   /** The hub for this room, rebuilt silently from the sockets' attachments after a wake-up. */
   ensureHub(room, { quiet = true } = {}) {
     if (this.hub) return this.hub;
+    if (this.alarmAt != null) quiet = false;               // something was still to be told: tell everyone their slot
     this.room = room;
     this.hub = new Hub({
       limits: ROOM_LIMITS,
@@ -62,7 +65,7 @@ export class RelayRoom extends DurableObject {
     const entries = [];
     for (const ws of this.ctx.getWebSockets()) {
       const att = safeAttachment(ws);
-      if (!att || att.room !== room) continue;
+      if (!att || att.room !== room || att.dead) continue;
       entries.push({ conn: this.connFor(ws, att), rooms: att.rooms, scout: att.scout, seq: att.seq, joined: att.joined });
     }
     this.hub.restore(entries, { quiet });
@@ -80,7 +83,12 @@ export class RelayRoom extends DurableObject {
       att,
       ws,
       send: (text) => ws.send(text),
-      close: (code, reason) => ws.close(code, reason),
+      close: (code, reason) => {
+        // closed by the relay (full, rate, never joined): never restored after a wake-up, even if still closing
+        try { ws.serializeAttachment({ ...att, dead: true }); } catch {}
+        this.conns.delete(ws);
+        ws.close(code, reason);
+      },
     };
     this.conns.set(ws, conn);
     return conn;
@@ -123,7 +131,8 @@ export class RelayRoom extends DurableObject {
 
   gone(ws) {
     const att = safeAttachment(ws);
-    if (!this.hub && att) this.ensureHub(att.room);
+    // woken by this departure: the socket may already be missing from the restore, so tell everyone their slot
+    if (!this.hub && att) this.ensureHub(att.room, { quiet: false });
     const conn = this.conns.get(ws);
     if (conn && this.hub) this.hub.disconnect(conn);
     this.conns.delete(ws);
@@ -131,6 +140,7 @@ export class RelayRoom extends DurableObject {
 
   /** A coalesced roster broadcast is due, or a connection that never joined has to go. */
   async alarm() {
+    this.alarmAt = null;
     if (!this.hub) {
       // woken only for this: rebuild, and tell every member its slot (what was pending is not known any more)
       const att = this.ctx.getWebSockets().map(safeAttachment).find(Boolean);
@@ -143,7 +153,11 @@ export class RelayRoom extends DurableObject {
 
   async schedule() {
     const due = this.hub && this.hub.nextDueAt();
-    if (due != null) await this.ctx.storage.setAlarm(Math.max(Date.now() + 10, due));
+    if (due == null) return;
+    const at = Math.max(Date.now() + 10, due);
+    if (this.alarmAt != null && this.alarmAt <= at) return;   // an earlier alarm is set already (no write per join)
+    this.alarmAt = at;
+    await this.ctx.storage.setAlarm(at);
   }
 }
 

@@ -337,7 +337,7 @@ export class Hub {
     this.unjoined.delete(st);
     const scoutChanged = st.scout !== scout;
     st.scout = scout;
-    if (scout && scoutChanged) st.seq = ++this.scoutSeq;
+    if (scout && (scoutChanged || entering.length)) st.seq = ++this.scoutSeq;   // its place at the end of the order
     if (scoutChanged) {
       for (const id of st.rooms) {
         const room = this.rooms.get(id);
