@@ -21,6 +21,14 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      # Apple accepts uploads only from a current Xcode (iOS 26 SDK or later since 2026)
+      - name: Use the newest Xcode (26 or later)
+        run: |
+          X=$(ls -d /Applications/Xcode_*.app | grep -E 'Xcode_(2[6-9]|[3-9][0-9])' | sort -V | tail -n 1)
+          if [ -z "$X" ]; then ls /Applications | grep -i xcode; echo "::error::no Xcode 26 or later on this runner"; exit 1; fi
+          sudo xcode-select -s "$X"
+          xcodebuild -version
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
