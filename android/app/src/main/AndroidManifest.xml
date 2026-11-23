@@ -8,7 +8,7 @@
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
-        android:label="Clicker"
+        android:label="ETH Clicker"
         android:supportsRtl="true"
         android:theme="@style/Theme.ETHClicker"
         android:usesCleartextTraffic="false">

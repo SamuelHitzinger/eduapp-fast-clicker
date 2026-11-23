@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Clicker for EduApp",
-  "version": "3.4.0",
+  "name": "ETH Clicker (unofficial)",
+  "version": "3.4.1",
   "description": "Shows EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi. Unofficial; not made by ETH Zurich.",
   "icons": {
     "16": "icon-16.png",

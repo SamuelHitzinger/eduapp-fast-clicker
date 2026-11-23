@@ -841,7 +841,7 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     await until(() => root.querySelector('.card[data-id="322454"]'));
     await wait(500);
     const bar = root.querySelector('header.bar');
-    check('E1 the app is called Clicker and has no menu or settings drawer', /^\s*Clicker\s*$/.test(bar.querySelector('h1').textContent)
+    check('E1 the app is called ETH Clicker and has no menu or settings drawer', /^\s*ETH Clicker\s*$/.test(bar.querySelector('h1').textContent)
       && !root.querySelector('[data-a="menu"], #drawer, .drawer, #menu, [data-a="record"], [data-a="turbo"], [data-a="onetap"], [data-a="pause"]'));
     check('E2 the top bar keeps check-now and the dark-mode button; in the app no exit or full-screen button shows',
       !!root.querySelector('[data-a="now"]') && !!root.querySelector('#themebtn')

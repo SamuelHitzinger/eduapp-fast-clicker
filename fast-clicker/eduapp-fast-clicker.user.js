@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Clicker for EduApp
+// @name         ETH Clicker (unofficial)
 // @namespace    https://eduapp.ethz.ch/
-// @version      3.4.0
+// @version      3.4.1
 // @description  Shows opened ETH EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi.
 // @match        https://eduapp.ethz.ch/*
 // @run-at       document-idle
@@ -36,12 +36,12 @@
 //     The relay never sees logins, questions or answers (relay/README.md).
 (() => {
   'use strict';
-  const VERSION = '3.4.0';
+  const VERSION = '3.4.1';
   const RELAY_URL = '';     // wss://… of the hint relay; empty = every client checks the feed itself (set by tools/build.js)
   const MODE = window.__FC_MODE === 'focus' ? 'focus' : 'panel';
   if (window.__fastClicker) { window.__fastClicker.show(MODE); return; }
   if (location.hostname !== 'eduapp.ethz.ch') {
-    if (confirm('Clicker works inside EduApp.\n\nOpen EduApp now? Once it has loaded, tap the Clicker bookmark again.')) {
+    if (confirm('ETH Clicker works inside EduApp.\n\nOpen EduApp now? Once it has loaded, tap the Clicker bookmark again.')) {
       location.href = 'https://eduapp.ethz.ch/';
     }
     return;
@@ -1156,7 +1156,7 @@
     // stop the page's own timers (dashboard refreshes, 5-min service-worker update check, …), never ours
     for (let i = 1; i <= TIMER_WATERMARK; i++) { clearTimeout(i); clearInterval(i); }
     document.body.replaceChildren(host);
-    document.title = 'Clicker';
+    document.title = 'ETH Clicker';
     if (!document.querySelector('meta[name=viewport]')) {
       const m = document.createElement('meta'); m.name = 'viewport'; m.content = 'width=device-width,initial-scale=1,viewport-fit=cover'; document.head.appendChild(m);
     }
@@ -1456,7 +1456,7 @@
     <button class="fab" data-a="open"></button>
     <div class="app">
       <header class="bar">
-        <div class="brand">${icon('clicker')}<h1>Clicker</h1></div><span class="grow"></span>
+        <div class="brand">${icon('clicker')}<h1>ETH Clicker</h1></div><span class="grow"></span>
         <button class="iconbtn x" data-a="min" title="Minimize" aria-label="Minimize">${icon('minus')}</button>
         <button class="iconbtn fs" data-a="focus" title="Full screen" aria-label="Full screen">${icon('fullscreen')}</button>
         <button class="iconbtn ex" data-a="exit" title="Back to EduApp" aria-label="Back to EduApp">${icon('exit')}</button>
@@ -1776,7 +1776,7 @@
     el.fab.style.display = panelOpen ? 'none' : '';
     el.app.style.display = panelOpen ? '' : 'none';
     el.fab.className = 'fab' + (alerting ? ' alert' : '');
-    el.fab.textContent = live.length ? `Clicker open (${live.length})` : 'Clicker';
+    el.fab.textContent = live.length ? `Clicker open (${live.length})` : 'ETH Clicker';
     $('.x').style.display = $('.fs').style.display = mode === 'focus' ? 'none' : '';
     $('.ex').style.display = mode === 'focus' && !hooks.noExit ? '' : 'none';
     const tone = !state.running ? 'slow' : state.authLost ? 'warn' : state.lastError ? 'err' : fastMode() ? '' : 'slow';
