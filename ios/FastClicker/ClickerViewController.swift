@@ -80,6 +80,9 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
             },
             onTheme: function (dark) {
               try { window.webkit.messageHandlers.fc.postMessage({ type: 'theme', dark: !!dark }); } catch (e) {}
+            },
+            openUrl: function (u) {
+              try { window.webkit.messageHandlers.fc.postMessage({ type: 'open', url: String(u) }); } catch (e) {}
             }
           };
         \(core)
@@ -110,6 +113,8 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
         switch type {
         case "alert": handleAlert(body)
         case "theme": handleTheme(body)
+        case "open":                                                  // a link in a question: Safari (http/https only)
+            if let s = body["url"] as? String, let url = URL(string: s), url.scheme == "https" || url.scheme == "http" { UIApplication.shared.open(url) }
         default: break
         }
     }

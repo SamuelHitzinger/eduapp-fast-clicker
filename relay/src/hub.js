@@ -136,7 +136,7 @@ export class Hub {
   connect(conn) {
     const L = this.L;
     if (this.conns.has(conn)) return true;
-    const ip = String(conn.ip || 'unknown');
+    const ip = netOf(conn.ip || 'unknown');                     // per IPv4 address or IPv6 /64
     if (this.conns.size >= L.MAX_CONNS || (this.ipCounts.get(ip) || 0) >= L.MAX_CONNS_PER_IP) {
       safeSend(conn, '{"t":"err","code":"full"}');
       safeClose(conn, CLOSE.FULL, 'full');
@@ -225,7 +225,7 @@ export class Hub {
     const sorted = [...entries].sort((x, y) => (x.seq || 0) - (y.seq || 0));
     for (const { conn, rooms, scout, seq, joined } of sorted) {
       if (this.conns.has(conn)) continue;
-      const ip = String(conn.ip || 'unknown');
+      const ip = netOf(conn.ip || 'unknown');
       const st = this._state(conn, ip);
       this.conns.set(conn, st);
       this.ipCounts.set(ip, (this.ipCounts.get(ip) || 0) + 1);

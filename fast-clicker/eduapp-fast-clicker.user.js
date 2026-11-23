@@ -881,12 +881,13 @@
       } else {
         let cadence = !fast ? CFG.idleCadenceMs : document.hidden ? CFG.hiddenCadenceMs : CFG.cadenceMs;
         // relay configured but unreachable: check alone, but the more students were sharing, the slower (ETH load)
-        if (fast && relayUrl && relay.want.size && !sharedPlan()) cadence = Math.max(cadence, Math.min(CFG.soloMaxMs, Math.max(CFG.soloMinMs, relay.lastN * CFG.soloStepMs, relay.lastM * CFG.soloPerMemberMs)));
+        const solo = fast && relayUrl && relay.want.size && !sharedPlan() ? Math.min(CFG.soloMaxMs, Math.max(CFG.soloMinMs, relay.lastN * CFG.soloStepMs, relay.lastM * CFG.soloPerMemberMs)) : 0;
+        cadence = Math.max(cadence, solo);                         // (also while ETH answers with errors: never faster than this)
         // server slower than usual: back off (start to start), but less during a lecture, when finding the question matters
         if (latOk.feed > 2500) cadence = Math.max(cadence, Math.round(Math.min(latOk.feed, 30000) * (fast ? 1.5 : 3)));
         const maxBackoff = fast ? Math.min(CFG.maxBackoffMs, CFG.lectureBackoffMs) : CFG.maxBackoffMs;
         if (state.authLost) cadence = state.loginNeeded ? CFG.loginCadenceMs : CFG.authCadenceMs;
-        else if (state.errorStreak) cadence = Math.max(state.retryAfterMs, Math.min(maxBackoff, 2000 * 2 ** (state.errorStreak - 1)), Math.min(cadence, 8000));
+        else if (state.errorStreak) cadence = Math.max(state.retryAfterMs, Math.min(maxBackoff, 2000 * 2 ** (state.errorStreak - 1)), Math.min(cadence, 8000), solo);
         ms = Math.max(0, jitter(cadence) - (Date.now() - startedAt));
       }
       const now = Date.now();
@@ -1219,15 +1220,50 @@
   // URLs). It is shown inside a logged-in EduApp page, so it is cleaned first: only formatting, formula and picture
   // elements survive; scripts, frames, forms, event handlers, javascript: links, external pictures and style sheets
   // never do. (EduApp shows the same text itself; this is defence in depth, e.g. against a hijacked lecturer account.)
-  const SAFE_TAGS = new Set(('a abbr b bdi bdo blockquote br caption center cite code col colgroup dd del dfn div dl dt em figcaption figure '
-    + 'font h1 h2 h3 h4 h5 h6 hr i img ins kbd li mark ol p pre q s samp small span strike strong sub sup table tbody td tfoot th thead tr tt u ul var wbr '
-    // SVG (MathJax output)
-    + 'svg g path use defs symbol rect line circle ellipse polygon polyline text tspan title desc clippath lineargradient radialgradient stop mask pattern marker '
-    // MathML (MathJax's accessible copy)
-    + 'math mi mn mo ms mtext mspace mrow mfrac msqrt mroot mstyle merror mpadded mphantom mfenced menclose msub msup msubsup munder mover munderover '
-    + 'mmultiscripts mprescripts none mtable mtr mtd mlabeledtr maligngroup malignmark semantics annotation').split(' '));
-  const DROP_TAGS = /^(script|style|iframe|frame|frameset|object|embed|applet|link|meta|base|form|input|button|textarea|select|option|noscript|template|foreignobject|audio|video|source|track|portal|animate|animatemotion|animatetransform|set|image|feimage|annotation-xml|mjx-assistive-mml)$/;
-  const SAFE_IMG = /^(data:image\/(png|jpe?g|gif|webp|bmp|svg\+xml)[;,]|\/(?![\/\\]))/i;   // data: pictures or a path on eduapp.ethz.ch
+  const NS_HTML = 'http://www.w3.org/1999/xhtml', NS_SVG = 'http://www.w3.org/2000/svg', NS_MATH = 'http://www.w3.org/1998/Math/MathML';
+  // allowed elements per namespace (an SVG or MathML name in the HTML namespace, or the other way round, is not the same thing)
+  const SAFE = {
+    [NS_HTML]: new Set(('a abbr b bdi bdo blockquote br caption center cite code col colgroup dd del dfn div dl dt em figcaption figure '
+      + 'font h1 h2 h3 h4 h5 h6 hr i img ins kbd li mark ol p pre q s samp small span strike strong sub sup table tbody td tfoot th thead tr tt u ul var wbr').split(' ')),
+    [NS_SVG]: new Set('svg g path use defs symbol rect line circle ellipse polygon polyline text tspan clippath lineargradient radialgradient stop mask pattern marker'.split(' ')),
+    [NS_MATH]: new Set(('math mi mn mo ms mtext mspace mrow mfrac msqrt mroot mstyle merror mpadded mphantom mfenced menclose msub msup msubsup '
+      + 'munder mover munderover mmultiscripts mprescripts none mtable mtr mtd mlabeledtr semantics').split(' ')),
+  };
+  // gone with everything inside: active content, and elements whose text the HTML parser treats specially (the classic
+  // way to make cleaned markup change meaning when it is parsed again)
+  const DROP_TAGS = /^(script|style|iframe|frame|frameset|object|embed|applet|link|meta|base|form|input|button|textarea|select|option|noscript|template|foreignobject|audio|video|source|track|portal|animate|animatemotion|animatetransform|set|image|feimage|annotation|annotation-xml|title|desc|xmp|noembed|noframes|plaintext|listing|mglyph|malignmark|maligngroup|mjx-assistive-mml|svg:style)$/;
+  const SAFE_IMG = /^data:image\/(png|jpe?g|gif|webp|bmp|svg\+xml)[;,]/i;   // pictures in questions are embedded (data:) only
+  const FRAG = /^\s*url\(\s*['"]?#[\w.-]+['"]?\s*\)\s*$/i;                // url(#gradient) inside a formula
+  function cleanOnce(html) {
+    const t = document.createElement('template');               // inert: nothing in it runs or loads while it is cleaned
+    t.innerHTML = html;
+    const walk = (parent) => {
+      for (const el of [...parent.children]) {
+        const tag = el.localName.toLowerCase(), ns = el.namespaceURI;
+        if (DROP_TAGS.test(tag)) { el.remove(); continue; }
+        const ok = (SAFE[ns] && SAFE[ns].has(tag)) || (ns === NS_HTML && tag.startsWith('mjx-'));
+        if (!ok) { walk(el); el.replaceWith(...el.childNodes); continue; }
+        for (const { name } of [...el.attributes]) {
+          const n = name.toLowerCase(), v = el.getAttribute(name) || '';
+          const bad = n.startsWith('on') || n.startsWith('data-') || n.includes(':') && n !== 'xlink:href' && n !== 'xml:space'
+            || ['srcset', 'formaction', 'action', 'background', 'ping', 'name', 'form', 'tabindex', 'autofocus', 'contenteditable', 'is', 'slot', 'part', 'target', 'download', 'usemap', 'lowsrc', 'dynsrc'].includes(n)
+            || (n === 'id' && (ns !== NS_SVG || !/^[\w.-]+$/.test(v)))   // ids only inside formulas (MathJax links its glyphs by id)
+            || /[\\]|\/\*|&#|expression\s*\(|@import|behavior\s*:|-moz-binding/i.test(v) && n !== 'd' && n !== 'alt' && n !== 'title'   // CSS escapes/comments/tricks
+            || (/url\s*\(/i.test(v) && !FRAG.test(v))                        // nothing loads from elsewhere through CSS
+            || (n === 'style' && /position\s*:\s*(fixed|sticky)/i.test(v))  // no overlays over the app's own buttons
+            || (/(javascript|vbscript|data)\s*:/i.test(v.replace(/[\u0000- ]/g, '')) && !(tag === 'img' && n === 'src' && SAFE_IMG.test(v)))
+            || ((n === 'href' || n === 'xlink:href') && (tag === 'use' ? !v.startsWith('#') : tag !== 'a' || ns !== NS_HTML || !/^(https?:\/\/|mailto:)/i.test(v.trim())))
+            || (n === 'src' && (tag !== 'img' || !SAFE_IMG.test(v)));
+          if (bad) el.removeAttribute(name);
+        }
+        if (tag === 'img' && !el.hasAttribute('src')) { el.remove(); continue; }
+        if (tag === 'a' && ns === NS_HTML) el.setAttribute('rel', 'noopener noreferrer');
+        walk(el);
+      }
+    };
+    walk(t.content);
+    return t.innerHTML;
+  }
   const cleanCache = new Map();
   function clean(html) {
     html = String(html ?? '');
@@ -1235,40 +1271,16 @@
     let out = cleanCache.get(html);
     if (out !== undefined) return out;
     try {
-      const t = document.createElement('template');           // inert: nothing in it runs or loads while it is cleaned
-      t.innerHTML = html;
-      const walk = (parent) => {
-        for (const el of [...parent.children]) {
-          const tag = el.localName.toLowerCase();
-          if (DROP_TAGS.test(tag)) { el.remove(); continue; }
-          if (!SAFE_TAGS.has(tag) && !tag.startsWith('mjx-')) { walk(el); el.replaceWith(...el.childNodes); continue; }
-          for (const { name } of [...el.attributes]) {
-            const n = name.toLowerCase(), v = el.getAttribute(name) || '';
-            const bad = n.startsWith('on') || n === 'srcset' || n === 'formaction' || n === 'action' || n === 'background' || n === 'ping'
-              // the app's own controls are found by data-a / data-id / ids: question text must never look like one
-              || n.startsWith('data-') || n === 'name' || n === 'form' || n === 'tabindex' || n === 'autofocus' || n === 'contenteditable' || n === 'is' || n === 'slot' || n === 'part'
-              || (n === 'id' && (el.namespaceURI !== 'http://www.w3.org/2000/svg' || !/^[\w.-]+$/.test(v)))   // ids only inside formulas (MathJax links its glyphs by id)
-              // presentation attributes and styles may only point inside the formula (url(#…)), never to another site
-              || (/url\s*\(/i.test(v) && !/^\s*url\(\s*['"]?#[\w.-]+['"]?\s*\)\s*$/i.test(v))
-              || (/(javascript|vbscript|data)\s*:/i.test(v.replace(/[\u0000-\u0020]/g, '')) && !(tag === 'img' && n === 'src' && SAFE_IMG.test(v)))
-              || (n === 'style' && /url\s*\(|expression\s*\(|@import|behavior\s*:/i.test(v))
-              || ((n === 'href' || n === 'xlink:href') && (tag === 'use' ? !v.startsWith('#') : tag !== 'a' || !/^(https?:|mailto:)/i.test(v.trim())))
-              || (n === 'src' && (tag !== 'img' || !SAFE_IMG.test(v)));
-            if (bad) el.removeAttribute(name);
-          }
-          if (tag === 'img' && !el.hasAttribute('src')) { el.remove(); continue; }
-          if (tag === 'a') { el.setAttribute('target', '_blank'); el.setAttribute('rel', 'noopener noreferrer'); }
-          walk(el);
-        }
-      };
-      walk(t.content);
-      for (const el of t.content.querySelectorAll('[data-a]')) el.removeAttribute('data-a');   // (belt and braces)
-      out = t.innerHTML;
-    } catch { out = esc(html.replace(/<[^>]*>/g, ' ')); }
+      out = cleanOnce(html);
+      // the cleaned markup must read the same when it is parsed again; if not, someone is playing parser games:
+      // show the text only
+      if (cleanOnce(out) !== out) out = esc(t2s(out));
+    } catch { out = esc(t2s(html)); }
     if (cleanCache.size > 400) cleanCache.clear();
     cleanCache.set(html, out);
     return out;
   }
+  function t2s(html) { const t = document.createElement('template'); t.innerHTML = html; return (t.content.textContent || '').replace(/\s+/g, ' ').trim(); }
 
   // icons: the Material Design glyphs EduApp uses for the same things
   const HAND = 'M10.185 8.826a.778.79 0 0 1 .778-.789.778.79 0 0 1 .777.79v3.528l.941.102 3.841 1.729c.412.19.661.607.661 1.065v3.442a1.216 1.216 0 0 1-1.166 1.183h-5.054c-.296 0-.576-.118-.778-.339l-3.81-3.315.575-.608a.77.77 0 0 1 .576-.252h.17l2.489 1.357zm-.778 2.716V8.826a1.555 1.579 0 0 1 1.556-1.578 1.555 1.579 0 0 1 1.555 1.578v2.716a3.15 3.15 0 0 0 1.555-2.716 3.11 3.157 0 0 0-3.11-3.157 3.11 3.157 0 0 0-3.11 3.157c0 1.16.63 2.171 1.554 2.716';
@@ -1384,6 +1396,7 @@
     .card{padding-bottom:16px}
     .course{font-size:12px;color:rgba(var(--on),var(--med));margin-bottom:8px}
     .q{line-height:1.5;overflow-x:auto;margin-bottom:24px}
+    .q,.ans,.opt .grow{position:relative;contain:paint}   /* question text can never cover the app's own controls */
     .card.closed .q{margin-bottom:16px}
     /* question/answer content from EduApp: formulas (SVG), pictures (data: URLs), figures, lists, tables */
     .q svg,.opt svg,.ans svg{display:inline;max-width:100%}
@@ -1810,6 +1823,14 @@
     if (ev.target.tagName === 'IMG' && ev.target.closest('.q')) {
       const img = document.createElement('img'); img.src = ev.target.src; img.alt = ev.target.alt || '';
       zoom.replaceChildren(img); zoom.hidden = false; return;
+    }
+    // a link in a question opens outside the app (the browser), never inside it
+    const link = ev.target.closest('.q a[href], .ans a[href], .grow a[href]');
+    if (link) {
+      ev.preventDefault(); ev.stopPropagation();
+      const u = link.href;
+      if (/^(https?:|mailto:)/i.test(u)) { if (hooks.openUrl) { try { hooks.openUrl(u); } catch {} } else window.open(u, '_blank', 'noopener'); }
+      return;
     }
     const b = ev.target.closest('[data-a]');
     if (b && b.closest('.q, .ans, .grow') && !b.matches('.opt, .opt *')) return;   // inside question text: never an app action

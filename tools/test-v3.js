@@ -804,6 +804,36 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     stop();
   }
 
+  {
+    // known parser-confusion attacks (markup that changes meaning when it is parsed again) end up harmless
+    const S = makeServer(); const opened = [];
+    const vectors = [
+      '<svg></p><style><a id="</style><img src=x onerror=window.__pwn=1>">',
+      '<math><mtext><table><mglyph><style><!--</style><img title="--&gt;&lt;img src=x onerror=window.__pwn=2&gt;">',
+      '<form><math><mtext></form><form><mglyph><style></math><img src=x onerror=window.__pwn=3>',
+      '<svg><title><img src=x onerror=window.__pwn=4></title></svg>',
+      '<noembed><img src=x onerror=window.__pwn=5></noembed><xmp><img src=x onerror=window.__pwn=6></xmp>',
+      '<math><annotation-xml encoding="text/html"><img src=x onerror=window.__pwn=7></annotation-xml></math>',
+      '<div style="position:fixed;inset:0;z-index:99">cover</div><span style="background:\75 rl(https://evil.example/x)">e</span>',
+    ];
+    const q = { ...mcsa(980003, 'Vectors'), question: vectors.join('') };
+    S.addClicker(q);
+    const { root, w, stop } = boot(S, { hooks: { openUrl: (u) => opened.push(u) } });
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 980003, courseTitle: { de: 'Analysis I' } });
+    await until(() => root.querySelector('.card[data-id="980003"] .q'));
+    await wait(400);
+    const html = root.querySelector('.card[data-id="980003"] .q').innerHTML;
+    check('X7 parser-confusion attacks in question text stay harmless (nothing runs, no overlays, no outside loads)',
+      w.__pwn === undefined && !/onerror|position:\s*fixed|evil\.example/i.test(html), `pwn ${w.__pwn}; ${html.slice(0, 200)}`);
+    S.addClicker({ ...mcsa(980004, 'Link'), question: '<p>see <a href="https://ethz.ch/x">this</a></p>' });
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 980004, courseTitle: { de: 'Analysis I' } });
+    await until(() => root.querySelector('.card[data-id="980004"] .q a'));
+    root.querySelector('.card[data-id="980004"] .q a').click();
+    await wait(100);
+    check('X8 a link in a question opens outside the app (in the browser), never inside it', opened.length === 1 && opened[0] === 'https://ethz.ch/x' && w.location.href.includes('eduapp.ethz.ch'), JSON.stringify(opened));
+    stop();
+  }
+
   // ---------- E: ETH Clicker (v3.2): one simple screen, no settings drawer, no timing experiment
   {
     const S = makeServer();

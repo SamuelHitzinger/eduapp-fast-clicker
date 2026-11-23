@@ -172,7 +172,8 @@ class MainActivity : ComponentActivity() {
             nativeAlerts: true,
             noExit: true,
             onAlert: function (q) { post({ type: 'alert', id: String(q.id), title: String(q.title || ''), course: String(q.course || ''), round: !!q.round }); },
-            onTheme: function (dark) { post({ type: 'theme', dark: !!dark }); }
+            onTheme: function (dark) { post({ type: 'theme', dark: !!dark }); },
+            openUrl: function (u) { post({ type: 'open', url: String(u) }); }
           } : { noExit: true };
         $core
         })();
@@ -286,7 +287,11 @@ class MainActivity : ComponentActivity() {
         }
         popup.webViewClient = object : WebViewClient() {
             // the login runs only on ETH's own pages (https *.ethz.ch); a page elsewhere could imitate it, so it never loads here
-            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = !keepInApp(request)
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                if (keepInApp(request)) return false
+                if (request.isForMainFrame) finish()              // not an ETH page: never shown here (a tapped link went to the browser)
+                return true
+            }
             override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
                 finish()                                         // its page was killed (memory): close, never crash
                 return true
@@ -325,6 +330,7 @@ class MainActivity : ComponentActivity() {
         when (m.optString("type")) {
             "alert" -> alert(m.optString("id").take(32), m.optString("title").take(200), m.optString("course").take(200), m.optBoolean("round"))
             "theme" -> applyTheme(m.optBoolean("dark"))
+            "open" -> openOutside(Uri.parse(m.optString("url")))     // a link in a question: the browser (http/https only)
         }
     }
 
