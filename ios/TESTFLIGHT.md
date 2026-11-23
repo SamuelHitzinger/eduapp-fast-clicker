@@ -11,7 +11,7 @@ expiry. It needs the paid Apple Developer Program (99 USD/year), which an App St
    - Bundle ID: register `ch.students.clicker` first under Certificates, IDs & Profiles → Identifiers (App ID, no capabilities needed),
    - SKU: anything, e.g. `clicker`.
 3. **Create an API key** for the automatic upload: App Store Connect → Users and Access → Integrations → App Store Connect API → **+**,
-   role **App Manager**. Download the `.p8` file (only possible once) and note the **Key ID** and **Issuer ID**.
+   role **Admin** (App Manager is not enough: Apple's cloud signing needs Admin). Download the `.p8` file (only possible once) and note the **Key ID** and **Issuer ID**.
 4. Give Claude (or add yourself under GitHub → Settings → Secrets and variables → Actions) these four repository secrets:
    - `APPLE_TEAM_ID` (Membership details → Team ID),
    - `ASC_KEY_ID`, `ASC_ISSUER_ID`,
@@ -20,7 +20,7 @@ expiry. It needs the paid Apple Developer Program (99 USD/year), which an App St
 
 ## Each beta build
 
-1. GitHub → Actions → **iPhone app to TestFlight** → Run workflow (on `main`). It archives, signs and uploads (about 15 minutes).
+1. GitHub → Actions → **iPhone app to TestFlight** → Run workflow (on `main`). It picks the newest Xcode (Apple requires the iOS 26 SDK or later), archives, signs and uploads (about 5 minutes).
 2. App Store Connect → TestFlight: the build appears after Apple's processing (10–30 min).
    - **Internal testers** (up to 100 people you add to your team) can install right away.
    - **External testers**: create a group, add the build, fill in "What to test", and submit it for **Beta App Review** (usually within a day).
