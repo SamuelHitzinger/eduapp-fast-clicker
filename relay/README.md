@@ -99,7 +99,7 @@ RELAY_URL=http://127.0.0.1:8799 node test/integration-only.js   # in a second te
 
 ## Deploy to Cloudflare
 
-Hosting was approved by the owner on 2026-11-12. One-time login, then deploy:
+Hosting was approved by the owner on 2026-11-12. **Live since 2026-11-23 at `wss://fast-clicker-relay.fast-clicker-relay.workers.dev/v1`** (in `relay-url.txt`). One-time login, then deploy:
 
 ```sh
 cd relay

@@ -37,7 +37,7 @@
 (() => {
   'use strict';
   const VERSION = '3.3.0';
-  const RELAY_URL = '';     // wss://… of the hint relay; empty = every client checks the feed itself (set by tools/build.js)
+  const RELAY_URL = "wss://fast-clicker-relay.fast-clicker-relay.workers.dev/v1";     // wss://… of the hint relay; empty = every client checks the feed itself (set by tools/build.js)
   const MODE = window.__FC_MODE === 'focus' ? 'focus' : 'panel';
   if (window.__fastClicker) { window.__fastClicker.show(MODE); return; }
   if (location.hostname !== 'eduapp.ethz.ch') {

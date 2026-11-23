@@ -1,0 +1,1 @@
+wss://fast-clicker-relay.fast-clicker-relay.workers.dev/v1
