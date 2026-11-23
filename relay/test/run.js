@@ -18,4 +18,6 @@ try {
 }
 
 console.log(failed ? `FAILED (${failed})` : 'ALL PASSED');
+// let closing sockets finish first: exiting mid-close crashes Node on Windows (libuv assertion)
+await new Promise((r) => setTimeout(r, 300));
 process.exit(failed ? 1 : 0);

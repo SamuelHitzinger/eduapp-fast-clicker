@@ -1,9 +1,14 @@
 // Fast Clicker hint relay: the platform-neutral core.
 //
 // The Hub does no I/O of its own. A host (node-server.js, worker.js, or a test)
-// hands it connections `{ id, ip, send(text), close(code, reason) }` and their
-// text frames, and calls `tick()` about every 100 ms. Time comes from an
-// injectable `now()` so tests can drive the clock.
+// hands it connections `{ id, ip, send(text), close(code, reason), onlyRoom? }`
+// and their text frames, and calls `tick()` when `nextDueAt()` says so (or about
+// every 100 ms). Time comes from an injectable `now()` so tests can drive the clock.
+//
+// A host that can be evicted from memory (the Cloudflare Durable Object, which
+// hibernates between messages) keeps the hub's state outside it: `onConnState`
+// reports each connection's rooms and scout order, `onRoomMemory` a room's recent
+// hints, and `restore()` / `loadRoomMemory` put both back silently on wake-up.
 //
 // The relay only ever sees opaque room ids and tiny "clicker K changed" hints.
 // It stores nothing durable and logs nothing about rooms, IPs or hints.
@@ -29,14 +34,32 @@ export const DEFAULT_LIMITS = Object.freeze({
   // A lecture hall on campus Wi-Fi can sit behind one or a few shared addresses, so this cannot be small:
   // it only stops a single address from taking the whole relay. Abuse is held back by the rate limits.
   MAX_CONNS_PER_IP: 700,
-  MAX_CONNS: 2000,
-  MAX_MEMBERS_PER_ROOM: 600,
+  MAX_CONNS: 5000,
+  MAX_MEMBERS_PER_ROOM: 2000, // the biggest ETH lectures (several halls, streamed)
   MAX_ROOMS: 200,
+  // Only this many scouts share the feed checks; the rest stand by (slot -1) and only make rare safety checks.
+  // 60 scouts at one check per second in total = each scout checks every 60 s, so the room's load on ETH stays
+  // about one feed request per second however many students join.
+  MAX_ACTIVE_SCOUTS: 60,
 
   IDLE_MS: 120_000, // nothing received for this long -> closed
   ROSTER_COALESCE_MS: 300, // at most one roster broadcast per room per 300 ms
   SWEEP_MS: 5_000, // how often tick() runs the (O(connections + rooms)) sweep
 });
+
+/** One room per Durable Object (Cloudflare): no idle timeout of our own, because keep-alive pings are answered
+ *  by the platform without waking the object (so they never reach the hub); dead sockets are closed by the
+ *  platform. Every connection is bound to the room in its URL. */
+export const ROOM_LIMITS = Object.freeze({
+  IDLE_MS: Infinity,
+  MAX_CONNS: 2500,
+  MAX_CONNS_PER_IP: 1000,
+  MAX_ROOMS: 1,
+  MAX_ROOMS_PER_CONN: 1,
+});
+
+/** Room ids as the client makes them: 128-bit hash, 32 hex digits. */
+export const ROOM_ID_RE = /^[0-9a-f]{32}$/;
 
 /** WebSocket upgrades with an Origin header must carry one of these. */
 export const ALLOWED_ORIGINS = Object.freeze(['https://eduapp.ethz.ch']);
@@ -81,9 +104,13 @@ class RollingWindow {
 }
 
 export class Hub {
-  constructor({ now = () => Date.now(), limits = {} } = {}) {
+  constructor({ now = () => Date.now(), limits = {}, onConnState = null, onRoomMemory = null, loadRoomMemory = null } = {}) {
     this.now = now;
     this.L = { ...DEFAULT_LIMITS, ...limits };
+    this.onConnState = onConnState; // (conn, { rooms, scout, seq }) after a join changed it
+    this.onRoomMemory = onRoomMemory; // (roomId, memory) after an accepted hint
+    this.loadRoomMemory = loadRoomMemory; // (roomId) -> memory | null, when a room is (re)created
+    this.scoutSeq = 0; // order in which connections became scouts (survives a restore)
     this.conns = new Map(); // conn object -> ConnState
     this.ipCounts = new Map(); // ip -> open connections
     this.rooms = new Map(); // room id -> Room
@@ -110,20 +137,37 @@ export class Hub {
       safeClose(conn, CLOSE.FULL, 'full');
       return false;
     }
-    const now = this.now();
-    this.conns.set(conn, {
+    this.conns.set(conn, this._state(conn, ip));
+    this.ipCounts.set(ip, (this.ipCounts.get(ip) || 0) + 1);
+    return true;
+  }
+
+  _state(conn, ip) {
+    const L = this.L;
+    return {
       conn,
       ip,
-      lastSeen: now,
+      lastSeen: this.now(),
       scout: false,
+      seq: 0, // when it became a scout: decides its slot
       rooms: new Set(), // room ids
       lastRoster: new Map(), // room id -> "n/slot" last sent to this connection
       msgs: new RollingWindow(L.RATE_WINDOW_MS, L.CONN_MSGS_PER_MIN * L.CONN_CLOSE_FACTOR + 1),
       hints: new RollingWindow(L.RATE_WINDOW_MS, L.CONN_HINTS_PER_MIN),
       lastErr: new Map(), // code -> time
-    });
-    this.ipCounts.set(ip, (this.ipCounts.get(ip) || 0) + 1);
-    return true;
+    };
+  }
+
+  /** The room, created (with any memory the host kept for it) if needed. */
+  _room(id) {
+    let room = this.rooms.get(id);
+    if (!room) {
+      room = newRoom(id, this.L);
+      this.rooms.set(id, room);
+      const mem = this.loadRoomMemory ? this.loadRoomMemory(id) : null;
+      if (mem) applyMemory(room, mem, this.now(), this.L);
+    }
+    return room;
   }
 
   /** Forgets a connection and leaves all its rooms. Idempotent. */
@@ -152,6 +196,48 @@ export class Hub {
       this._kick(st, CLOSE.INTERNAL, 'internal');
     }
     this._closeFailed();
+  }
+
+  /** When `tick()` next has work (a coalesced roster broadcast), or null. Hosts without a timer use this. */
+  nextDueAt() {
+    let t = Infinity;
+    for (const room of this.dirty) t = Math.min(t, room.lastFlush + this.L.ROSTER_COALESCE_MS);
+    return t === Infinity ? null : t;
+  }
+
+  /**
+   * Puts connections back after the host was evicted from memory, without sending anything: their rooms and
+   * scout order come from what `onConnState` reported. With `quiet`, members are assumed to know their current
+   * roster already; otherwise every member is sent its roster on the next flush.
+   */
+  restore(entries, { quiet = true } = {}) {
+    const sorted = [...entries].sort((x, y) => (x.seq || 0) - (y.seq || 0));
+    for (const { conn, rooms, scout, seq } of sorted) {
+      if (this.conns.has(conn)) continue;
+      const ip = String(conn.ip || 'unknown');
+      const st = this._state(conn, ip);
+      this.conns.set(conn, st);
+      this.ipCounts.set(ip, (this.ipCounts.get(ip) || 0) + 1);
+      st.scout = !!scout;
+      st.seq = Number(seq) || 0;
+      if (st.seq > this.scoutSeq) this.scoutSeq = st.seq;
+      for (const id of Array.isArray(rooms) ? rooms.slice(0, this.L.MAX_ROOMS_PER_CONN) : []) {
+        if (typeof id !== 'string' || !ROOM_RE.test(id) || (conn.onlyRoom && id !== conn.onlyRoom)) continue;
+        const room = this._room(id);
+        room.members.add(st);
+        st.rooms.add(id);
+        if (st.scout) room.scouts.push(st);
+      }
+    }
+    for (const room of this.rooms.values()) {
+      if (!quiet) { this._markDirty(room); continue; }
+      const n = Math.min(room.scouts.length, this.L.MAX_ACTIVE_SCOUTS);
+      const slots = new Map(room.scouts.map((s, i) => [s, i]));
+      for (const st of room.members) {
+        const i = slots.has(st) ? slots.get(st) : -1;
+        st.lastRoster.set(room.id, n + '/' + (i < n ? i : -1));
+      }
+    }
   }
 
   /** Housekeeping: call every ~100 ms. Flushes coalesced rosters; sweeps every SWEEP_MS. */
@@ -216,6 +302,7 @@ export class Hub {
     for (const id of rooms) if (typeof id !== 'string' || !ROOM_RE.test(id)) return this._err(st, 'bad');
     const want = [...new Set(rooms)];
     const scout = m.scout === true;
+    if (st.conn.onlyRoom && want.some((id) => id !== st.conn.onlyRoom)) return this._err(st, 'room');   // bound to its URL
 
     // Capacity is checked for the whole request before anything changes.
     const entering = want.filter((id) => !st.rooms.has(id));
@@ -237,6 +324,7 @@ export class Hub {
     }
     const scoutChanged = st.scout !== scout;
     st.scout = scout;
+    if (scout && scoutChanged) st.seq = ++this.scoutSeq;
     if (scoutChanged) {
       for (const id of st.rooms) {
         const room = this.rooms.get(id);
@@ -246,11 +334,7 @@ export class Hub {
       }
     }
     for (const id of entering) {
-      let room = this.rooms.get(id);
-      if (!room) {
-        room = newRoom(id, L);
-        this.rooms.set(id, room);
-      }
+      const room = this._room(id);
       room.members.add(st);
       room.lastActive = now;
       st.rooms.add(id);
@@ -259,6 +343,8 @@ export class Hub {
         this._markDirty(room);
       }
     }
+
+    if (this.onConnState) this.onConnState(st.conn, { rooms: [...st.rooms], scout: st.scout, seq: st.seq });
 
     // Direct reply: one roster per requested room, then replays for new rooms.
     for (const id of want) this._sendRoster(st, this.rooms.get(id), now);
@@ -306,6 +392,8 @@ export class Hub {
     room.replay.push(out);
     pruneReplay(room, now, L);
 
+    if (this.onRoomMemory) this.onRoomMemory(room.id, roomMemory(room));
+
     const text = JSON.stringify(out);
     for (const member of room.members) if (member !== st) this._send(member, text);
   }
@@ -342,8 +430,10 @@ export class Hub {
   }
 
   _sendRoster(st, room, now, slots) {
-    const n = room.scouts.length;
-    const slot = slots ? (slots.has(st) ? slots.get(st) : -1) : room.scouts.indexOf(st);
+    // only the first MAX_ACTIVE_SCOUTS scouts get a slot; later ones stand by until one of them leaves
+    const n = Math.min(room.scouts.length, this.L.MAX_ACTIVE_SCOUTS);
+    const i = slots ? (slots.has(st) ? slots.get(st) : -1) : room.scouts.indexOf(st);
+    const slot = i < n ? i : -1;
     const key = n + '/' + slot;
     if (slots && st.lastRoster.get(room.id) === key) return;
     st.lastRoster.set(room.id, key);
@@ -440,6 +530,20 @@ function newRoom(id, L) {
     lastFlush: -Infinity,
     lastActive: 0,
   };
+}
+
+/** A room's recent hints, for a host that may be evicted from memory (JSON-safe, small). */
+function roomMemory(room) {
+  return { dedupe: [...room.dedupe], lastEvent: [...room.lastEvent], replay: room.replay, hints: room.hints.times };
+}
+
+function applyMemory(room, mem, now, L) {
+  try {
+    for (const [a, t] of mem.dedupe || []) if (isPosInt(a) && now - t < L.DEDUPE_MS) room.dedupe.set(a, t);
+    for (const [k, t] of mem.lastEvent || []) if (typeof k === 'string' && now - t < L.SAME_EVENT_MS) room.lastEvent.set(k, t);
+    for (const h of mem.replay || []) if (h && h.t === 'hint' && now - h.now <= L.REPLAY_MS) room.replay.push(h);
+    for (const t of mem.hints || []) if (now - t < L.RATE_WINDOW_MS) room.hints.add(t);
+  } catch {}
 }
 
 function pruneReplay(room, now, L) {

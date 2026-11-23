@@ -12,3 +12,9 @@ ios/simbuild/
 ios/out/
 ios/*.xcodeproj/
 app-download/
+# Android: build output and the release signing key (kept only here and in GitHub secrets)
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/keystore/

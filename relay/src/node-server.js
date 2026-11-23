@@ -5,7 +5,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
-import { Hub, ALLOWED_ORIGINS } from './hub.js';
+import { Hub, ALLOWED_ORIGINS, ROOM_ID_RE } from './hub.js';
 
 const MAX_BUFFERED = 64 * 1024; // a client this far behind is dropped, never queued for
 const TICK_MS = 100;
@@ -26,12 +26,16 @@ export function startServer({ port = 8787, host, trustProxy = false, hub = new H
 
   server.on('upgrade', (req, socket, head) => {
     const origin = req.headers.origin;
-    if (pathOf(req) !== '/v1') return reject(socket, 404, 'Not Found');
+    // `/v1/room/<id>`: a connection for one room, as the clients use it (and as on Cloudflare); `/v1`: any rooms
+    const p = pathOf(req);
+    const only = /^\/v1\/room\/([^/]+)$/.exec(p)?.[1];
+    if (p !== '/v1' && !(only && ROOM_ID_RE.test(only))) return reject(socket, 404, 'Not Found');
     if (origin !== undefined && !ALLOWED_ORIGINS.includes(origin)) return reject(socket, 403, 'Forbidden');
     wss.handleUpgrade(req, socket, head, (ws) => {
       const conn = {
         id: nextId++,
         ip: clientIp(req, trustProxy),
+        onlyRoom: only,
         send(text) {
           if (ws.readyState !== ws.OPEN) return;
           if (ws.bufferedAmount > MAX_BUFFERED) throw new Error('slow consumer');

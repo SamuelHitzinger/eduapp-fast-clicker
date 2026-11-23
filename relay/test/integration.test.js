@@ -6,8 +6,9 @@ import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
 import { test, assert } from './lib.js';
 
-const R1 = '0123456789abcdef0123';
-const R2 = 'fedcba98765432100000';
+// room ids as the clients make them (32 hex digits); every connection is for one room: /v1/room/<id>
+const R1 = '0123456789abcdef0123456789abcdef';
+const R2 = 'fedcba9876543210fedcba9876543210';
 let base; // http://host:port
 let child;
 
@@ -39,8 +40,8 @@ export async function stop() {
 }
 
 /** A ws client that records every message and lets tests await specific ones. */
-function client(headers = {}) {
-  const ws = new WebSocket(base.replace(/^http/, 'ws') + '/v1', { headers });
+function client(room = R1, headers = {}) {
+  const ws = new WebSocket(base.replace(/^http/, 'ws') + '/v1/room/' + room, { headers });
   const msgs = [];
   const waiters = [];
   ws.on('message', (data) => {
@@ -81,23 +82,27 @@ function client(headers = {}) {
 const health = async () => (await fetch(base + '/health')).json();
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
-test('GET /health returns counts only', async () => {
+test('GET /health says ok and at most counts (Cloudflare: nothing else)', async () => {
   const res = await fetch(base + '/health');
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.ok, true);
-  assert.deepEqual(Object.keys(body).sort(), ['connections', 'ok', 'rooms']);
+  for (const k of Object.keys(body)) assert.ok(['ok', 'connections', 'rooms'].includes(k), k);
 });
 
-test('other paths are 404', async () => {
-  assert.equal((await fetch(base + '/')).status, 404);
-  assert.equal((await fetch(base + '/v2')).status, 404);
+test('other paths and malformed room ids are 404', async () => {
+  for (const p of ['/', '/v2', '/v1/room/', '/v1/room/xyz', '/v1/room/' + 'A'.repeat(32), '/v1/room/' + 'a'.repeat(31), '/v1/room/' + R1 + '/x']) {
+    const ws = new WebSocket(base.replace(/^http/, 'ws') + p);
+    const r = await new Promise((resolve) => { ws.once('open', () => resolve('open')); ws.once('error', (e) => resolve(String(e.message))); });
+    if (ws.readyState !== WebSocket.CLOSED) await new Promise((resolve) => { ws.once('close', resolve); ws.terminate(); });
+    assert.match(r, /404/, p);
+  }
 });
 
 test('foreign Origin is refused; eduapp origin and no origin are allowed', async () => {
-  const bad = client({ Origin: 'https://evil.example' });
+  const bad = client(R1, { Origin: 'https://evil.example' });
   await assert.rejects(bad.open(), /403/);
-  const good = client({ Origin: 'https://eduapp.ethz.ch' });
+  const good = client(R1, { Origin: 'https://eduapp.ethz.ch' });
   await good.open();
   const none = client();
   await none.open();
@@ -115,16 +120,22 @@ test('join, roster, hint fan-out (not to sender), replay, ping', async () => {
   assert.deepEqual([ra.room, ra.n, ra.slot, ra.m, ra.every], [R1, 1, 0, 1, 1000]);
   assert.equal(typeof ra.now, 'number');
 
-  b.send({ t: 'join', rooms: [R1, R2], scout: true });
+  b.send({ t: 'join', rooms: [R1, R2], scout: true });            // a connection is for its own room only
+  assert.ok(['room', 'bad'].includes((await b.next((m) => m.t === 'err')).code));   // refused (Cloudflare: one room per connection)
+  b.send({ t: 'join', rooms: [R1], scout: true });
   const rb = await b.next((m) => m.t === 'roster' && m.room === R1);
   assert.deepEqual([rb.n, rb.slot, rb.m], [2, 1, 2]);
-  await b.next((m) => m.t === 'roster' && m.room === R2);
   const ra2 = await a.next((m) => m.t === 'roster' && m.n === 2); // coalesced broadcast
   assert.equal(ra2.slot, 0);
 
   a.send({ t: 'hint', room: R1, k: 322454, e: 'ACTIVITY_STARTED', a: 991, c: '2026-11-12T10:15:00Z' });
   const h = await b.next((m) => m.t === 'hint');
   assert.deepEqual([h.room, h.k, h.e, h.a, h.c, h.replay], [R1, 322454, 'ACTIVITY_STARTED', 991, '2026-11-12T10:15:00Z', undefined]);
+
+  const other = client(R2);                                       // another room hears nothing of it
+  await other.open();
+  other.send({ t: 'join', rooms: [R2], scout: true });
+  await other.next((m) => m.t === 'roster');
 
   const late = client();
   await late.open();
@@ -134,13 +145,13 @@ test('join, roster, hint fan-out (not to sender), replay, ping', async () => {
   assert.equal(rep.a, 991);
 
   a.send({ t: 'ping' });
-  const pong = await a.next((m) => m.t === 'pong');
-  assert.equal(typeof pong.now, 'number');
+  await a.next((m) => m.t === 'pong');                            // (Cloudflare answers pings without the room)
   await delay(100);
   assert.equal(a.msgs.filter((m) => m.t === 'hint').length, 0, 'sender got no echo');
+  assert.equal(other.msgs.filter((m) => m.t === 'hint').length, 0, 'other room got nothing');
 
-  for (const c of [a, b, late]) c.ws.close();
-  await Promise.all([a.closed, b.closed, late.closed]);
+  for (const c of [a, b, late, other]) c.ws.close();
+  await Promise.all([a.closed, b.closed, late.closed, other.closed]);
 });
 
 test('oversized and malformed frames get err bad; binary frames close', async () => {
@@ -159,7 +170,7 @@ test('oversized and malformed frames get err bad; binary frames close', async ()
 test('all connections gone after clients close', async () => {
   for (let i = 0; i < 50; i++) {
     const s = await health();
-    if (s.connections === 0) return;
+    if (s.connections === undefined || s.connections === 0) return;   // (Cloudflare's /health has no counts)
     await delay(50);
   }
   assert.fail('connections did not drop to 0');

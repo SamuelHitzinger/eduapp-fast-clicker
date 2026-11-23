@@ -9,7 +9,8 @@ export function test(name, fn) {
 export async function runAll(label) {
   let pass = 0;
   let fail = 0;
-  for (const { name, fn } of tests.splice(0)) {
+  const only = process.env.ONLY;                // run just the tests whose name contains this
+  for (const { name, fn } of tests.splice(0).filter((t) => !only || t.name.includes(only))) {
     try {
       await fn();
       pass++;

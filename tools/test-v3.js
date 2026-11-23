@@ -84,7 +84,7 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
   {
     const S = makeServer(); const R = fakeRelay(); const alerts = [];
     const { root, fc, stop } = boot(S, { hooks: { relayUrl: 'wss://relay.test/v1', WebSocket: R.WebSocket, onAlert: (q) => alerts.push(q.id), nativeAlerts: true }, settings: { shareMinMs: 10 } });
-    check('R1 around a lecture the client joins one room for the course, as a checking client', await until(() => R.joined()) && R.joined().rooms.length === 1 && /^[0-9a-f]{32}$/.test(R.joined().rooms[0]) && R.joined().scout === true && R.sockets[0].url === 'wss://relay.test/v1');
+    check('R1 around a lecture the client joins one room for the course, as a checking client', await until(() => R.joined()) && R.joined().rooms.length === 1 && /^[0-9a-f]{32}$/.test(R.joined().rooms[0]) && R.joined().scout === true && R.sockets[0].url === 'wss://relay.test/v1/room/' + R.joined().rooms[0]);
     const room = R.joined().rooms[0];
     check('R2 the room name does not contain the course number', !room.includes('401') && !JSON.stringify(R.last().sent).includes('0261'));
     // 10 clients share: this one polls only every 10th slot
@@ -625,6 +625,52 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     check('V4 "check now" asks the feed right away', asked);
     stop();
   }
+  // ---------- R+: one relay connection per room (v3.3)
+  {
+    const S = makeServer(); const R = fakeRelay();
+    const now = Date.now();
+    S.lectures.push({ code: '252-0027-00', title: { en: 'Einführung in die Programmierung' }, start: new Date(now + 5 * 60e3).toISOString(), end: new Date(now + 125 * 60e3).toISOString() });
+    S.lectures.push({ code: '401-0151-00', title: { en: 'Lineare Algebra' }, start: new Date(now + 8 * 60e3).toISOString(), end: new Date(now + 128 * 60e3).toISOString() });
+    const { fc, stop } = boot(S, { hooks: { relayUrl: 'wss://relay.test/v1/', WebSocket: R.WebSocket }, settings: { shareMinMs: 10 } });
+    await until(() => R.sockets.filter((x) => !x.closed && x.sent.some((m) => m.t === 'join')).length >= 2, 4000);
+    await wait(300);
+    const open = R.sockets.filter((x) => !x.closed);
+    const rooms = open.map((x) => x.sent.find((m) => m.t === 'join').rooms);
+    check('R17 at a lecture changeover the client is in at most two rooms, one connection each, bound to its room',
+      open.length === 2 && rooms.every((r, i) => r.length === 1 && open[i].url === 'wss://relay.test/v1/room/' + r[0]) && rooms[0][0] !== rooms[1][0],
+      open.map((x) => x.url).join(' '));
+    const [a, b] = open; const ra = rooms[0][0], rb = rooms[1][0];
+    b.push({ t: 'roster', room: ra, n: 3, slot: 1, m: 3, every: 1000, now: Date.now() });   // another room's news on this socket
+    await wait(100);
+    check('R18 a connection only accepts news about its own room', !fc.relay.rooms.has(ra));
+    a.push({ t: 'roster', room: ra, n: 2, slot: 0, m: 2, every: 1000, now: Date.now() });
+    await wait(50);
+    const off = fc.relay.offset;
+    a.push({ t: 'hint', room: ra, k: 999001, e: 'CLICKER_CLOSE', a: 1, c: new Date().toISOString(), now: Date.now() - 3600e3, replay: true });
+    await wait(100);
+    check("R19 a replayed hint (stamped when it was first sent) does not change the relay clock", Math.abs(fc.relay.offset - off) < 1000, `${off} -> ${fc.relay.offset}`);
+    stop();
+  }
+  {
+    // standing by in a big room: the own safety checks get rarer the more students share (ETH load stays flat)
+    const count = async (m) => {
+      const S = makeServer(); const R = fakeRelay();
+      const { stop } = boot(S, { hooks: { relayUrl: 'wss://relay.test/v1', WebSocket: R.WebSocket },
+        settings: { cadenceMs: 100, hiddenCadenceMs: 50, shareMinMs: 10, standbyPerMemberMs: 2, standbyMinMs: 100, standbyMaxMs: 5000 } });
+      await until(() => R.joined());
+      const room = R.joined().rooms[0];
+      R.last().push({ t: 'roster', room, n: 60, slot: -1, m, every: 1000, now: Date.now() });
+      await wait(200);
+      const n0 = feedPolls(S);
+      await wait(1500);
+      const n = feedPolls(S) - n0;
+      stop();
+      return n;
+    };
+    const small = await count(20), big = await count(2000);
+    check('R20 standing by, a client checks on its own less often in a big room (60 scouts share the work)', small >= 5 && big <= 1, `room of 20: ${small} checks, room of 2000: ${big} in 1.5 s`);
+  }
+
   // ---------- E: ETH Clicker (v3.2): one simple screen, no settings drawer, no timing experiment
   {
     const S = makeServer();

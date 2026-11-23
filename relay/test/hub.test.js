@@ -571,3 +571,88 @@ test('scale: 600 members in one room stay cheap', () => {
   assert.ok(ms < 2000, `took ${ms.toFixed(0)} ms`);
   check(hub);
 });
+
+// ---------------------------------------------------------------- v3.3: rooms on Cloudflare (one per Durable Object)
+
+test('only the first MAX_ACTIVE_SCOUTS scouts get a slot; a standby moves up when one leaves', () => {
+  const { hub, conn, join, advance } = setup({ MAX_ACTIVE_SCOUTS: 2 });
+  const [a, b, c] = [conn(), conn(), conn()];
+  join(a, [R1], true); advance(400);
+  join(b, [R1], true); advance(400);
+  join(c, [R1], true); advance(400);
+  assert.deepEqual([a, b, c].map((x) => [x.out.at(-1).n, x.out.at(-1).slot]), [[2, 0], [2, 1], [2, -1]]);
+  join(a, [], false); advance(400);
+  assert.deepEqual([b, c].map((x) => [x.out.at(-1).n, x.out.at(-1).slot]), [[2, 0], [2, 1]], 'standby c took the free slot');
+  check(hub);
+});
+
+test('a connection bound to a room (its URL) cannot join or hint another one', () => {
+  const { hub, conn, join, hint } = setup();
+  const a = conn();
+  a.onlyRoom = R2;
+  join(a, [R1], true);
+  assert.deepEqual(a.take('err').map((m) => m.code), ['room']);
+  assert.equal(hub.rooms.size, 0);
+  join(a, [R2], true);
+  assert.equal(a.take('roster').length, 1);
+  hint(a, R1);
+  assert.equal(hub.rooms.has(R1), false, 'nothing reached another room (the error itself is rate-limited)');
+  check(hub);
+});
+
+test('restore() after an eviction puts members and scout order back without sending anything', () => {
+  const states = new Map();
+  const first = setup();
+  first.hub.onConnState = (c, s) => states.set(c, s);
+  const conns = [first.conn(), first.conn(), first.conn()];
+  first.join(conns[2], [R1], true); first.advance(400);
+  first.join(conns[0], [R1], true); first.advance(400);
+  first.join(conns[1], [R1], false); first.advance(400);
+  conns.forEach((c) => c.take());
+  // a fresh hub (the object was evicted), fed what the host kept
+  const again = new Hub({ now: () => first.clock.t });
+  again.restore(conns.map((c) => ({ conn: c, ...states.get(c) })).reverse());
+  assert.equal(conns.reduce((n, c) => n + c.out.length, 0), 0, 'nothing sent on restore');
+  assert.deepEqual(again.rooms.get(R1).scouts.map((s) => s.conn), [conns[2], conns[0]], 'scout order kept');
+  // a change afterwards reaches only those whose slot changes
+  again.message(conns[2], JSON.stringify({ t: 'join', rooms: [], scout: false }));
+  again.tick();
+  assert.deepEqual(conns[0].take('roster').map((m) => [m.n, m.slot]), [[1, 0]]);
+  assert.deepEqual(conns[1].take('roster').map((m) => [m.n, m.slot]), [[1, -1]], 'members learn the new count once');
+  assert.equal(conns[0].take('roster').length, 0, 'no repeats');
+  check(again);
+});
+
+test('a room remembers accepted hints across an eviction: duplicates stay dropped, late joiners get the replay', () => {
+  let mem = null;
+  const first = setup();
+  first.hub.onRoomMemory = (id, m) => { mem = JSON.parse(JSON.stringify(m)); };
+  const a = first.conn(), b = first.conn();
+  first.join(a, [R1], true); first.join(b, [R1], true);
+  first.hint(a, R1, { a: 777 });
+  assert.ok(mem && mem.dedupe.length === 1, 'stored after the accepted hint');
+  const again = new Hub({ now: () => first.clock.t + 5000, loadRoomMemory: () => mem });
+  const c = { ip: '1', out: [], send(t) { this.out.push(JSON.parse(t)); }, close() {} };
+  const d = { ip: '2', out: [], send(t) { this.out.push(JSON.parse(t)); }, close() {} };
+  again.connect(c); again.connect(d);
+  again.message(c, JSON.stringify({ t: 'join', rooms: [R1], scout: true }));
+  assert.equal(c.out.filter((m) => m.t === 'hint' && m.replay).length, 1, 'replayed to the late joiner');
+  again.message(d, JSON.stringify({ t: 'join', rooms: [R1], scout: true }));
+  d.out.length = 0; c.out.length = 0;
+  again.message(d, JSON.stringify({ t: 'hint', room: R1, k: 322454, e: 'ACTIVITY_STARTED', a: 777, c: '2026-11-12T10:15:00.000Z' }));
+  assert.equal(c.out.filter((m) => m.t === 'hint').length, 0, 'the same activity is still a duplicate');
+  check(again);
+});
+
+test('nextDueAt() tells a host without a timer when a coalesced roster is due', () => {
+  const { hub, clock, conn, join } = setup();
+  const [a, b] = [conn(), conn()];
+  assert.equal(hub.nextDueAt(), null);
+  join(a, [R1], true);            // first change goes out at once
+  join(b, [R1], true);            // within 300 ms: coalesced
+  assert.equal(hub.nextDueAt(), clock.t + DEFAULT_LIMITS.ROSTER_COALESCE_MS);
+  clock.t = hub.nextDueAt();
+  hub.tick();
+  assert.equal(hub.nextDueAt(), null);
+  assert.deepEqual(a.out.at(-1).n, 2);
+});

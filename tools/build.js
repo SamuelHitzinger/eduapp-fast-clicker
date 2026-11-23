@@ -31,8 +31,10 @@ const shortFile = `fast-clicker.${crypto.createHash('sha256').update(min).digest
 // older pinned files are kept on purpose: installed short bookmarks reference them by name + hash
 fs.writeFileSync(path.join(site, shortFile), min);
 fs.writeFileSync(path.join(site, 'fast-clicker.user.js'), src);
-// iPhone app: the same tested build, injected by the app
+// iPhone and Android apps: the same tested build, injected by the app
 fs.writeFileSync(path.join(root, 'ios/FastClicker/Resources/fast-clicker.js'), min);
+fs.mkdirSync(path.join(root, 'android/app/src/main/assets'), { recursive: true });
+fs.writeFileSync(path.join(root, 'android/app/src/main/assets/fast-clicker.js'), min);
 
 // 3) install page
 const html = fs.readFileSync(path.join(site, 'template.html'), 'utf8')

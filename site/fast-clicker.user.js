@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ETH Clicker
 // @namespace    https://eduapp.ethz.ch/
-// @version      3.2.0
+// @version      3.3.0
 // @description  Shows opened ETH EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi.
 // @match        https://eduapp.ethz.ch/*
 // @run-at       document-idle
@@ -36,7 +36,7 @@
 //     The relay never sees logins, questions or answers (relay/README.md).
 (() => {
   'use strict';
-  const VERSION = '3.2.0';
+  const VERSION = '3.3.0';
   const RELAY_URL = '';     // wss://… of the hint relay; empty = every client checks the feed itself (set by tools/build.js)
   const MODE = window.__FC_MODE === 'focus' ? 'focus' : 'panel';
   if (window.__fastClicker) { window.__fastClicker.show(MODE); return; }
@@ -84,6 +84,7 @@
     groupBy: 'date', theme: 'auto', expanded: {}, autoOpen: true,
     shareMinMs: 500, shareMaxMs: 180000,  // sharing: a client's own check is never further apart than shareMaxMs
     soloStepMs: 1000, soloMaxMs: 30000,   // relay unreachable: check alone every (students last seen sharing) x step, at most max
+    standbyPerMemberMs: 300, standbyMinMs: 60000, standbyMaxMs: 300000,   // sharing but not a scout: own safety check every members x 300 ms (1-5 min)
   }, loadCfg());
   // only the list layout and the theme are the student's to change (v3.2 has no settings drawer)
   const saveCfg = () => { try { localStorage.setItem(LS_KEY, JSON.stringify({ groupBy: CFG.groupBy, theme: CFG.theme, expanded: CFG.expanded })); } catch {} };
@@ -537,7 +538,11 @@
   // events it sees and receives the others' hints. A hint only makes this client read that question from ETH.
   const relayUrl = hooks.relayUrl !== undefined ? hooks.relayUrl : RELAY_URL;
   const WS = hooks.WebSocket || window.WebSocket;
-  const relay = { ws: null, open: false, rooms: new Map(), want: new Map(), joined: '', retry: 0, retryAt: 0, timer: null, lastMsgAt: 0, offset: 0, hintAt: new Map(), hints: [], queue: [], draining: false, quietUntil: 0, confirms: [], confirmDue: 0, lastN: 1 };
+  // One connection per room (a room is one course's lecture; on Cloudflare each room is its own small server that
+  // sleeps between messages). At most two rooms at once: the lecture now and the next one at a changeover.
+  const MAX_ROOM_SOCKETS = 2;
+  const relay = { conns: new Map(), rooms: new Map(), want: new Map(), offset: 0, hintAt: new Map(), hints: [], queue: [], draining: false, quietUntil: 0, confirms: [], confirmDue: 0, lastN: 1,
+    get open() { for (const c of this.conns.values()) if (c.open) return true; return false; } };
   try { relay.lastN = Math.max(1, Number(localStorage.getItem('fast-clicker-relay-n')) || 1); } catch {}
   const hash32 = (str) => {                                     // 128-bit string hash as 32 hex digits (not a secret)
     let h1 = 1779033703, h2 = 3144134277, h3 = 1013904242, h4 = 2773480762;
@@ -553,84 +558,102 @@
   function wantedRooms() {
     const m = new Map();
     if (!state.semkez) return m;
-    for (const l of currentLectures()) {
+    const now = Date.now();
+    const running = (l) => Date.parse(l.start) <= now && now <= Date.parse(l.end);
+    // the lecture under way first, then the one starting next
+    const lects = currentLectures().slice().sort((a, b) => (running(b) - running(a)) || (Date.parse(a.start) - Date.parse(b.start)));
+    for (const l of lects) {
       if (!l.code) continue;
       const room = hash32(`fc1|${state.semkez}|${l.code}`);
+      if (!m.has(room) && m.size >= MAX_ROOM_SOCKETS) break;
       const info = m.get(room) || { code: l.code, titles: new Set(), title: null };
       if (l.title) { for (const k of ['de', 'en']) if (l.title[k]) info.titles.add(l.title[k]); info.title = info.title || l.title.de || l.title.en; }
       m.set(room, info);
-      if (m.size >= 8) break;
     }
     return m;
   }
-  const relaySend = (msg) => { try { if (relay.open) relay.ws.send(JSON.stringify(msg)); } catch {} };
-  function relayJoin() {
-    const rooms = [...relay.want.keys()];
+  const roomUrl = (room) => `${relayUrl.replace(/\/+$/, '')}/room/${room}`;
+  const relaySend = (conn, msg) => { try { if (conn && conn.open) conn.ws.send(JSON.stringify(msg)); } catch {} };
+  function relayJoin(conn) {
     const scout = !document.hidden;
-    const sig = rooms.join() + '|' + scout;
-    if (sig === relay.joined) return;
-    relay.joined = sig;
-    for (const r of [...relay.rooms.keys()]) if (!relay.want.has(r)) relay.rooms.delete(r);
-    relaySend({ t: 'join', rooms, scout });
+    const sig = String(scout);
+    if (sig === conn.joined) return;
+    conn.joined = sig;
+    relaySend(conn, { t: 'join', rooms: [conn.room], scout });
   }
-  function relayClose() {
-    const ws = relay.ws;
-    relay.ws = null; relay.open = false; relay.joined = ''; relay.rooms.clear();
-    clearTimeout(relay.timer);
+  function dropSocket(conn) {                                  // forget the socket, keep the retry state
+    const ws = conn.ws;
+    conn.ws = null; conn.open = false; conn.joined = '';
+    relay.rooms.delete(conn.room);
     try { if (ws) { ws.onclose = ws.onerror = ws.onmessage = ws.onopen = null; ws.close(); } } catch {}
   }
-  function relayRetry() {
-    clearTimeout(relay.timer);
-    relay.retry++;
-    const wait = TS * jitter(Math.min(60000, 1000 * 2 ** Math.min(relay.retry, 6)), 0.3);
-    relay.retryAt = Date.now() + wait;
-    relay.timer = setTimeout(relaySync, wait + 5);
+  function relayClose(conn) {                                   // this room is not wanted any more
+    clearTimeout(conn.timer);
+    dropSocket(conn);
+    relay.conns.delete(conn.room);
   }
-  function relayConnect() {
+  function relayRetry(conn) {
+    clearTimeout(conn.timer);
+    conn.retry++;
+    const wait = TS * jitter(Math.min(60000, 1000 * 2 ** Math.min(conn.retry, 6)), 0.3);
+    conn.retryAt = Date.now() + wait;
+    conn.timer = setTimeout(relaySync, wait + 5);
+  }
+  function relayConnect(conn) {
     let ws;
-    try { ws = new WS(relayUrl); } catch { relayRetry(); return; }
-    relay.ws = ws; relay.open = false; relay.joined = ''; relay.lastMsgAt = Date.now();
+    try { ws = new WS(roomUrl(conn.room)); } catch { relayRetry(conn); return; }
+    conn.ws = ws; conn.open = false; conn.joined = ''; conn.lastMsgAt = Date.now();
     ws.onopen = () => {
-      if (relay.ws !== ws) return;
-      relay.open = true; relay.retry = 0; relay.lastMsgAt = Date.now();
-      relayJoin();
+      if (conn.ws !== ws) return;
+      conn.open = true; conn.retry = 0; conn.lastMsgAt = Date.now();
+      relayJoin(conn);
     };
-    ws.onmessage = (ev) => { if (relay.ws === ws) relayMessage(ev.data); };
+    ws.onmessage = (ev) => { if (conn.ws === ws) relayMessage(conn, ev.data); };
     ws.onclose = ws.onerror = () => {
-      if (relay.ws !== ws) return;
-      relay.ws = null; relay.open = false; relay.rooms.clear();
-      relayRetry();
+      if (conn.ws !== ws) return;
+      dropSocket(conn);
+      relayRetry(conn);
       if (state.leader && !state.polling) schedule();              // back to checking alone
     };
   }
   function relaySync() {
     if (!relayUrl || !WS) return;
     relay.want = state.leader && state.running && !state.authLost && fastMode() ? wantedRooms() : new Map();
-    if (!relay.want.size) { if (relay.ws) relayClose(); return; }
-    if (!relay.ws) { if (Date.now() >= relay.retryAt) relayConnect(); return; }
-    if (relay.open) relayJoin();
+    for (const conn of [...relay.conns.values()]) if (!relay.want.has(conn.room)) relayClose(conn);
+    for (const room of relay.want.keys()) {
+      let conn = relay.conns.get(room);
+      if (!conn) { conn = { room, ws: null, open: false, joined: '', retry: 0, retryAt: 0, timer: null, lastMsgAt: 0 }; relay.conns.set(room, conn); }
+      if (!conn.ws) { if (Date.now() >= conn.retryAt) relayConnect(conn); }
+      else if (conn.open) relayJoin(conn);
+    }
   }
   function relayKeepAlive() {                                   // every 25 s
-    if (!relay.ws) return;
-    if (Date.now() - relay.lastMsgAt > TS * 70000) {              // silent for too long: start over
-      relayClose(); relayRetry();
-      if (state.leader && !state.polling) schedule();
-      return;
+    for (const conn of relay.conns.values()) {
+      if (!conn.ws) continue;
+      if (Date.now() - conn.lastMsgAt > TS * 70000) {             // silent for too long: start over
+        dropSocket(conn); relayRetry(conn);
+        if (state.leader && !state.polling) schedule();
+        continue;
+      }
+      relaySend(conn, { t: 'ping' });
     }
-    relaySend({ t: 'ping' });
   }
   function sharedPlan() {                                       // the busiest joined room decides the rhythm
-    if (!relay.open) return null;
     let best = null;
-    for (const [room, r] of relay.rooms) if (relay.want.has(room) && r.n > 0 && (!best || r.n > best.n)) best = r;
+    for (const [room, r] of relay.rooms) {
+      const conn = relay.conns.get(room);
+      if (conn && conn.open && relay.want.has(room) && r.n > 0 && (!best || r.n > best.n)) best = r;
+    }
     return best;
   }
-  function relayMessage(text) {
+  function relayMessage(conn, text) {
     let m;
     try { m = JSON.parse(text); } catch { return; }
     if (!m || typeof m !== 'object') return;
-    relay.lastMsgAt = Date.now();
-    if (typeof m.now === 'number' && Math.abs(m.now - Date.now()) < 86400e3) relay.offset = m.now - Date.now();
+    conn.lastMsgAt = Date.now();
+    // the relay's clock (for the slots): a replayed hint carries the time it was first accepted, so not from that
+    if (typeof m.now === 'number' && !m.replay && Math.abs(m.now - Date.now()) < 86400e3) relay.offset = m.now - Date.now();
+    if (m.room !== conn.room) return;                            // each connection speaks for its own room only
     if (m.t === 'roster' && relay.want.has(m.room)) {
       const n = Math.max(0, Math.min(5000, m.n | 0));
       relay.rooms.set(m.room, { n, slot: Math.max(-1, Math.min(n - 1, m.slot | 0)), m: Math.max(0, Math.min(5000, m.m | 0)), every: Math.max(CFG.shareMinMs, Math.min(5000, Number(m.every) || 1000)) });
@@ -640,12 +663,13 @@
     } else if (m.t === 'hint') onHint(m);
   }
   function sendHints(events) {
-    if (!relay.open || !events.length) return;
+    if (!events.length) return;
     for (const ev of events) {
       let room = null;
       for (const [r, info] of relay.want) if (ev.titles && (info.titles.has(ev.titles.de) || info.titles.has(ev.titles.en))) { room = r; break; }
-      if (!room || !relay.rooms.has(room)) continue;            // only into the room of the course the event belongs to
-      relaySend({ t: 'hint', room, k: ev.k, e: ev.e, a: ev.a, c: String(ev.c || '').slice(0, 32) });
+      const conn = room && relay.conns.get(room);
+      if (!conn || !conn.open || !relay.rooms.has(room)) continue;   // only into the room of the course the event belongs to
+      relaySend(conn, { t: 'hint', room, k: ev.k, e: ev.e, a: ev.a, c: String(ev.c || '').slice(0, 32) });
     }
   }
   // A hint is only a wake-up call. The relay and the students behind it are not trusted: a hint never marks a feed
@@ -666,8 +690,9 @@
     if (relay.hintAt.size > 200) relay.hintAt.clear();
     const room = relay.rooms.get(m.room);
     const members = (room && room.m) || 0;
-    // a full hall does not hit ETH in the same millisecond
-    relay.queue.push({ id: m.k, type: m.e, title: info.title, members, at: now + Math.random() * TS * Math.min(300, 3 * members) });
+    // a full hall does not hit ETH in the same moment: the bigger the room, the wider the spread (2,000 students:
+    // 2.5 s, i.e. about 800 question reads a second at most, each ~25 ms of ETH's time)
+    relay.queue.push({ id: m.k, type: m.e, title: info.title, members, at: now + Math.random() * TS * Math.min(2500, Math.max(300, 1.25 * members)) });
     drainHints();
   }
   async function drainHints() {                                 // one question at a time
@@ -677,7 +702,7 @@
       while (relay.queue.length) {
         const h = relay.queue.shift();
         if (h.at > Date.now()) await sleep(h.at - Date.now());
-        for (let attempt = 0; attempt < 3; attempt++) {
+        for (let attempt = 0; attempt < 1; attempt++) {       // one read per hint: if it fails, the own feed check finds it
           if (!state.leader || !state.running || state.authLost) break;
           const now = Date.now();
           if (now < Math.max(relay.quietUntil, state.notBefore)) { relay.queue.length = 0; break; }
@@ -688,7 +713,6 @@
             if (e instanceof AuthError) { state.authLost = true; relay.queue.length = 0; tryRelogin(); render(); break; }
             if (!isTransient(e)) break;                          // e.g. not this student's question: nothing to do
             if (e.retryAfterMs) { relay.quietUntil = Date.now() + e.retryAfterMs; relay.queue.length = 0; break; }
-            if (attempt < 2) await sleep(backoff(attempt + 1));  // after that the own feed check will find it
           }
         }
       }
@@ -818,7 +842,13 @@
           if (wait < gap) wait += period * Math.ceil((gap - wait) / period);
           const late = state.lastFeedStartAt + 1.5 * period - Date.now();          // …and whatever the relay says, never much later than one round
           ms = state.lastFeedStartAt ? Math.min(wait, Math.max(0, late)) : wait;
-        } else ms = jitter(Math.min(60000, Math.max(CFG.hiddenCadenceMs, period)));          // not checking for others: slow safety check
+        } else {
+          // not checking for others (standing by, or in the background): a rare safety check of its own. The bigger
+          // the room, the rarer, so all of them together stay at about 3 feed requests a second (once a minute in a
+          // room of 200, every 5 minutes from 1,000 students on)
+          const safety = Math.min(CFG.standbyMaxMs, Math.max(CFG.standbyMinMs, (sp.m || 0) * CFG.standbyPerMemberMs));
+          ms = jitter(Math.max(CFG.hiddenCadenceMs, safety));
+        }
         if (state.errorStreak) ms = Math.max(ms, Math.min(CFG.maxBackoffMs, CFG.lectureBackoffMs, 2000 * 2 ** (state.errorStreak - 1)), state.retryAfterMs);
       } else {
         let cadence = !fast ? CFG.idleCadenceMs : document.hidden ? CFG.hiddenCadenceMs : CFG.cadenceMs;
@@ -1778,8 +1808,16 @@
     render();
   }
 
+  // the phone's back button (Android app): close a zoomed picture, or go from a question back to the list.
+  // Returns false when there is nothing to go back to here (the app then leaves the screen).
+  function goBack() {
+    if (!zoom.hidden) { closeZoom(); return true; }
+    if (ui.view === 'detail') { closeDetail(); return true; }
+    return false;
+  }
+
   // ---------------------------------------------------------------- start
-  window.__fastClicker = { show, state, CFG, hooks, tick, fullScan, sendVote, relay, ui, openDetail, checkNow, setRunning, version: VERSION };
+  window.__fastClicker = { show, state, CFG, hooks, tick, fullScan, sendVote, relay, ui, openDetail, checkNow, setRunning, back: goBack, version: VERSION };
   if (mode === 'focus') quietEduApp(); else document.body.appendChild(host);
   applyMode();
   startTimers();
