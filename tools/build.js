@@ -49,7 +49,7 @@ const ext = path.join(site, 'extension');
 fs.writeFileSync(path.join(ext, 'fast-clicker.js'), min);
 fs.writeFileSync(path.join(ext, 'manifest.json'), JSON.stringify({
   manifest_version: 3,
-  name: 'EduApp Fast Clicker',
+  name: 'ETH Clicker',
   version,
   description: 'Shows ETH EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi. Unofficial.',
   icons: { 16: 'icon-16.png', 32: 'icon-32.png', 48: 'icon-48.png', 128: 'icon-128.png' },

@@ -39,7 +39,7 @@ function bus() {
   check('T1 second tab receives the open question without polling', await until(() => B.root.querySelector('.card[data-id="322454"]')) && feedBy.b === 0);
   S.addClicker(mcsa(600001)); S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 600001 });
   check('T2 new question appears in both tabs, polled by one', await until(() => A.root.querySelector('.card[data-id="600001"]') && B.root.querySelector('.card[data-id="600001"]')) && feedBy.b === 0, `feed polls a=${feedBy.a} b=${feedBy.b}`);
-  check('T3 follower shows it is following', /another tab/.test(B.root.getElementById('stat').textContent));
+  check('T3 follower shows it is following', /another tab/.test(B.root.querySelector('.rf').title));
   B.root.querySelector('.opt[data-id="600001"][data-e="2"]').click();
   B.root.querySelector('.send[data-id="600001"]').click();
   check('T4 answering from the follower tab works', await until(() => /Confirmed/.test(B.root.querySelector('.card[data-id="600001"] .st').textContent)));
@@ -63,11 +63,11 @@ function bus() {
   S.auth = true;
   await until(() => !A.fc.state.authLost && !B.root.querySelector('[data-a="login"]'), 6000);
   // T9: pausing the polling tab hands polling over to the other tab
-  A.root.querySelector('[data-a="pause"]').click();
+  A.fc.setRunning(false);
   const bBefore = feedBy.b;
   S.addClicker(mcsa(600004)); S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 600004 });
   check('T9 pausing the polling tab hands polling to the other tab', await until(() => B.root.querySelector('.card[data-id="600004"]') && feedBy.b > bBefore, 6000));
-  A.root.querySelector('[data-a="pause"]').click(); // resume: A queues as follower again
+  A.fc.setRunning(true); // resume: A queues as follower again
   // close tab A
   A.fc.state.running = false; BC.closeTag('a'); A.w.close(); L.closeTag('a');
   const before = feedBy.b;

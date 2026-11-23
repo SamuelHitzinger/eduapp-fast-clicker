@@ -3,7 +3,7 @@ import WebKit
 import AudioToolbox
 import UserNotifications
 
-/// Main screen: eduapp.ethz.ch with the Fast Clicker script injected in focus mode.
+/// Main screen: eduapp.ethz.ch with the ETH Clicker script injected in focus mode.
 /// The script draws the whole clicker section itself (list, question pages, results).
 final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
     /// A tiny same-origin page (129 bytes of JSON) instead of the 1 MB EduApp web app: the script replaces it.
@@ -63,7 +63,7 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
 
     // MARK: - Injected script
 
-    /// The tested Fast Clicker build (Resources/fast-clicker.js) wrapped with the app's hooks.
+    /// The tested ETH Clicker build (Resources/fast-clicker.js) wrapped with the app's hooks.
     /// It does not run in the login sheet (window.opener) or on ETH's login pages.
     private static func injectedScript() -> String? {
         guard let url = Bundle.main.url(forResource: "fast-clicker", withExtension: "js"),
@@ -75,12 +75,8 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
           window.__FC_HOOKS = {
             nativeAlerts: true,
             noExit: true,
-            recordDefault: true,
             onAlert: function (q) {
-              try { window.webkit.messageHandlers.fc.postMessage({ type: 'alert', id: String(q.id), title: q.title, course: q.course }); } catch (e) {}
-            },
-            onShare: function (text, name) {
-              try { window.webkit.messageHandlers.fc.postMessage({ type: 'share', text: String(text), name: String(name) }); } catch (e) {}
+              try { window.webkit.messageHandlers.fc.postMessage({ type: 'alert', id: String(q.id), title: q.title, course: q.course, round: !!q.round }); } catch (e) {}
             },
             onTheme: function (dark) {
               try { window.webkit.messageHandlers.fc.postMessage({ type: 'theme', dark: !!dark }); } catch (e) {}
@@ -112,7 +108,6 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
               let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
         switch type {
         case "alert": handleAlert(body)
-        case "share": handleShare(body)
         case "theme": handleTheme(body)
         default: break
         }
@@ -125,19 +120,6 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
         view.backgroundColor = dark ? UIColor(red: 33 / 255, green: 33 / 255, blue: 33 / 255, alpha: 1) : .white
     }
 
-    /// "Export" of the timing recording: hand the JSON file to the iOS share sheet (AirDrop, Files, Mail, ...).
-    private func handleShare(_ body: [String: Any]) {
-        guard let text = body["text"] as? String, presentedViewController == nil else { return }
-        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
-        let raw = body["name"] as? String ?? ""
-        let safe = String(String.UnicodeScalarView(raw.unicodeScalars.filter { allowed.contains($0) }.prefix(80)))
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(safe.isEmpty ? "fast-clicker-diagnostics.json" : safe)
-        do { try text.write(to: url, atomically: true, encoding: .utf8) } catch { return }
-        let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        sheet.popoverPresentationController?.sourceView = view
-        sheet.popoverPresentationController?.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
-        present(sheet, animated: true)
-    }
 
     private func handleAlert(_ body: [String: Any]) {
         let title = body["title"] as? String ?? ""

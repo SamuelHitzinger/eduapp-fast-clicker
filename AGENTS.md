@@ -1,4 +1,4 @@
-# EduApp Fast Clicker
+# ETH Clicker (EduApp Fast Clicker)
 
 A replacement for the clicker section of ETH EduApp (eduapp.ethz.ch): it looks like EduApp's own clicker pages, but is faster and more reliable. It has three ways to install it, all using one script:
 
@@ -24,7 +24,7 @@ The reference for the look is EduApp itself: `hermes_out/v3/ui/` holds phone scr
 - Never commit `hermes_out/` or `data/`. They hold captured ETH data, and `hermes_out/cookies.json` holds a session secret. Tests read `data/` locally.
 - No separate-origin website or credential proxy: login must stay on ETH's own pages (same-origin oauth2-proxy + Keycloak).
 - The relay may only ever carry "clicker N changed" hints. It must never receive ETH logins, cookies, question text or answers, and nothing it sends may make a client do more than read one question from ETH.
-- The "peek next id" experiment (`CFG.peekNext`, on while recording) reads a few ids above the student's own course's highest known question, read-only and bounded, to measure whether a direct poll beats the feed. It must stay read-only and within the student's own enrolled course; `CFG.peekAct` (the prototype that acts on it) stays off until the measurement is reviewed.
+- No settings drawer (removed in v3.2 at the user's request): keep the screen to the app bar, the list and the question page. The timing recorder and the "peek next id" experiment were removed too; don't bring back reads of question ids the feed has not announced.
 - Do not increase the load on ETH: one feed request at a time per client, never faster than every 4 s, and never download the semester list automatically during a lecture.
 - Publishing anything publicly (GitHub Pages, stores) needs the user's explicit OK. Hosting the relay was approved on 2026-11-12.
 - "Authentication failed" on the login page is ETH's wrong-credentials message, not an app bug. A cookie or flow problem shows HTTP 500 instead.

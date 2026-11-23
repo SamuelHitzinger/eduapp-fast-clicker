@@ -1,9 +1,9 @@
 import UIKit
 import UserNotifications
 
-/// Fast Clicker: a clicker-only shell around ETH EduApp.
+/// ETH Clicker: a clicker-only shell around ETH EduApp.
 /// The app shows eduapp.ethz.ch in a web view (so ETH's own login and session cookies are used, and the
-/// password never touches this code) and runs the tested Fast Clicker script there in focus mode.
+/// password never touches this code) and runs the tested ETH Clicker script there in focus mode.
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     var window: UIWindow?

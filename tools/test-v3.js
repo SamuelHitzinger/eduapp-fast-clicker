@@ -1,4 +1,4 @@
-// v3 tests: EduApp-style list and question pages, shared discovery through the relay, diagnostics recorder.
+// v3 tests: EduApp-style list and question pages, shared discovery through the relay, the v3.2 simple screen.
 // Mock server + jsdom, a fake WebSocket instead of the relay. Run: node tools/test-v3.js
 const { makeServer, boot, fakeCaches, mcsa, st, until, wait } = require('./harness');
 const results = [];
@@ -274,11 +274,6 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     await wait(300);
     check('S6 on the list page, number keys and Enter send nothing', S.votes.length === 0 && !fc.state.draft.has(890001));
     fc.openDetail(890001);
-    root.querySelector('[data-a="menu"]').click();
-    key('2');
-    await wait(300);
-    check('S7 with the settings sheet open, number keys send nothing', S.votes.length === 0);
-    root.querySelector('[data-a="closemenu"]').click();
     key('2');
     check('S8 on the question page, number keys still work', await until(() => S.votes.some((v) => v.id === 890001 && v.body.selectedAnswer[0] === 2)));
     stop();
@@ -554,158 +549,6 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     }
   }
 
-  // ---------- K: peek the next id (#3) — measure whether a direct poll beats the feed, read-only, own course
-  const courseBase = (S) => Math.max(...S.list.byCourse.filter((c) => c.code === '401-0261-00').flatMap((c) => c.clickers.map((x) => x.id)));
-  const logOf = (fc, y) => fc.rec.log.filter((e) => e.y === y);
-  {
-    const S = makeServer();
-    const { root, fc, stop } = boot(S, { hooks: { timeScale: 0.02 }, settings: { record: true, peekNext: true, peekEveryMs: 30, peekWindow: 3 } });
-    await fc.fullScan();                                   // so the client knows this course's highest id
-    const base = courseBase(S);
-    S.addClicker(mcsa(base + 1, 'Peeked open'));           // opens, but NOT announced through the feed
-    S.forbid.add(base + 2);                                // an id ETH will not show this student
-    // base + 3 is unknown -> 404
-    const detected = await until(() => logOf(fc, 'P').some((e) => e.id === base + 1), 3000);
-    await wait(200);
-    const peeks = logOf(fc, 'p');
-    const byOff = (o, pred) => peeks.some((e) => e.off === o && pred(e));
-    check('K1 a direct poll of the next id notices the open question with no feed event', detected && logOf(fc, 'P').some((e) => e.id === base + 1 && e.off === 1));
-    check('K2 the recording captures what each un-announced id returns (open / forbidden / not found)',
-      byOff(1, (e) => e.s === 200 && e.st === 'OPEN') && byOff(2, (e) => e.s === 403) && byOff(3, (e) => e.s === 404),
-      JSON.stringify(peeks.map((e) => [e.off, e.s, e.st])));
-    check('K3 by default it only measures: the question is not put on screen, and nothing is ever voted', !root.querySelector(`.card[data-id="${base + 1}"]`) && fc.ui.id !== base + 1 && S.votes.length === 0);
-    const allowed = new Set(['t', 'y', 'id', 'off', 's', 'st', 'q', 'pv', 'ans']);
-    check('K4 the peek records hold ids and counts only — no question text or chosen answer',
-      peeks.length > 0 && peeks.every((e) => Object.keys(e).every((k) => allowed.has(k)) && (e.st === null || typeof e.st === 'string')) && !/question|individualAnswer|2\+2|selectedAnswer/.test(JSON.stringify(fc.rec.log)));
-    // it stays bounded: only a few ids above the base, only the current course
-    check('K5 it probes only a small window in the current lecture\'s course', S.log.filter((l) => /^GET clickers\/\d+$/.test(l) && Number(l.split('/')[1]) > base).every((l) => Number(l.split('/')[1]) <= base + 3));
-    stop();
-  }
-  {
-    // the prototype: with peekAct on, a question found by the id-poll is actually shown (still never voted)
-    const S = makeServer(); const alerts = [];
-    const { root, fc, stop } = boot(S, { hooks: { timeScale: 0.02, onAlert: (q) => alerts.push(q.id), nativeAlerts: true }, settings: { record: true, peekNext: true, peekAct: true, peekEveryMs: 30 } });
-    await fc.fullScan();
-    const base = courseBase(S);
-    S.addClicker(mcsa(base + 1, 'Peeked and shown'));
-    const shown = await until(() => root.querySelector(`.card[data-id="${base + 1}"]`), 3000);
-    check('K6 prototype: with peekAct on, an id-poll detection shows the question (via the hint path) and alerts once',
-      shown && fc.ui.id === base + 1 && alerts.filter((x) => x === base + 1).length === 1 && logOf(fc, 'e').some((e) => e.id === base + 1 && e.via === 'peek'));
-    S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: base + 1, courseTitle: { de: 'Analysis I' } });   // the feed catches up
-    await wait(400);
-    check('K7 the feed event for the same opening does not alert again or start a new round', alerts.filter((x) => x === base + 1).length === 1 && fc.state.clickers.get(base + 1).gen === 0);
-    check('K8 still nothing is voted automatically', S.votes.length === 0);
-    stop();
-  }
-  {
-    // switched off, it makes no candidate requests at all
-    const S = makeServer();
-    const { fc, stop } = boot(S, { hooks: { timeScale: 0.02 }, settings: { record: true, peekNext: false, peekEveryMs: 30 } });
-    await fc.fullScan();
-    const base = courseBase(S);
-    S.addClicker(mcsa(base + 1, 'Not peeked'));
-    await wait(600);
-    check('K9 with the experiment off, no ids above the known ones are requested', !S.log.some((l) => /^GET clickers\/\d+$/.test(l) && Number(l.split('/')[1]) > base) && logOf(fc, 'p').length === 0);
-    stop();
-  }
-
-  // ---------- D: diagnostics recorder
-  {
-    const S = makeServer(); let shared = null;
-    const { root, fc, stop } = boot(S, { hooks: { onShare: (text, name) => { shared = { text, name }; }, timeScale: 0.05 }, settings: { record: true } });
-    await until(() => root.querySelector('.card[data-id="322454"]'));
-    S.addClicker(mcsa(840001)); S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 840001 });
-    await until(() => root.querySelector('.card[data-id="840001"]'));
-    await wait(500);
-    root.querySelector('.opt[data-id="840001"][data-e="2"]').click();
-    root.querySelector('.send[data-id="840001"]').click();
-    await until(() => /Confirmed/.test(st(root, 840001)));
-    root.querySelector('[data-a="menu"]').click();
-    root.querySelector('[data-a="share"]').click();
-    const out = shared && JSON.parse(shared.text);
-    const types = out ? new Set(out.log.map((x) => x.y)) : new Set();
-    check('D1 the recording has request timings, feed changes, events and alerts', !!out && ['r', 'f', 'e', 'a'].every((y) => types.has(y)), [...types].join());
-    const uis = out ? out.log.filter((x) => x.y === 'u' && x.id === 840001).map((x) => x.ev) : [];
-    check('D10 it records when a question came on screen, the first tap on an option and the send (not which option)',
-      uis.join() === 'show,pick,send' && out.log.filter((x) => x.y === 'u').every((x) => !('e' in x) && !('answer' in x)), uis.join());
-    const boot0 = out && out.log.find((x) => x.y === 's' && x.ev === 'boot');
-    check('D11 it records each start with the version and whether the app was on screen', !!boot0 && boot0.v === fc.version && boot0.h === 0);
-    check('D2 it also watched the timetable flags and the open question itself', types.has('g') && types.has('c') && S.log.filter((l) => l.startsWith('GET dashboard/upcoming-lectures')).length > 2);
-    const vote = out && out.log.find((x) => x.y === 'r' && x.k === 'vote');
-    check('D3 the vote is timed, but neither the answer nor any question text is recorded', !!vote && vote.s === 200 && typeof vote.ms === 'number' && !/selectedAnswer|2\+2|individualAnswer/.test(shared.text));
-    check('D4 the export is a named JSON file', /^fast-clicker-diagnostics-.*\.json$/.test(shared.name) && out.app === 'fast-clicker' && out.entries === out.log.length);
-    check('D5 the recording is kept on the device between starts', JSON.parse(fc.rec && root.ownerDocument.defaultView.localStorage.getItem('fast-clicker-rec') || '[]').length > 0 || (fc.rec.dirty === true));
-    const snaps = out ? out.log.filter((x) => x.y === 'c') : [];
-    check('D7 question snapshots hold counts only: not which options this student chose, not which are correct',
-      snaps.length > 0 && snaps.every((x) => x.snap.length === 9 && typeof x.snap[4] === 'number' && x.snap[6].every((e) => e.length === 2)));
-    check('D8 recording stops by itself after two weeks', fc.CFG.recordUntil === 0 || fc.CFG.recordUntil - Date.now() <= 14 * 86400e3);
-    stop();
-  }
-  {
-    // the iPhone app switches recording on once; after the student switches it off it stays off
-    const S = makeServer();
-    const first = boot(S, { hooks: { recordDefault: true } });
-    const on = first.fc.CFG.record && first.fc.CFG.recordUntil > Date.now();
-    first.root.querySelector('[data-a="menu"]').click();
-    first.root.querySelector('[data-a="record"]').click();
-    const off = !first.fc.CFG.record;
-    const store = first.w.localStorage;
-    const saved = { s: store.getItem('fast-clicker-settings'), d: store.getItem('fast-clicker-rec-default') };
-    first.stop();
-    const again = boot(S, { hooks: { recordDefault: true }, preset: { 'fast-clicker-settings': saved.s, 'fast-clicker-rec-default': saved.d } });
-    check('D9 the app turns recording on once by default; switched off, it is not turned on again', on && off && saved.d === '3' && !again.fc.CFG.record);
-    again.stop();
-  }
-  {
-    // a new measurement run: an app whose first run (v3.0.0) has expired records again after the update, for two weeks
-    const S = makeServer();
-    const { fc, stop } = boot(S, { hooks: { recordDefault: true }, settings: { record: false, recordUntil: 0 }, preset: { 'fast-clicker-rec-default': '1' } });
-    check('D12 after the update, recording is on again for the next lectures (two weeks)', fc.CFG.record && fc.CFG.recordUntil - Date.now() > 13 * 86400e3);
-    stop();
-  }
-  {
-    // the app going to the background and coming back is recorded: it cannot check while it is not on screen
-    const S = makeServer();
-    const { w, fc, stop } = boot(S, { settings: { record: true } });
-    await until(() => fc.state.lastPollAt > 0);
-    Object.defineProperty(w.document, 'hidden', { value: true, configurable: true });
-    w.document.dispatchEvent(new w.Event('visibilitychange'));
-    Object.defineProperty(w.document, 'hidden', { value: false, configurable: true });
-    w.document.dispatchEvent(new w.Event('visibilitychange'));
-    const vs = fc.rec.log.filter((x) => x.y === 'v').map((x) => x.h);
-    check('D13 leaving and returning to the app are recorded', vs.join() === '1,0', vs.join());
-    stop();
-  }
-  {
-    // a draft (+1) that opens later: the recording brackets the moment it turned open (last seen as a draft, first seen open)
-    const S = makeServer();
-    const { fc, stop } = boot(S, { hooks: { timeScale: 0.02 }, settings: { record: true, peekNext: true, peekEveryMs: 30 } });
-    await fc.fullScan();
-    const base = courseBase(S);
-    S.addClicker({ ...mcsa(base + 1, 'Draft first'), state: 'DRAFT' });
-    const sawDraft = await until(() => logOf(fc, 'p').some((e) => e.id === base + 1 && e.st === 'DRAFT'), 3000);
-    S.clickers.get(base + 1).state = 'OPEN';
-    S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: base + 1, courseTitle: { de: 'Analysis I' } });
-    await until(() => logOf(fc, 'P').some((e) => e.id === base + 1), 3000);
-    const P = logOf(fc, 'P').find((e) => e.id === base + 1);
-    check('K6 the last moment the next question was still a draft is recorded with its opening (whoever saw it first)',
-      sawDraft && !!P && P.prev > 0 && P.prev <= P.t, JSON.stringify(P));
-    stop();
-  }
-  {
-    // the peek runs between feed checks, never on its own: with no feed check (paused) there is no peek either
-    const S = makeServer();
-    const { fc, stop } = boot(S, { hooks: { timeScale: 0.02 }, settings: { record: true, peekNext: true, peekEveryMs: 30 } });
-    await fc.fullScan();
-    await until(() => logOf(fc, 'p').length > 0, 3000);
-    fc.state.running = false;
-    await wait(300);
-    const n = S.log.length;
-    await wait(600);
-    check('K7 the peek only follows feed checks', S.log.length === n, S.log.slice(n).join());
-    stop();
-  }
-
   // ---------- S: start-up on a weak connection: the first feed check waits for nothing it does not need
   {
     const S = makeServer();
@@ -782,13 +625,57 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     check('V4 "check now" asks the feed right away', asked);
     stop();
   }
+  // ---------- E: ETH Clicker (v3.2): one simple screen, no settings drawer, no timing experiment
   {
     const S = makeServer();
-    const { root, w, stop } = boot(S);
+    const { root, w, stop } = boot(S, { mode: 'focus', hooks: { nativeAlerts: true, noExit: true } });
     await until(() => root.querySelector('.card[data-id="322454"]'));
     await wait(500);
-    check('D6 with recording off nothing is stored and no extra requests are made', (w.localStorage.getItem('fast-clicker-rec') || '[]') === '[]' && S.log.filter((l) => l.startsWith('GET dashboard/upcoming-lectures')).length === 1 && !root.querySelector('[data-a="mark"]'));
+    const bar = root.querySelector('header.bar');
+    check('E1 the app is called ETH Clicker and has no menu or settings drawer', /ETH Clicker/.test(bar.textContent)
+      && !root.querySelector('[data-a="menu"], #drawer, .drawer, #menu, [data-a="record"], [data-a="turbo"], [data-a="onetap"], [data-a="pause"]'));
+    check('E2 the top bar keeps check-now and the dark-mode button; in the app no exit or full-screen button shows',
+      !!root.querySelector('[data-a="now"]') && !!root.querySelector('#themebtn')
+      && root.querySelector('[data-a="exit"]').style.display === 'none' && root.querySelector('[data-a="focus"]').style.display === 'none');
+    check('E3 nothing is recorded and no extra requests are made', !w.localStorage.getItem('fast-clicker-rec')
+      && S.log.filter((l) => l.startsWith('GET dashboard/upcoming-lectures')).length === 1 && !S.log.some((l) => /^GET clickers\/322455/.test(l)));
+    const t = root.querySelector('#themebtn'); const dark0 = root.host.classList.contains('dark');
+    t.click();
+    check('E4 the dark-mode button still switches and is remembered', root.host.classList.contains('dark') !== dark0
+      && JSON.parse(w.localStorage.getItem('fast-clicker-settings')).theme === (dark0 ? 'light' : 'dark'));
     stop();
+  }
+  {
+    // an update from v3.1: switches that can no longer be seen are reset, the list layout is kept, the old recording deleted
+    const S = makeServer();
+    const old = JSON.stringify({ oneTap: true, turbo: true, sound: false, keepAwake: false, autoOpen: false, groupBy: 'lecture', theme: 'dark', expanded: { a: true },
+      record: true, recordUntil: Date.now() + 86400e3, peekNext: true, peekAct: false });
+    const { w, fc, stop } = boot(S, { preset: { 'fast-clicker-settings': old, 'fast-clicker-rec': '[{"t":1,"y":"r"}]', 'fast-clicker-rec-default': '3' } });
+    await until(() => fc.state.lastPollAt > 0, 10000);
+    const saved = JSON.parse(w.localStorage.getItem('fast-clicker-settings'));
+    check('E5 after the update hidden switches are back to normal (tap then Send, sound on, timetable pace) and the layout is kept',
+      !fc.CFG.oneTap && !fc.CFG.turbo && fc.CFG.sound && fc.CFG.keepAwake && fc.CFG.autoOpen && fc.CFG.groupBy === 'lecture' && fc.CFG.theme === 'dark'
+      && Object.keys(saved).sort().join() === 'expanded,groupBy,theme', JSON.stringify(saved));
+    check('E6 the old timing recording is deleted from the device', w.localStorage.getItem('fast-clicker-rec') === null && w.localStorage.getItem('fast-clicker-rec-default') === null);
+    stop();
+  }
+  {
+    // with no lecture in the timetable, the app on screen still checks at the fast pace (exercise classes etc.)
+    const S = makeServer({ lectureNow: false });
+    const { fc, stop } = boot(S, { mode: 'focus', settings: { cadenceMs: 120, idleCadenceMs: 5000 } });
+    await until(() => fc.state.lastPollAt > 0);
+    const n = S.log.filter((l) => l.includes('activity-feed')).length;
+    await wait(1000);
+    const fast = S.log.filter((l) => l.includes('activity-feed')).length - n;
+    stop();
+    const S2 = makeServer({ lectureNow: false });
+    const b = boot(S2, { settings: { cadenceMs: 120, idleCadenceMs: 5000 } });   // the browser panel: timetable pace
+    await until(() => b.fc.state.lastPollAt > 0);
+    const n2 = S2.log.filter((l) => l.includes('activity-feed')).length;
+    await wait(1000);
+    const slow = S2.log.filter((l) => l.includes('activity-feed')).length - n2;
+    check('E7 open on screen, the app checks fast even outside the timetable; the in-page panel does not', fast >= 4 && slow === 0, `${fast} vs ${slow} checks in 1 s`);
+    b.stop();
   }
 
   console.log(results.join('\n'));

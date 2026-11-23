@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         EduApp Fast Clicker
+// @name         ETH Clicker
 // @namespace    https://eduapp.ethz.ch/
-// @version      3.1.1
+// @version      3.2.0
 // @description  Shows opened ETH EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi.
 // @match        https://eduapp.ethz.ch/*
 // @run-at       document-idle
@@ -33,16 +33,15 @@
 //   * looks like EduApp's own clicker section (list by date / by lecture, question page, results), cached and live,
 //   * optional shared discovery: with a relay configured, the students of one lecture take turns checking the
 //     feed and tell each other "clicker N changed"; everyone still reads questions and votes directly at ETH.
-//     The relay never sees logins, questions or answers (relay/README.md),
-//   * optional diagnostics recorder (off by default; stays on this device until you export it).
+//     The relay never sees logins, questions or answers (relay/README.md).
 (() => {
   'use strict';
-  const VERSION = '3.1.1';
+  const VERSION = '3.2.0';
   const RELAY_URL = '';     // wss://… of the hint relay; empty = every client checks the feed itself (set by tools/build.js)
   const MODE = window.__FC_MODE === 'focus' ? 'focus' : 'panel';
   if (window.__fastClicker) { window.__fastClicker.show(MODE); return; }
   if (location.hostname !== 'eduapp.ethz.ch') {
-    if (confirm('Fast Clicker works inside EduApp.\n\nOpen EduApp now? Once it has loaded, tap the Fast Clicker bookmark again.')) {
+    if (confirm('ETH Clicker works inside EduApp.\n\nOpen EduApp now? Once it has loaded, tap the ETH Clicker bookmark again.')) {
       location.href = 'https://eduapp.ethz.ch/';
     }
     return;
@@ -52,6 +51,22 @@
   const API = '/web/gw/';
   const SW_CACHE = 'api-requests';
   const LS_KEY = 'fast-clicker-settings';
+  // Settings saved before v3.2 (when the drawer had switches) are reduced to what can still be changed, so a
+  // switch nobody can see any more (e.g. "Always check fast", "1-tap send") cannot stay on; the old timing
+  // recording is deleted from the device.
+  function loadCfg() {
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(LS_KEY) || '{}') || {}; } catch {}
+    if ('record' in saved) {
+      saved = { groupBy: saved.groupBy, theme: saved.theme, expanded: saved.expanded };
+      for (const k in saved) if (saved[k] === undefined) delete saved[k];
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify(saved));
+        localStorage.removeItem('fast-clicker-rec'); localStorage.removeItem('fast-clicker-rec-default');
+      } catch {}
+    }
+    return saved;
+  }
   const CFG = Object.assign({
     cadenceMs: 4000,         // start-to-start feed poll interval around lectures (feed takes ~1.2 s itself)
     hiddenCadenceMs: 15000,  // same, while the tab is in the background
@@ -69,28 +84,11 @@
     groupBy: 'date', theme: 'auto', expanded: {}, autoOpen: true,
     shareMinMs: 500, shareMaxMs: 180000,  // sharing: a client's own check is never further apart than shareMaxMs
     soloStepMs: 1000, soloMaxMs: 30000,   // relay unreachable: check alone every (students last seen sharing) x step, at most max
-    record: false, recordUntil: 0,
-    // Experiment (#3): while recording during a lecture, read the next question ids in your own course, to measure
-    // whether a direct poll notices a new question faster than the ~1.4 s activity feed, and to learn what an
-    // id that has not been announced to you yet returns. Read-only, your own course, bounded. peekAct (off) is the
-    // prototype that would actually act on it; it stays off until the measurement says it is safe.
-    // Run 3 (v3.1.1): only the next id (+1, which was the next question on 2026-11-18), once per feed check, halfway
-    // between two checks, so the moment it turns OPEN is pinned down to within ~2 s and compared with the feed.
-    peekNext: true, peekWindow: 1, peekEveryMs: 3000, peekAct: false,
-  }, JSON.parse(localStorage.getItem(LS_KEY) || '{}'));
-  const saveCfg = () => { try { localStorage.setItem(LS_KEY, JSON.stringify({ oneTap: CFG.oneTap, turbo: CFG.turbo, sound: CFG.sound, keepAwake: CFG.keepAwake, groupBy: CFG.groupBy, theme: CFG.theme, expanded: CFG.expanded, autoOpen: CFG.autoOpen, record: CFG.record, recordUntil: CFG.recordUntil, peekNext: CFG.peekNext, peekAct: CFG.peekAct })); } catch {} };
+  }, loadCfg());
+  // only the list layout and the theme are the student's to change (v3.2 has no settings drawer)
+  const saveCfg = () => { try { localStorage.setItem(LS_KEY, JSON.stringify({ groupBy: CFG.groupBy, theme: CFG.theme, expanded: CFG.expanded })); } catch {} };
   const hooks = window.__FC_HOOKS || {}; // test seams and the native app's bridge
   const TS = hooks.timeScale || 1;
-  // Recording stops by itself after two weeks. The iPhone app switches it on once per measurement run (REC_RUN):
-  // run 1 was v3.0.0; run 2 v3.1.0; run 3 starts with v3.1.1, so the next lectures are measured without anyone switching it on.
-  const REC_DAYS_MS = 14 * 86400e3, REC_RUN = '3';
-  try {
-    if (hooks.recordDefault && localStorage.getItem('fast-clicker-rec-default') !== REC_RUN) {
-      localStorage.setItem('fast-clicker-rec-default', REC_RUN);
-      CFG.record = true; CFG.recordUntil = Date.now() + REC_DAYS_MS; saveCfg();
-    }
-    if (CFG.record && CFG.recordUntil && Date.now() > CFG.recordUntil) { CFG.record = false; saveCfg(); }
-  } catch {}
 
   class AuthError extends Error {}
   class HttpError extends Error { constructor(status, msg, retryAfterMs) { super(msg); this.status = status; this.retryAfterMs = retryAfterMs; } }
@@ -99,30 +97,10 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const jitter = (ms, f = 0.15) => Math.round(ms * (1 - f + Math.random() * 2 * f));
 
-  // ---------------------------------------------------------------- diagnostics recorder (opt-in, stays on this device)
-  // Compact timeline of what was asked from EduApp and when it answered, to measure how fast questions can be
-  // noticed. No names, logins, question texts or answer texts are recorded.
-  const REC_KEY = 'fast-clicker-rec', REC_MAX = 20000;
-  const rec = { log: [], dirty: false, last: new Map(), n: 0 };
-  try { rec.log = JSON.parse(localStorage.getItem(REC_KEY) || '[]'); if (!Array.isArray(rec.log)) rec.log = []; } catch { rec.log = []; }
-  function recAdd(type, data) {
-    if (!CFG.record) return;
-    rec.log.push(Object.assign({ t: Date.now(), y: type }, data));
-    if (rec.log.length > REC_MAX) rec.log.splice(0, rec.log.length - REC_MAX);
-    rec.dirty = true;
-  }
-  const recChanged = (key, value) => { const s = JSON.stringify(value); if (rec.last.get(key) === s) return false; rec.last.set(key, s); return true; };
-  function recSave() {
-    if (!rec.dirty) return;
-    rec.dirty = false;
-    try { localStorage.setItem(REC_KEY, JSON.stringify(rec.log)); }
-    catch { rec.log.splice(0, Math.ceil(rec.log.length / 3)); rec.dirty = true; }     // storage full: drop the oldest third
-  }
-
   // ---------------------------------------------------------------- network
-  const lat = { feed: 1300, detail: 500, vote: 500, other: 400, list: 3000, probe: 400 }; // EWMA of observed latency (ms), raised after a timeout: sets time limits
+  const lat = { feed: 1300, detail: 500, vote: 500, other: 400, list: 3000 }; // EWMA of observed latency (ms), raised after a timeout: sets time limits
   const latOk = { feed: 1300 };    // the feed's latency from answers that arrived (timeouts excluded): sets the pause between checks
-  const minTimeout = { feed: 7000, detail: 7000, vote: 8000, other: 6000, list: 60000, probe: 6000 };
+  const minTimeout = { feed: 7000, detail: 7000, vote: 8000, other: 6000, list: 60000 };
   const timeoutFor = (kind) => Math.round(TS * Math.min(kind === 'list' ? 120000 : 30000, Math.max(minTimeout[kind], Math.round(3 * lat[kind] + 2500))));
   let reqCounter = 0;
 
@@ -149,12 +127,10 @@
     } catch (e) {
       clearTimeout(timer);
       if (e && e.name === 'AbortError') lat[kind] = Math.max(lat[kind], 2 * timeoutMs / TS);   // next time wait (much) longer, up to the cap
-      recAdd('r', { k: kind, p: path.split('?')[0], ms: Math.round(performance.now() - t0), e: e && e.name === 'AbortError' ? 'timeout' : 'network' });
       throw new NetError(e && e.name === 'AbortError' ? `no answer within ${Math.round(timeoutMs / 1000)} s` : 'network error');
     }
     const serverDate = Date.parse(r.headers.get('date') || '');
     if (serverDate) state.serverOffset = serverDate + 500 - Date.now();   // the header has whole seconds
-    if (kind !== 'probe' || !r.ok) recAdd('r', { k: kind, p: path.split('?')[0], ms: Math.round(performance.now() - t0), s: r.status, d: serverDate || undefined });
     try {
       if (r.status === 401 || r.type === 'opaqueredirect' || (r.status >= 300 && r.status < 400)) throw new AuthError('signed out');
       if (!r.ok) {
@@ -251,7 +227,7 @@
       broadcastStatus();
     }
   };
-  window.addEventListener('pagehide', (e) => { recSave(); if (!e.persisted && bc) bc.close(); });
+  window.addEventListener('pagehide', (e) => { if (!e.persisted && bc) bc.close(); });
   const broadcastStatus = () => { if (state.leader) broadcast({ t: 'status', lastPollAt: state.lastPollAt, lastError: state.lastError, authLost: state.authLost, loginNeeded: state.loginNeeded, lectures: state.lectures }); };
 
   function becomeLeader() {
@@ -289,10 +265,12 @@
     return state.lectures.filter((l) => t >= Date.parse(l.start) - CFG.leadMin * 60e3 && t <= Date.parse(l.end) + CFG.tailMin * 60e3);
   };
   const currentLecture = () => currentLectures()[0];
-  const nextLecture = () => state.lectures.filter((l) => Date.parse(l.start) > Date.now()).sort((a, b) => Date.parse(a.start) - Date.parse(b.start))[0];
   const isLive = (c) => c.state === 'OPEN' && !state.dismissed.has(c.id);
   const hasFreshOpen = () => [...state.clickers.values()].some((c) => isLive(c) && !c.roundStopped && Date.now() - c.lastEventAt < CFG.openFastMin * 60e3);
-  const fastMode = () => CFG.turbo || hasFreshOpen() || !!currentLecture() || !state.lecturesFetchedAt;
+  // fast checking: around your lectures (timetable), while a question is open, and whenever the clicker is open full
+  // screen and on screen (the iPhone app, focus mode), e.g. in an exercise class that is not in the timetable
+  const onScreen = () => mode === 'focus' && !document.hidden;
+  const fastMode = () => CFG.turbo || onScreen() || hasFreshOpen() || !!currentLecture() || !state.lecturesFetchedAt;
 
   // ---------------------------------------------------------------- clicker details
   function fetchClicker(id) {
@@ -360,7 +338,6 @@
       if (meta.type === 'CLICKER_STOP_ROUND') c.roundStopped = true;
       else if (meta.type !== 'CLICKER_CLOSE' && meta.type !== 'GAP') c.roundStopped = false;
       const alert = !sameOpening && meta.type !== 'GAP' && c.state === 'OPEN' && !c.roundStopped && (!initial || Date.now() - c.lastEventAt < 3 * 3600e3);
-      recAdd('e', { id, e: meta.type, c: meta.createdAt, via: 'feed', initial: initial ? 1 : undefined, state: c.state, alert: alert ? 1 : undefined, same: sameOpening ? 1 : undefined });
       patchList(c, true);
       if (alert) { state.dismissed.delete(id); notify(c, true); }
       publish(c, alert);
@@ -392,7 +369,6 @@
       if (state.feedSpanOk) state.scanDone = true;                   // the feed already covers everything recent
       state.feedReachAt = feed.length >= n && oldest ? oldest : 0;   // the feed only reaches back to here (0 = everything)
     }
-    if (recChanged('feed', feed.slice(0, 3).map((a) => a.id))) recAdd('f', { n: feed.length, top: feed.slice(0, 4).map((a) => [a.id, a.type, a.objectId, a.createdAt]) });
     const byClicker = new Map();
     const fresh = [];
     for (const a of feed) {
@@ -617,14 +593,12 @@
     ws.onopen = () => {
       if (relay.ws !== ws) return;
       relay.open = true; relay.retry = 0; relay.lastMsgAt = Date.now();
-      recAdd('h', { ev: 'open' });
       relayJoin();
     };
     ws.onmessage = (ev) => { if (relay.ws === ws) relayMessage(ev.data); };
     ws.onclose = ws.onerror = () => {
       if (relay.ws !== ws) return;
       relay.ws = null; relay.open = false; relay.rooms.clear();
-      recAdd('h', { ev: 'closed' });
       relayRetry();
       if (state.leader && !state.polling) schedule();              // back to checking alone
     };
@@ -661,7 +635,6 @@
       const n = Math.max(0, Math.min(5000, m.n | 0));
       relay.rooms.set(m.room, { n, slot: Math.max(-1, Math.min(n - 1, m.slot | 0)), m: Math.max(0, Math.min(5000, m.m | 0)), every: Math.max(CFG.shareMinMs, Math.min(5000, Number(m.every) || 1000)) });
       if (n > 0 && n !== relay.lastN) { relay.lastN = n; try { localStorage.setItem('fast-clicker-relay-n', String(n)); } catch {} }
-      recAdd('h', { ev: 'roster', n, slot: m.slot | 0, m: m.m | 0 });
       if (state.leader && !state.polling && sharedPlan()) schedule();   // move to the (new) slot
       render();
     } else if (m.t === 'hint') onHint(m);
@@ -673,7 +646,6 @@
       for (const [r, info] of relay.want) if (ev.titles && (info.titles.has(ev.titles.de) || info.titles.has(ev.titles.en))) { room = r; break; }
       if (!room || !relay.rooms.has(room)) continue;            // only into the room of the course the event belongs to
       relaySend({ t: 'hint', room, k: ev.k, e: ev.e, a: ev.a, c: String(ev.c || '').slice(0, 32) });
-      recAdd('h', { ev: 'sent', k: ev.k, e: ev.e });
     }
   }
   // A hint is only a wake-up call. The relay and the students behind it are not trusted: a hint never marks a feed
@@ -692,7 +664,6 @@
     if (relay.hints.length >= 12 || relay.queue.length >= 4 || now - (relay.hintAt.get(m.k) || 0) < TS * 1500) return;   // flood guard
     relay.hintAt.set(m.k, now);
     if (relay.hintAt.size > 200) relay.hintAt.clear();
-    recAdd('h', { ev: 'hint', k: m.k, e: m.e, c: typeof m.c === 'string' ? m.c.slice(0, 32) : undefined, replay: m.replay ? 1 : undefined });
     const room = relay.rooms.get(m.room);
     const members = (room && room.m) || 0;
     // a full hall does not hit ETH in the same millisecond
@@ -735,7 +706,6 @@
       if (before) { c.gen = (c.gen || 0) + 1; resetRound(id); }  // closed before, open now: it starts clean
       if (!c.courseTitle) c.courseTitle = h.title;
       c.lastEventAt = Date.now(); c.roundStopped = false; c.hintOpenAt = serverNow();
-      recAdd('e', { id, e: 'OPEN', via: 'hint', state: c.state, alert: 1 });
       state.dismissed.delete(id);
       patchList(c, true);
       notify(c, true);
@@ -754,139 +724,6 @@
     relay.confirmDue = now + Math.random() * TS * Math.min(8000, 25 * members);
     state.hold.set(id, { at: now });
     if (state.leader && !state.polling) schedule();
-  }
-
-  // ---------------------------------------------------------------- recorder probes (only while recording)
-  // During a lecture, also watch the two cheap signals that might announce a question faster than the feed:
-  // the lecture's clicker flags in the timetable, and the content of questions that were open recently.
-  async function recProbe() {
-    if (!CFG.record || !state.leader || !state.running || state.authLost || document.hidden || !state.semkez || !fastMode() || rec.busy) return;
-    if (CFG.recordUntil && Date.now() > CFG.recordUntil) { CFG.record = false; saveCfg(); render(); return; }
-    if (state.errorStreak || latOk.feed > 2500) return;          // EduApp is struggling: no extra requests
-    rec.busy = true;
-    try {
-      if (rec.n++ % 2 === 0) {
-        try {
-          const l = await req(`dashboard/upcoming-lectures?start=${encodeURIComponent(nowIso(-4 * 3600e3))}&days=1`, { kind: 'probe', priority: 'low' }) || [];
-          const flags = l.map((x) => [x.code, x.type, x.start].concat(['CLICKER', 'FEEDBACK', 'CHANNEL'].map((k) => x.assets && x.assets[k] ? (x.assets[k].available ? 1 : 0) + (x.assets[k].callToAction ? 2 : 0) : -1)));
-          if (recChanged('flags', flags)) recAdd('g', { flags });
-          else if (rec.n % 24 === 1) recAdd('g', { same: 1 });
-        } catch {}
-      }
-      for (const c of [...state.clickers.values()]) {
-        const age = Date.now() - (c.lastEventAt || 0);
-        if (!c.lastEventAt || (c.state === 'OPEN' ? age > 20 * 60e3 : age > 3 * 60e3 || rec.n % 4)) continue;
-        try {
-          const d = await req(`clickers/${c.id}`, { kind: 'probe', priority: 'low' });
-          const en = d.entries || [];                            // how many options are selected / have results, never which
-          const snap = [d.state, d.answerState && d.answerState !== 'UNANSWERED' ? 1 : 0, d.voteCount, d.showResults ? 1 : 0, en.filter((e) => e.selected).length,
-            en.some((e) => e.correct !== undefined) ? 1 : 0, en.map((e) => [e.voteCount, e.voteRatio]), (d.question || '').length, d.individualAnswer ? 1 : 0];
-          if (recChanged('c' + c.id, snap)) recAdd('c', { id: c.id, snap });
-        } catch {}
-      }
-    } finally { rec.busy = false; }
-  }
-
-  // ---------------------------------------------------------------- peek: does polling the next id beat the feed? (#3)
-  // During a lecture, read a few ids just above the highest question already seen in the current lecture's course.
-  // Within one lecture the next question's id is almost always the previous one + 1, so this can catch a question
-  // the instant it opens, without the ~1.4 s feed. It is an EXPERIMENT and a MEASUREMENT: by default it only records
-  // what each id returns and, when one turns out OPEN, logs that a direct poll found it (compare its time to the feed
-  // event for the same id in the recording). It never votes and, unless CFG.peekAct is on, never changes the screen.
-  const peek = { seenOpen: new Set(), last: 0, n: 0, busy: false, timer: null, draftAt: new Map() };
-  function peekBaseFor(lec) {
-    let base = 0;
-    for (const co of (state.list && state.list.byCourse) || []) if (co.code === lec.code) for (const x of co.clickers || []) if (x.id > base) base = x.id;
-    for (const c of state.clickers.values()) {                   // a question opened this lecture
-      if (c.id > base && (c.courseCode === lec.code || (lec.title && sameTitle(lec.title, c.courseTitle)))) base = c.id;
-    }
-    return base;
-  }
-  // once per feed check, halfway to the next one: the two together look every ~2 s, the feed alone every ~4 s
-  function schedulePeek(feedStartedAt) {
-    if (!CFG.record || !CFG.peekNext) return;
-    clearTimeout(peek.timer);
-    peek.timer = setTimeout(peekProbe, Math.max(0, feedStartedAt + CFG.cadenceMs / 2 - Date.now()));
-  }
-  async function peekProbe() {
-    if (!CFG.record || !CFG.peekNext || peek.busy) return;
-    if (!state.leader || !state.running || state.authLost || document.hidden || !state.semkez) return;
-    if (state.errorStreak || Date.now() < state.notBefore || latOk.feed > 4000) return;   // EduApp is struggling: no extra requests
-    if (CFG.recordUntil && Date.now() > CFG.recordUntil) return;
-    const now = Date.now();
-    if (now - peek.last < CFG.peekEveryMs * TS) return;
-    const lects = currentLectures().slice(0, 2);                 // only during your own lectures
-    if (!lects.length) return;
-    peek.last = now;
-    peek.busy = true;
-    try {
-      // ids that were drafts and that the feed has meanwhile reported open: the feed won this one
-      for (const [id, at] of peek.draftAt) {
-        const c = state.clickers.get(id);
-        if (c && c.state === 'OPEN' && !peek.seenOpen.has(id)) { peek.seenOpen.add(id); recAdd('P', { id, feed: 1, prev: at }); }
-      }
-      for (const lec of lects) {
-        if (!lec.code) continue;
-        const base = peekBaseFor(lec);
-        if (!base) continue;                                     // no id known for this course yet (list not loaded)
-        for (let off = 1; off <= CFG.peekWindow; off++) {
-          const id = base + off;
-          if (peek.seenOpen.has(id)) continue;
-          const known = state.clickers.get(id);
-          if (known && known.state === 'OPEN') continue;         // already have it via the feed/relay (recorded above)
-          let status = 0, st = null, q = 0, pv = 0, ans = 0;
-          try {
-            const d = await req(`clickers/${id}`, { kind: 'probe', priority: 'low' });
-            status = 200; st = d.state || null; q = (d.question || '').length ? 1 : 0; pv = d.preview ? 1 : 0;
-            ans = d.answerState && d.answerState !== 'UNANSWERED' ? 1 : 0;   // flags only: no text is ever kept or shown
-          } catch (e) {
-            if (e instanceof AuthError) return;
-            status = (e instanceof HttpError) ? e.status : (e instanceof NetError) ? -1 : 0;
-          }
-          if (recChanged('peek' + id, [status, st, q, pv, ans])) recAdd('p', { id, off, s: status, st, q, pv, ans });
-          if (status === 200 && st === 'OPEN') {
-            peek.seenOpen.add(id);
-            recAdd('P', { id, base, off, prev: peek.draftAt.get(id) || 0 });   // a direct poll found it OPEN first: the measurement
-            if (CFG.peekAct) await peekAct(id, lec);             // prototype: actually show it (off by default)
-          } else if (status === 200) {
-            peek.draftAt.set(id, Date.now());                    // still a draft at this moment
-            if (peek.draftAt.size > 50) peek.draftAt.delete(peek.draftAt.keys().next().value);
-          }
-          if (Date.now() - now > 1500) return;                   // never let one sweep run long
-        }
-      }
-    } finally { peek.busy = false; }
-  }
-  // Prototype (off by default): surface a question that the id-poll found OPEN, through the same path as a relay hint.
-  async function peekAct(id, lec) {
-    try {
-      const before = state.clickers.get(id);
-      if (before && before.state === 'OPEN') return;
-      const { detail: c, applied } = await fetchClicker(id);
-      if (!applied || c.state !== 'OPEN') return;
-      if (before) { c.gen = (c.gen || 0) + 1; resetRound(id); }
-      if (lec) { c.courseCode = lec.code; if (!c.courseTitle) c.courseTitle = tr(lec.title); }
-      c.lastEventAt = Date.now(); c.roundStopped = false; c.hintOpenAt = serverNow();
-      recAdd('e', { id, e: 'OPEN', via: 'peek', state: c.state, alert: 1 });
-      state.dismissed.delete(id);
-      patchList(c, true);
-      notify(c, true);
-      publish(c, true);
-      render();
-    } catch {}
-  }
-  function exportRecording() {
-    recSave();
-    const text = JSON.stringify({ app: 'fast-clicker', version: VERSION, exportedAt: new Date().toISOString(), ua: navigator.userAgent, semkez: state.semkez,
-      lectures: state.lectures.map((l) => ({ code: l.code, type: l.type, start: l.start, end: l.end })), relay: !!relayUrl, entries: rec.log.length, log: rec.log });
-    const name = `fast-clicker-diagnostics-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`;
-    if (hooks.onShare) { try { hooks.onShare(text, name); } catch {} return; }
-    try {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-      a.download = name; a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 30000);
-    } catch { try { navigator.clipboard.writeText(text); } catch {} }
   }
 
   // ---------------------------------------------------------------- the semester, remembered between runs
@@ -944,7 +781,6 @@
       state.errorStreak = 0; state.retryAfterMs = 0;
       for (const [id, h] of state.hold) if (h.at < started) state.hold.delete(id);   // the feed has spoken
       autoLoadList();                                           // low priority, not awaited
-      schedulePeek(started);
     } catch (e) {
       state.errorStreak++;
       state.retryAfterMs = e.retryAfterMs || 0;
@@ -1008,7 +844,7 @@
   const pokeNow = () => { if (state.leader && !state.polling) schedule(0); };
   // the refresh button, and pulling down in the iPhone app: check right away, without restarting anything
   function checkNow() { ui.spinUntil = Date.now() + 900; setTimeout(render, 950); render(); pokeNow(); }
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) pokeNow(); updateWakeLock(); relaySync(); recSave(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) pokeNow(); updateWakeLock(); relaySync(); });
   window.addEventListener('online', pokeNow);
   if (navigator.connection && navigator.connection.addEventListener) navigator.connection.addEventListener('change', pokeNow);
 
@@ -1209,7 +1045,6 @@
   const newRound = (c) => (c.gen || 0) > 0;
   const voteAgain = (c) => c.state === 'OPEN' && !c.roundStopped && newRound(c) && state.sentGen.get(c.id) !== c.gen;
   function notify(c, desktop) {
-    recAdd('a', { id: c.id });
     if (hooks.onAlert) {                 // native app shell: it plays sound, vibrates and notifies
       try { hooks.onAlert({ id: c.id, title: c.title || '', course: c.courseTitle || '', round: newRound(c) }); } catch {}
       autoShow(c.id);
@@ -1257,14 +1092,14 @@
     // stop the page's own timers (dashboard refreshes, 5-min service-worker update check, …), never ours
     for (let i = 1; i <= TIMER_WATERMARK; i++) { clearTimeout(i); clearInterval(i); }
     document.body.replaceChildren(host);
-    document.title = 'Fast Clicker · EduApp';
+    document.title = 'ETH Clicker';
     if (!document.querySelector('meta[name=viewport]')) {
       const m = document.createElement('meta'); m.name = 'viewport'; m.content = 'width=device-width,initial-scale=1,viewport-fit=cover'; document.head.appendChild(m);
     }
     document.documentElement.style.cssText = `background:${window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? '#1d1f23' : '#fff'}`;
     document.body.style.cssText = 'margin:0';
   }
-  const myTimers = { stat: null, sweep: null, recheck: null, rec: null, probe: null, relay: null };
+  const myTimers = { stat: null, sweep: null, recheck: null, relay: null };
   // accepted-but-unverified answers (verification failed, e.g. during a login expiry) are re-read later
   function recheckUnverified() {
     if (state.authLost || hooks.offline) return;
@@ -1280,23 +1115,11 @@
       fetchClicker(id).then(render).catch(() => {});
     }
   }
-  let recLifeHooked = false;
-  function recLifecycle() {                 // whether the app was on screen and online: it can only check while it is
-    if (recLifeHooked) return;
-    recLifeHooked = true;
-    recAdd('s', { ev: 'boot', v: VERSION, h: document.hidden ? 1 : 0, on: navigator.onLine === false ? 0 : 1, lec: currentLectures().length });
-    document.addEventListener('visibilitychange', () => { recAdd('v', { h: document.hidden ? 1 : 0 }); recSave(); });
-    window.addEventListener('online', () => recAdd('n', { on: 1 }));
-    window.addEventListener('offline', () => recAdd('n', { on: 0 }));
-  }
   function startTimers() {
-    recLifecycle();
     for (const k in myTimers) clearInterval(myTimers[k]);
     myTimers.stat = setInterval(updateStat, 1000);
     myTimers.sweep = setInterval(sweepSwCache, 60e3);
     myTimers.recheck = setInterval(recheckUnverified, Math.max(200, 10000 * TS));
-    myTimers.rec = setInterval(recSave, 10000);
-    myTimers.probe = setInterval(recProbe, Math.max(100, 2500 * TS));
     myTimers.relay = setInterval(relayKeepAlive, Math.max(100, 25000 * TS));
   }
 
@@ -1340,23 +1163,12 @@
     tapoff: `<path d="${HAND}"/><path class="strike" d="M-5.384 19.371h21.241v1.531H-5.384z" transform="matrix(.62245 -.78266 .441 .8975 0 0)"/>`,
     chevron: '<path d="M7.41 8.58 12 13.17l4.59-4.59L18 10l-6 6-6-6z"/>',
     dots: '<circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>',
-    menu: '<path d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z"/>',
     refresh: '<path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/>',
     night: '<path d="M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z"/>',
     sunny: '<path d="M12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,2L14.39,5.42C13.65,5.15 12.84,5 12,5C11.16,5 10.35,5.15 9.61,5.42L12,2M3.34,7L7.5,6.65C6.9,7.16 6.36,7.78 5.94,8.5C5.5,9.24 5.25,10 5.11,10.79L3.34,7M3.36,17L5.12,13.23C5.26,14 5.53,14.78 5.95,15.5C6.37,16.24 6.91,16.86 7.5,17.37L3.36,17M20.65,7L18.88,10.79C18.74,10 18.47,9.23 18.05,8.5C17.63,7.78 17.1,7.15 16.5,6.64L20.65,7M20.64,17L16.5,17.36C17.09,16.85 17.62,16.22 18.04,15.5C18.46,14.77 18.73,14 18.87,13.21L20.64,17M12,22L9.59,18.56C10.33,18.83 11.14,19 12,19C12.82,19 13.63,18.83 14.37,18.56L12,22Z"/>',
-    gesture: '<path d="M10,9A1,1 0 0,1 11,8A1,1 0 0,1 12,9V13.47L13.21,13.6L18.15,15.79C18.68,16.03 19,16.56 19,17.14V21.5C18.97,22.32 18.32,22.97 17.5,23H11C10.62,23 10.26,22.85 10,22.57L5.1,18.37L5.84,17.6C6.03,17.39 6.3,17.28 6.58,17.28H6.8L10,19V9M11,5A4,4 0 0,1 15,9C15,10.5 14.2,11.77 13,12.46V11.24C13.61,10.69 14,9.89 14,9A3,3 0 0,0 11,6A3,3 0 0,0 8,9C8,9.89 8.39,10.69 9,11.24V12.46C7.8,11.77 7,10.5 7,9A4,4 0 0,1 11,5Z"/>',
-    sound: '<path d="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z"/>',
-    screen: '<path d="M17,19H7V5H17M17,1H7C5.89,1 5,1.89 5,3V21A2,2 0 0,0 7,23H17A2,2 0 0,0 19,21V3C19,1.89 18.1,1 17,1Z"/>',
-    fast: '<path d="M11 9.47V11H14.76L13 14.53V13H9.24L11 9.47M13 1L6 15H11V23L18 9H13V1Z"/>',
-    bell: '<path d="M10 21H14C14 22.1 13.1 23 12 23S10 22.1 10 21M21 19V20H3V19L5 17V11C5 7.9 7 5.2 10 4.3V4C10 2.9 10.9 2 12 2S14 2.9 14 4V4.3C17 5.2 19 7.9 19 11V17L21 19M17 11C17 8.2 14.8 6 12 6S7 8.2 7 11V18H17V11Z"/>',
-    download: '<path d="M13,5V11H14.17L12,13.17L9.83,11H11V5H13M15,3H9V9H5L12,16L19,9H15V3M19,18H5V20H19V18Z"/>',
-    record: '<path d="M3,14L3.5,14.07L8.07,9.5C7.89,8.85 8.06,8.11 8.59,7.59C9.37,6.8 10.63,6.8 11.41,7.59C11.94,8.11 12.11,8.85 11.93,9.5L14.5,12.07L15,12C15.18,12 15.35,12 15.5,12.07L19.07,8.5C19,8.35 19,8.18 19,8A2,2 0 0,1 21,6A2,2 0 0,1 23,8A2,2 0 0,1 21,10C20.82,10 20.65,10 20.5,9.93L16.93,13.5C17,13.65 17,13.82 17,14A2,2 0 0,1 15,16A2,2 0 0,1 13,14L13.07,13.5L10.5,10.93C10.18,11 9.82,11 9.5,10.93L4.93,15.5L5,16A2,2 0 0,1 3,18A2,2 0 0,1 1,16A2,2 0 0,1 3,14Z"/>',
-    export: '<path d="M12,1L8,5H11V14H13V5H16M18,23H6C4.89,23 4,22.1 4,21V9A2,2 0 0,1 6,7H9V9H6V21H18V9H15V7H18A2,2 0 0,1 20,9V21A2,2 0 0,1 18,23Z"/>',
-    del: '<path d="M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19M8,9H16V19H8V9M15.5,4L14.5,3H9.5L8.5,4H5V6H19V4H15.5Z"/>',
     exit: '<path d="M19,3H5C3.89,3 3,3.89 3,5V9H5V5H19V19H5V15H3V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M10.08,15.58L11.5,17L16.5,12L11.5,7L10.08,8.41L12.67,11H3V13H12.67L10.08,15.58Z"/>',
     fullscreen: '<path d="M5,5H10V7H7V10H5V5M14,5H19V10H17V7H14V5M17,14H19V19H14V17H17V14M10,17V19H5V14H7V17H10Z"/>',
     minus: '<path d="M19,13H5V11H19V13Z"/>',
-    autorenew: '<path d="M12,6V9L16,5L12,1V4A8,8 0 0,0 4,12C4,13.57 4.46,15.03 5.24,16.26L6.7,14.8C6.25,13.97 6,13 6,12A6,6 0 0,1 12,6M18.76,7.74L17.3,9.2C17.74,10.04 18,11 18,12A6,6 0 0,1 12,18V15L8,19L12,23V20A8,8 0 0,0 20,12C20,10.43 19.54,8.97 18.76,7.74Z"/>',
     clicker: '<path d="M12.0325 20.2597a1 1 0 10.0001 0ZM8.948 19.6295h6.0564l-.0024-8.9143H8.9481ZM11.8981 8.8136q1.389.0036 2.7767.0024c.806-.0181 1.5974.5988 1.6738 1.4205.0206 3.5572.0049 7.1169.0097 10.6741.1357.9199-.5648 1.8435-1.5102 1.8956-1.7271.0194-3.4554.0049-5.1813.0097-.9175.1212-1.961-.4315-2.0483-1.4253-.0218-3.5548-.0036-7.1132-.0097-10.6692-.1345-.9199.5648-1.8459 1.5102-1.898q1.3901-.0121 2.7791-.0097m.0897-4.5947c2.0156 0 4.0323.7515 5.4637 2.2495L15.9317 7.9896c-2.0241-1.9949-5.8031-2.167-7.8453.0364L6.5266 6.4686c1.4326-1.4981 3.4457-2.2495 5.4613-2.2495M12.0073 1a10.8353 10.8353 90 017.7144 3.23L18.3534 5.5996C15.081 2.2544 8.9713 2.086 5.6698 5.6238L4.3402 4.2906C6.0164 2.2023 9.1906.9855 12 1"></path>',
   };
   const icon = (name, cls = '', label = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="currentColor" ${label ? `role="img" aria-label="${esc(label)}"` : 'aria-hidden="true"'}>${ICON[name]}</svg>`;
@@ -1374,7 +1186,7 @@
   const root = host.attachShadow({ mode: 'open' });
   let panelOpen = true;
   let mode = MODE;
-  const ui = { view: 'list', id: null, group: [], pending: null, menu: false, err: null, loading: false, picked: new Set(), spinUntil: 0 };
+  const ui = { view: 'list', id: null, group: [], pending: null, err: null, loading: false, spinUntil: 0 };
   const css = `
     :host{all:initial}
     *{box-sizing:border-box}
@@ -1395,36 +1207,16 @@
     .strike{fill:rgb(var(--on))}
     .iconbtn{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;flex:none}
     .iconbtn:active{background:rgba(var(--on),.1)}
-    /* app bar and navigation drawer as in EduApp (Vuetify v-app-bar 64px, temporary v-navigation-drawer) */
+    /* app bar as in EduApp (Vuetify v-app-bar 64px) */
     .bar{position:sticky;top:0;z-index:7;display:flex;align-items:center;height:64px;padding:0 4px;background:rgb(var(--sf));border-bottom:2px solid rgba(var(--on),var(--bo))}
     .bar .iconbtn{width:48px;height:48px}
     .brand{display:flex;align-items:center;gap:8px;min-width:0;padding:0 8px}
     .brand h1{margin:0;font-size:20px;line-height:32px;font-weight:500;letter-spacing:.0125em;white-space:nowrap}
     .grow{flex:1;min-width:0}
     .rf{position:relative}.rf.busy .ic{animation:spin .8s linear infinite}
-    .dot,.sdot{width:8px;height:8px;border-radius:50%;background:#2a9d8f;flex:none}
+    .dot{width:8px;height:8px;border-radius:50%;background:#2a9d8f;flex:none}
     .dot{position:absolute;top:11px;right:11px;box-shadow:0 0 0 2px rgb(var(--sf))}
-    .dot.slow,.sdot.slow{background:#9ca3af}.dot.err,.sdot.err{background:#c1121f}.dot.warn,.sdot.warn{background:#e9a100}
-    .scrim{position:fixed;left:0;right:0;top:64px;bottom:0;z-index:5;background:rgba(0,0,0,.2)}
-    .drawer{position:fixed;left:0;top:64px;bottom:0;z-index:6;width:280px;max-width:85%;overflow:auto;background:rgb(var(--sf));
-      padding:8px 8px calc(16px + env(safe-area-inset-bottom));box-shadow:0 8px 10px -5px rgba(0,0,0,.2),0 16px 24px 2px rgba(0,0,0,.14),0 6px 30px 5px rgba(0,0,0,.12);
-      transform:translateX(-105%);visibility:hidden;transition:transform .2s cubic-bezier(.4,0,.2,1),visibility 0s .2s}
-    .drawer.on{transform:none;visibility:visible;transition:transform .2s cubic-bezier(.4,0,.2,1)}
-    :host(:not(.focus)) .scrim,:host(:not(.focus)) .drawer{position:absolute}
-    .sbox{padding:8px 8px 4px}
-    .stline{display:flex;align-items:center;gap:10px;font-size:14px;line-height:20px}
-    #stat{color:rgba(var(--on),var(--hi))}
-    .sinfo{font-size:12px;line-height:16px;color:rgba(var(--on),var(--med));margin:4px 0 0 18px}
-    .sinfo b{font-weight:500;color:rgba(var(--on),var(--hi))}
-    .sub{display:flex;align-items:center;min-height:40px;margin-top:16px;padding:0 8px;font-size:14px;text-transform:uppercase;color:rgba(var(--on),var(--med))}
-    .ni{display:flex;align-items:center;width:100%;min-height:44px;padding:4px 8px;border-radius:4px;font-size:16px;line-height:20px;letter-spacing:.009375em}
-    .ni:active{background:rgba(var(--on),.08)}
-    .ni>.ic{opacity:.7;margin-right:24px}.ni>.t{flex:1;min-width:0}
-    .sw{position:relative;width:36px;height:14px;margin:0 2px 0 12px;border-radius:7px;background:rgba(var(--on),.38);flex:none;transition:background .2s}
-    .sw::after{content:"";position:absolute;top:-3px;left:-2px;width:20px;height:20px;border-radius:50%;background:#fafafa;transition:transform .2s;
-      box-shadow:0 2px 4px -1px rgba(0,0,0,.2),0 4px 5px 0 rgba(0,0,0,.14),0 1px 10px 0 rgba(0,0,0,.12)}
-    .sw.on{background:rgba(8,64,126,.5)}.sw.on::after{transform:translateX(18px);background:#08407e}
-    :host(.dark) .sw.on{background:rgba(147,197,253,.5)}:host(.dark) .sw.on::after{background:#93c5fd}
+    .dot.slow{background:#9ca3af}.dot.err{background:#c1121f}.dot.warn{background:#e9a100}
     .tabs{display:flex;padding:10px 8px 0;background:rgb(var(--sl))}
     .tab{height:48px;padding:0 16px}
     .tab.on{background:rgb(var(--bg))}
@@ -1532,9 +1324,11 @@
   root.innerHTML = `<style>${css}</style>
     <button class="fab" data-a="open"></button>
     <div class="app">
-      <header class="bar"><button class="iconbtn" data-a="menu" aria-label="Open navigation" aria-expanded="false">${icon('menu')}</button>
-        <div class="brand">${icon('clicker')}<h1>Clicker</h1></div><span class="grow"></span>
+      <header class="bar">
+        <div class="brand">${icon('clicker')}<h1>ETH Clicker</h1></div><span class="grow"></span>
         <button class="iconbtn x" data-a="min" title="Minimize" aria-label="Minimize">${icon('minus')}</button>
+        <button class="iconbtn fs" data-a="focus" title="Full screen" aria-label="Full screen">${icon('fullscreen')}</button>
+        <button class="iconbtn ex" data-a="exit" title="Back to EduApp" aria-label="Back to EduApp">${icon('exit')}</button>
         <button class="iconbtn rf" data-a="now" aria-label="Check now">${icon('refresh')}<span class="dot"></span></button>
         <button class="iconbtn" data-a="theme" id="themebtn"></button></header>
       <div id="banner"></div>
@@ -1550,13 +1344,11 @@
         </div>
         <div class="gnav" id="gnav"></div>
       </div>
-      <div class="scrim" id="sheet" data-a="closemenu" hidden></div>
-      <nav class="drawer" id="drawer" aria-label="Settings"><div class="sbox"><div class="stline"><span class="sdot"></span><span id="stat"></span></div><div id="empty" class="sinfo"></div></div><div id="menu"></div></nav>
       <div class="zoom" hidden></div>
     </div>`;
   const $ = (sel) => root.querySelector(sel);
-  const el = { fab: $('.fab'), app: $('.app'), dot: $('.dot'), sdot: $('.sdot'), stat: $('#stat'), drawer: $('#drawer'), themebtn: $('#themebtn'), menubtn: $('[data-a="menu"]'), refresh: $('.rf'), banner: $('#banner'), empty: $('#empty'), list: $('#list'), listview: $('#listview'),
-    detailview: $('#detailview'), dtitle: $('#dtitle'), dmsg: $('#dmsg'), cards: $('#cards'), gnav: $('#gnav'), sheet: $('#sheet'), menu: $('#menu') };
+  const el = { fab: $('.fab'), app: $('.app'), dot: $('.dot'), themebtn: $('#themebtn'), refresh: $('.rf'), banner: $('#banner'), list: $('#list'), listview: $('#listview'),
+    detailview: $('#detailview'), dtitle: $('#dtitle'), dmsg: $('#dmsg'), cards: $('#cards'), gnav: $('#gnav') };
   const setHtml = (node, html) => { if (node.__html !== html) { node.__html = html; node.innerHTML = html; } };
   let bannerOverride = null;
   function setBanner(text) { bannerOverride = text; render(); }
@@ -1721,7 +1513,6 @@
     return ids.includes(id) ? ids : [id];
   }
   function openDetail(id, g) {
-    if (ui.view !== 'detail' || ui.id !== id) { const c0 = state.clickers.get(id); if (c0 && c0.state === 'OPEN') recAdd('u', { id, ev: 'show', auto: g === undefined ? 1 : 0 }); }
     ui.view = 'detail'; ui.id = id; ui.group = groupOf(id, g); ui.err = null;
     state.dismissed.delete(id);
     if (ui.pending === id) ui.pending = null;
@@ -1812,7 +1603,6 @@
     stEl.className = 'st ' + (st ? st.kind : '');
     stEl.textContent = st ? st.text : '';
   }
-  const fmtTime = (iso) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   function renderCards(live) {
     const shown = ui.view === 'detail' ? ui.id : null;
@@ -1846,29 +1636,6 @@
     setHtml(el.gnav, n > 1 ? `${i > 0 ? `<button class="iconbtn prev" data-a="nav" data-d="-1" aria-label="${esc(L.prev)}">${icon('chevron')}</button>` : '<span></span>'}<p>${i + 1} / ${n}</p>${i < n - 1 ? `<button class="iconbtn next" data-a="nav" data-d="1" aria-label="${esc(L.next)}">${icon('chevron')}</button>` : '<span></span>'}` : '');
     el.gnav.hidden = n <= 1;
   }
-  function renderMenu() {
-    const sp = sharedPlan();
-    const share = !relayUrl ? '' : sp ? `Checking is shared with ${sp.n} ${sp.n === 1 ? 'device' : 'devices'} in this lecture.` : relay.want.size ? 'Shared checking is not connected. Checking alone.' : 'Shared checking starts with your next lecture.';
-    const item = (a, ic, text, on, title) => `<button class="ni" data-a="${a}"${on !== undefined ? ` role="switch" aria-checked="${!!on}"` : ''}${title ? ` title="${esc(title)}"` : ''}>${icon(ic)}<span class="t">${text}</span>${on !== undefined ? `<span class="sw${on ? ' on' : ''}"></span>` : ''}</button>`;
-    setHtml(el.menu, `
-      <div class="sub">Clicker</div>
-      ${item('autoopen', 'clicker', 'Open new questions', CFG.autoOpen, 'A question that opens comes on screen by itself')}
-      ${item('onetap', 'gesture', '1-tap send', CFG.oneTap, 'Single-choice questions: tapping an option sends it')}
-      ${item('sound', 'sound', hooks.nativeAlerts ? 'Sound & vibration' : 'Sound', CFG.sound)}
-      ${mode === 'focus' ? item('awake', 'screen', 'Keep screen on', CFG.keepAwake, 'Around your lectures') : ''}
-      ${item('turbo', 'fast', 'Always check fast', CFG.turbo, 'Also outside your timetable, e.g. in exercise sessions')}
-      ${'Notification' in window && Notification.permission === 'default' ? item('notif', 'bell', 'Allow notifications') : ''}
-      ${item('scan', 'download', 'Reload all questions', undefined, "Downloads this semester's questions again (about 1 MB)")}
-      <div class="sub">Diagnostics</div>
-      ${item('record', 'record', 'Record timing', CFG.record, 'Keeps a timeline of requests on this device to measure how fast questions arrive. Stops by itself after 14 days.')}
-      ${rec.log.length ? item('share', 'export', `Export recording (${rec.log.length})`) + item('recclear', 'del', 'Clear recording') : ''}
-      ${item('pause', 'autorenew', 'Check for questions', state.running)}
-      ${mode === 'focus' ? (hooks.noExit ? '' : item('exit', 'exit', 'Back to EduApp')) : item('focus', 'fullscreen', 'Focus mode', undefined, "Full screen; stops EduApp's own background downloads")}
-      <div class="foot">${share ? share + '<br>' : ''}v${VERSION} · unofficial · talks only to eduapp.ethz.ch${relayUrl ? ' (and the sharing service, which only learns that a question changed)' : ''}</div>`);
-    el.sheet.hidden = !ui.menu;
-    el.drawer.classList.toggle('on', ui.menu);
-    el.menubtn.setAttribute('aria-expanded', String(ui.menu));
-  }
 
   function render() {
     if (pointerDown || composing) { renderPending = true; return; }
@@ -1878,10 +1645,11 @@
     el.fab.style.display = panelOpen ? 'none' : '';
     el.app.style.display = panelOpen ? '' : 'none';
     el.fab.className = 'fab' + (alerting ? ' alert' : '');
-    el.fab.textContent = live.length ? `Clicker open (${live.length})` : 'Clicker';
-    $('.x').style.display = mode === 'focus' ? 'none' : '';
+    el.fab.textContent = live.length ? `Clicker open (${live.length})` : 'ETH Clicker';
+    $('.x').style.display = $('.fs').style.display = mode === 'focus' ? 'none' : '';
+    $('.ex').style.display = mode === 'focus' && !hooks.noExit ? '' : 'none';
     const tone = !state.running ? 'slow' : state.authLost ? 'warn' : state.lastError ? 'err' : fastMode() ? '' : 'slow';
-    el.dot.className = 'dot ' + tone; el.sdot.className = 'sdot ' + tone;
+    el.dot.className = 'dot ' + tone;
     el.refresh.classList.toggle('busy', Date.now() < ui.spinUntil);
     const dk = isDark();
     setHtml(el.themebtn, icon(dk ? 'sunny' : 'night'));
@@ -1891,6 +1659,7 @@
     else if (state.authLost) banner = `<div class="note">${esc(bannerOverride || 'Login expired. Renewing…')}</div>`;
     else if (state.lastError) banner = `<div class="note">Connection problem: ${esc(state.lastError)}. Retrying automatically.</div>`;
     if (CFG.sound && !hooks.nativeAlerts && (!audioCtx || audioCtx.state !== 'running')) banner += `<div class="note gray">Tap anywhere in this panel once to enable the alert sound.</div>`;
+    if (!hooks.nativeAlerts && 'Notification' in window && Notification.permission === 'default') banner += `<div class="note gray">Get a notification when a question opens while this tab is in the background. <button class="chip" data-a="notif">Allow notifications</button></div>`;
     const pend = ui.pending != null ? state.clickers.get(ui.pending) : null;
     if (pend && pend.state === 'OPEN' && !(ui.view === 'detail' && ui.id === pend.id)) banner += `<div class="note">New question: <b>${esc(pend.title)}</b> <button class="chip big" data-a="view" data-id="${pend.id}">Show</button></div>`;
     else ui.pending = null;
@@ -1901,7 +1670,6 @@
     if (!detail) renderList();
     renderCards(live);
     if (detail) renderDetail();
-    renderMenu();
     updateStat();
   }
   function updateStat() {
@@ -1911,12 +1679,9 @@
     else if (!state.leader) s = 'live (checking in another tab)';
     else if (state.authLost) s = 'login expired';
     else if (navigator.onLine === false) s = 'offline, waiting for network';
-    else s = `${fastMode() ? 'live' : 'standby (no lecture now)'} · checked ${ago}`;
-    el.stat.textContent = s.charAt(0).toUpperCase() + s.slice(1);
-    const cl = currentLecture(), nl = nextLecture();
-    const title = (l) => esc(tr(l.title) || l.code);
-    setHtml(el.empty, CFG.turbo && !cl ? 'Checking fast all the time' : cl ? `Watching <b>${title(cl)}</b> until ${fmtTime(cl.end)}`
-      : nl ? `Next: <b>${title(nl)}</b> at ${fmtTime(nl.start)}` : 'No more lectures today');
+    else s = `${fastMode() ? 'live' : 'standby (no lecture now)'}, checked ${ago}`;
+    s = 'Check now. ' + s.charAt(0).toUpperCase() + s.slice(1);
+    if (el.refresh.__label !== s) { el.refresh.__label = s; el.refresh.setAttribute('aria-label', s); el.refresh.title = s; }
   }
 
   // pictures in a question: tap to see them full screen, tap again to close
@@ -1935,8 +1700,6 @@
     switch (b.dataset.a) {
       case 'open': panelOpen = true; break;
       case 'min': panelOpen = false; break;
-      case 'menu': ui.menu = !ui.menu; if (ui.menu && mode !== 'focus') el.app.scrollTop = 0; break;
-      case 'closemenu': ui.menu = false; break;
       case 'grp': CFG.groupBy = b.dataset.g === 'lecture' ? 'lecture' : 'date'; saveCfg(); break;
       case 'toggle': {
         const k = b.dataset.k;
@@ -1952,7 +1715,6 @@
       }
       case 'pick': {
         if (!c) break;
-        if (!ui.picked.has(id + ':' + c.gen)) { ui.picked.add(id + ':' + c.gen); recAdd('u', { id, ev: 'pick', g: c.gen || 0 }); }
         const e = Number(b.dataset.e);
         if (c.type === 'MCSA') {
           setDraft(c, [e]);
@@ -1964,32 +1726,26 @@
         }
         break;
       }
-      case 'send': recAdd('u', { id, ev: 'send' }); sendVote(id); return;
+      case 'send': sendVote(id); return;
       case 'dismiss': state.dismissed.add(id); break;
       case 'reload': ui.err = null; fetchClicker(id).then(render).catch((e) => { if (c) setStatus(id, 'err', e.message); else { ui.err = e.message; render(); } }); return;
-      case 'turbo': CFG.turbo = !CFG.turbo; saveCfg(); pokeNow(); break;
-      case 'onetap': CFG.oneTap = !CFG.oneTap; saveCfg(); break;
-      case 'autoopen': CFG.autoOpen = !CFG.autoOpen; saveCfg(); break;
-      case 'sound': CFG.sound = !CFG.sound; saveCfg(); unlockAudio(); break;
-      case 'awake': CFG.keepAwake = !CFG.keepAwake; saveCfg(); updateWakeLock(); break;
       case 'theme': CFG.theme = isDark() ? 'light' : 'dark'; saveCfg(); applyMode(); break;
       case 'now': checkNow(); break;
       case 'scan': state.listError = null; startScan(); break;
       case 'notif': Notification.requestPermission().then(render); return;
       case 'login': openLogin(); break;
-      case 'focus': ui.menu = false; show('focus'); return;
+      case 'focus': show('focus'); return;
       case 'exit': location.href = '/'; return;
-      case 'record': CFG.record = !CFG.record; CFG.recordUntil = CFG.record ? Date.now() + REC_DAYS_MS : 0; saveCfg(); if (CFG.record) recAdd('s', { ev: 'start', v: VERSION }); recSave(); break;
-      case 'peek': CFG.peekNext = !CFG.peekNext; saveCfg(); break;
-      case 'share': exportRecording(); break;
-      case 'recclear': rec.log = []; rec.last.clear(); rec.dirty = true; recSave(); break;
-      case 'pause':
-        state.running = !state.running;
-        if (state.running) electLeader(); else { resignLeader(); relaySync(); }
-        updateWakeLock(); break;
     }
     render();
   });
+  // stop / resume checking in this tab (no button any more; tests and the other tabs' hand-over use it)
+  function setRunning(on) {
+    if (state.running === !!on) return;
+    state.running = !!on;
+    if (state.running) electLeader(); else { resignLeader(); relaySync(); }
+    updateWakeLock(); render();
+  }
   root.addEventListener('input', (ev) => {
     if (ev.target.dataset.a !== 'text') return;
     const c = state.clickers.get(Number(ev.target.dataset.id));
@@ -1999,8 +1755,7 @@
   });
   document.addEventListener('keydown', (ev) => {
     if (!zoom.hidden && ev.key === 'Escape') { closeZoom(); return; }
-    if (ui.menu && ev.key === 'Escape') { ui.menu = false; render(); return; }
-    if (!panelOpen || ui.menu || !zoom.hidden || ui.view !== 'detail' || (ev.target.closest && ev.target.closest('input,textarea,[contenteditable]')) || (root.activeElement && root.activeElement.tagName === 'TEXTAREA')) return;
+    if (!panelOpen || !zoom.hidden || ui.view !== 'detail' || (ev.target.closest && ev.target.closest('input,textarea,[contenteditable]')) || (root.activeElement && root.activeElement.tagName === 'TEXTAREA')) return;
     const c = state.clickers.get(ui.id);                         // only ever the question that is on screen
     const card = c && el.cards.querySelector(`.card[data-id="${c.id}"]`);
     if (!c || !isLive(c) || c.type === 'TEXT' || !card || card.hidden) return;
@@ -2024,7 +1779,7 @@
   }
 
   // ---------------------------------------------------------------- start
-  window.__fastClicker = { show, state, CFG, hooks, tick, fullScan, sendVote, relay, rec, ui, openDetail, checkNow, peek, version: VERSION };
+  window.__fastClicker = { show, state, CFG, hooks, tick, fullScan, sendVote, relay, ui, openDetail, checkNow, setRunning, version: VERSION };
   if (mode === 'focus') quietEduApp(); else document.body.appendChild(host);
   applyMode();
   startTimers();
