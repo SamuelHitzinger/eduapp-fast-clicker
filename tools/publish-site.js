@@ -39,6 +39,9 @@ if (!fs.existsSync(apk)) throw new Error('app-download/Clicker.apk missing: run 
     "  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
     '  X-Content-Type-Options: nosniff',
     '  Referrer-Policy: no-referrer',
+    '/',
+    '  Cache-Control: no-cache',
+    '/index.html',
     '  Cache-Control: no-cache',
     '/fast-clicker.*.js',
     '  Access-Control-Allow-Origin: *',
@@ -46,6 +49,7 @@ if (!fs.existsSync(apk)) throw new Error('app-download/Clicker.apk missing: run 
     '/Clicker.apk',
     '  Content-Type: application/vnd.android.package-archive',
     '  Content-Disposition: attachment; filename="Clicker.apk"',
+    '  Cache-Control: no-cache',
     '',
   ].join('\n'));
   console.log('files:', fs.readdirSync(out).join(' '));
