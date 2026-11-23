@@ -563,7 +563,9 @@ function newRoom(id, L) {
 
 /** The network an address belongs to: the IPv4 address itself, or the /64 of an IPv6 address. */
 function netOf(ip) {
-  const a = String(ip || '');
+  let a = String(ip || '').toLowerCase();
+  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(a);                    // IPv4 seen through IPv6 (Node)
+  if (mapped) a = mapped[1];
   if (!a.includes(':')) return a;
   const parts = a.toLowerCase().split('::');
   const head = parts[0] ? parts[0].split(':') : [];

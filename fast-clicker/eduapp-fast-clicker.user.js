@@ -367,10 +367,11 @@
     state.lastFeedStartAt = Date.now();
     relay.confirmDue = 0;
     let feed = await req(`dashboard/activity-feed?semkez=${state.semkez}&maxActivities=${n}`, { kind: 'feed' }) || [];
-    const allNew = (f) => f.length >= n && f.every((a) => !state.receivedActivities.has(a.id));
+    const burst = state.burstIds || null;                         // what the narrow check of a burst already took in
+    const allNew = (f) => f.length >= n && f.every((a) => !state.receivedActivities.has(a.id) || (burst && burst.has(a.id)));
     // burst (everything new): the next check, at the normal spacing, asks for the wider window (never two at once)
-    if (!initial && n < CFG.feedLarge && allNew(feed)) state.widenNext = true;
-    else if (n >= CFG.feedLarge) state.widenNext = false;
+    if (!initial && n < CFG.feedLarge && allNew(feed)) { state.widenNext = true; state.burstIds = new Set(feed.map((a) => a.id)); }
+    else if (n >= CFG.feedLarge) { state.widenNext = false; state.burstIds = null; }
     const gap = !initial && n >= CFG.feedLarge && allNew(feed);
     if (gap) { state.scanDone = false; state.gapCount++; }           // still a gap: reconcile with the list
     for (const a of feed) state.receivedActivities.add(a.id);
@@ -729,7 +730,7 @@
           relay.hints.push(now);
           try { await hintRefresh(h); break; } catch (e) {
             if (e instanceof AuthError) { state.authLost = true; relay.queue.length = 0; tryRelogin(); render(); break; }
-            if (!isTransient(e)) { relay.badIds.add(h.id); if (relay.badIds.size > 500) relay.badIds.clear(); break; }   // not this student's question: never again
+            if (!isTransient(e)) { relay.badIds.add(h.id); if (relay.badIds.size > 500) relay.badIds.delete(relay.badIds.values().next().value); break; }   // not this student's question: never again
             if (e.retryAfterMs) { relay.quietUntil = Date.now() + e.retryAfterMs; relay.queue.length = 0; break; }
           }
         }
@@ -1019,6 +1020,7 @@
             await sleep(Math.max(40, TS * 250));
             continue;
           }
+          if (attempt > 0 && Date.now() < state.notBefore) { await waitOnlineOr(state.notBefore - Date.now()); continue; }   // ETH asked for a pause
           attempt++;
           try {
             await req(`clickers/${id}/vote`, { method: 'POST', body, kind: 'vote' });
@@ -1225,7 +1227,7 @@
     + 'math mi mn mo ms mtext mspace mrow mfrac msqrt mroot mstyle merror mpadded mphantom mfenced menclose msub msup msubsup munder mover munderover '
     + 'mmultiscripts mprescripts none mtable mtr mtd mlabeledtr maligngroup malignmark semantics annotation').split(' '));
   const DROP_TAGS = /^(script|style|iframe|frame|frameset|object|embed|applet|link|meta|base|form|input|button|textarea|select|option|noscript|template|foreignobject|audio|video|source|track|portal|animate|animatemotion|animatetransform|set|image|feimage|annotation-xml|mjx-assistive-mml)$/;
-  const SAFE_IMG = /^(data:image\/(png|jpe?g|gif|webp|bmp|svg\+xml)[;,]|\/(?!\/))/i;
+  const SAFE_IMG = /^(data:image\/(png|jpe?g|gif|webp|bmp|svg\+xml)[;,]|\/(?![\/\\]))/i;   // data: pictures or a path on eduapp.ethz.ch
   const cleanCache = new Map();
   function clean(html) {
     html = String(html ?? '');
@@ -1243,6 +1245,11 @@
           for (const { name } of [...el.attributes]) {
             const n = name.toLowerCase(), v = el.getAttribute(name) || '';
             const bad = n.startsWith('on') || n === 'srcset' || n === 'formaction' || n === 'action' || n === 'background' || n === 'ping'
+              // the app's own controls are found by data-a / data-id / ids: question text must never look like one
+              || n.startsWith('data-') || n === 'name' || n === 'form' || n === 'tabindex' || n === 'autofocus' || n === 'contenteditable' || n === 'is' || n === 'slot' || n === 'part'
+              || (n === 'id' && (el.namespaceURI !== 'http://www.w3.org/2000/svg' || !/^[\w.-]+$/.test(v)))   // ids only inside formulas (MathJax links its glyphs by id)
+              // presentation attributes and styles may only point inside the formula (url(#…)), never to another site
+              || (/url\s*\(/i.test(v) && !/^\s*url\(\s*['"]?#[\w.-]+['"]?\s*\)\s*$/i.test(v))
               || (/(javascript|vbscript|data)\s*:/i.test(v.replace(/[\u0000-\u0020]/g, '')) && !(tag === 'img' && n === 'src' && SAFE_IMG.test(v)))
               || (n === 'style' && /url\s*\(|expression\s*\(|@import|behavior\s*:/i.test(v))
               || ((n === 'href' || n === 'xlink:href') && (tag === 'use' ? !v.startsWith('#') : tag !== 'a' || !/^(https?:|mailto:)/i.test(v.trim())))
@@ -1255,6 +1262,7 @@
         }
       };
       walk(t.content);
+      for (const el of t.content.querySelectorAll('[data-a]')) el.removeAttribute('data-a');   // (belt and braces)
       out = t.innerHTML;
     } catch { out = esc(html.replace(/<[^>]*>/g, ' ')); }
     if (cleanCache.size > 400) cleanCache.clear();
@@ -1804,6 +1812,7 @@
       zoom.replaceChildren(img); zoom.hidden = false; return;
     }
     const b = ev.target.closest('[data-a]');
+    if (b && b.closest('.q, .ans, .grow') && !b.matches('.opt, .opt *')) return;   // inside question text: never an app action
     if (!b) return;
     const id = b.dataset.id ? Number(b.dataset.id) : null;
     const c = id != null ? state.clickers.get(id) : null;

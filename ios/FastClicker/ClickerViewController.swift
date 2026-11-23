@@ -202,11 +202,12 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
     /// Pages shown in the app (and in the login sheet) are ETH's own, over https: a page elsewhere could imitate the
     /// ETH login. A link the student taps to another website opens in Safari; any other navigation there is blocked.
     static func ethOnly(_ action: WKNavigationAction) -> WKNavigationActionPolicy {
-        guard action.targetFrame?.isMainFrame ?? true, let url = action.request.url else { return .allow }
-        if url.scheme == "about" { return .allow }                        // our own "No connection" page
+        guard let url = action.request.url else { return .cancel }
+        if url.absoluteString == "about:blank" || url.absoluteString == "about:srcdoc" { return .allow }   // our own notice page, empty frames
         if url.scheme == "https", let host = url.host?.lowercased(), host == "ethz.ch" || host.hasSuffix(".ethz.ch") { return .allow }
-        if action.navigationType == .linkActivated, url.scheme == "https" || url.scheme == "http" { UIApplication.shared.open(url) }
-        return .cancel
+        let mainFrame = action.targetFrame?.isMainFrame ?? true
+        if mainFrame, action.navigationType == .linkActivated, url.scheme == "https" || url.scheme == "http" { UIApplication.shared.open(url) }
+        return .cancel                                                    // in every frame: nothing else loads
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,

@@ -773,6 +773,37 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     stop();
   }
 
+  {
+    // question text cannot pose as an app control: data-a/id attributes are removed and taps on question text do nothing
+    const S = makeServer();
+    const trap = { ...mcsa(980002, 'Trap'),
+      question: '<p>Tap <span data-a="send" data-id="980002" id="themebtn" style="display:block;height:40px">here</span><svg><defs><path id="MJX-1" d="M0 0"/></defs><use href="#MJX-1"/><rect fill="url(https://evil.example/x)"/></svg><img src="//evil.example/x.png"></p>' };
+    S.addClicker(trap);
+    const { root, fc, stop } = boot(S);
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 980002, courseTitle: { de: 'Analysis I' } });
+    await until(() => root.querySelector('.card[data-id="980002"] .q span'));
+    root.querySelector('.opt[data-id="980002"][data-e="2"]').click();          // an answer is chosen…
+    root.querySelector('.card[data-id="980002"] .q span').click();              // …and the question text is tapped
+    await wait(500);
+    const q = root.querySelector('.card[data-id="980002"] .q');
+    check('X5 question text cannot act as an app button (no data-a/ids outside formulas, taps on it send nothing); formula ids stay, outside url() and //-paths go',
+      S.votes.length === 0 && !q.querySelector('[data-a],[data-id]') && !q.querySelector('span[id]') && !!q.querySelector('path#MJX-1')
+      && !/evil\.example/.test(q.innerHTML), q.innerHTML.slice(0, 300));
+    stop();
+  }
+  {
+    // a burst bigger than the wide window: the gap is still noticed (and the list is reconciled)
+    const S = makeServer();
+    const { fc, stop } = boot(S, { settings: { cadenceMs: 300 } });
+    await until(() => fc.state.lastPollAt > 0);
+    await wait(400);
+    const g0 = fc.state.gapCount;
+    for (let i = 0; i < 80; i++) S.push({ objectType: 'CHANNEL', type: 'CHANNEL_COMMENT_CREATE', objectId: 1, itemId: 7000 + i });
+    const seen = await until(() => fc.state.gapCount > g0, 3000);
+    check('X6 a burst bigger than the wide feed window is still recognised as a gap', seen, `gaps ${g0} -> ${fc.state.gapCount}`);
+    stop();
+  }
+
   // ---------- E: ETH Clicker (v3.2): one simple screen, no settings drawer, no timing experiment
   {
     const S = makeServer();

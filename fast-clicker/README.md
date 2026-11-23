@@ -103,8 +103,8 @@ The address goes into `relay/relay-url.txt`; `node tools/build.js` puts it into 
 1. **Ask ETH first** (EduApp team / IT Services): permission to use the EduApp API from a third-party app at this scale, a traffic budget, and whether the app may mention ETH/EduApp. Report the unopened-question exposure (`DRAFT` questions readable with their text before they open) to ETH's IT security.
 2. **Name and look:** the app is "Clicker" with its own icon; store listings must say it is unofficial and not made or endorsed by ETH Zurich. The fonts and colours come from EduApp's own pages at run time (nothing of ETH's is bundled), but ask ETH whether the EduApp-like look is acceptable.
 3. **Apple:** guideline 4.2 (apps that are mostly a website) and 5.2 (third-party content/IP) are the likely review issues; native alerts, notifications and the reliability features are the arguments. TestFlight setup: `../ios/TESTFLIGHT.md`.
-4. **Google Play:** a privacy policy and the data-safety form (IP addresses reach the relay; nothing is stored), target SDK current, no restricted permissions (the exact-alarm permission was removed).
-5. **Privacy policy:** state what the relay sees (IP address, lecture room code), that nothing is kept, and that the login stays with ETH.
+4. **Google Play:** a privacy policy and the data-safety form (IP addresses reach the relay while connected), target SDK current, no restricted permissions (the exact-alarm permission was removed).
+5. **Privacy policy:** state what the relay sees and keeps: the IP address and the lecture's room code while the phone is connected (to limit abuse), and for each room the recent "question N changed" hints (question and activity numbers with times, up to 10 minutes, to drop duplicates). No names, logins, questions or answers. The login stays with ETH.
 
 ## Real fix (for ETH)
 
