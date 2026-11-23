@@ -8,7 +8,6 @@ import android.app.NotificationManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.graphics.Color
 import android.media.AudioManager
 import android.media.RingtoneManager
@@ -201,10 +200,9 @@ class MainActivity : ComponentActivity() {
             return false
         }
 
-        override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) { needsLogin = false }
-
         override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
-            if (request.isForMainFrame && errorResponse.statusCode == 401) needsLogin = true   // not logged in (or expired)
+            // not logged in (or expired); this can arrive before or after onPageStarted, so it is only reset once used
+            if (request.isForMainFrame && errorResponse.statusCode == 401) needsLogin = true
         }
 
         override fun onPageFinished(view: WebView, url: String?) {
