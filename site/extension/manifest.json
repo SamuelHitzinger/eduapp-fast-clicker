@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ETH Clicker",
-  "version": "3.3.0",
-  "description": "Shows ETH EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi. Unofficial.",
+  "name": "Clicker for EduApp",
+  "version": "3.4.0",
+  "description": "Shows EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi. Unofficial; not made by ETH Zurich.",
   "icons": {
     "16": "icon-16.png",
     "32": "icon-32.png",
@@ -28,7 +28,7 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "eduapp-fast-clicker@students.ethz",
+      "id": "clicker-for-eduapp@beta",
       "strict_min_version": "128.0"
     }
   }

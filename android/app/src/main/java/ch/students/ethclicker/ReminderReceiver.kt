@@ -38,6 +38,9 @@ object Alerts {
             .setAutoCancel(true)
             .setContentIntent(open)
             .setVibrate(PATTERN)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)      // lock screen: "Clicker" only, not the question
+            .setPublicVersion(NotificationCompat.Builder(ctx, CHANNEL).setSmallIcon(R.drawable.ic_stat_clicker)
+                .setContentTitle("Clicker question open").build())
             .build()
         try { NotificationManagerCompat.from(ctx).notify(nid, n) } catch (_: SecurityException) {}
     }

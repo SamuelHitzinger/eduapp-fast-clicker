@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         ETH Clicker
+// @name         Clicker for EduApp
 // @namespace    https://eduapp.ethz.ch/
-// @version      3.3.0
+// @version      3.4.0
 // @description  Shows opened ETH EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi.
 // @match        https://eduapp.ethz.ch/*
 // @run-at       document-idle
@@ -36,12 +36,12 @@
 //     The relay never sees logins, questions or answers (relay/README.md).
 (() => {
   'use strict';
-  const VERSION = '3.3.0';
+  const VERSION = '3.4.0';
   const RELAY_URL = '';     // wss://… of the hint relay; empty = every client checks the feed itself (set by tools/build.js)
   const MODE = window.__FC_MODE === 'focus' ? 'focus' : 'panel';
   if (window.__fastClicker) { window.__fastClicker.show(MODE); return; }
   if (location.hostname !== 'eduapp.ethz.ch') {
-    if (confirm('ETH Clicker works inside EduApp.\n\nOpen EduApp now? Once it has loaded, tap the ETH Clicker bookmark again.')) {
+    if (confirm('Clicker works inside EduApp.\n\nOpen EduApp now? Once it has loaded, tap the Clicker bookmark again.')) {
       location.href = 'https://eduapp.ethz.ch/';
     }
     return;
@@ -78,12 +78,14 @@
     voteDeadlineMs: 120000,   // keep trying to deliver an answer this long
     feedSmall: 8, feedLarge: 60,
     catchUpMax: 25,           // at start, read at most this many questions that closed while the app was off
+    onScreenFastMs: 20 * 60e3, // open on screen outside lectures: fast checks for 20 min after the last touch
     catchUpRecentH: 12,       // …and with no saved list yet, only those of the last 12 hours
     scanIfFeedSpanH: 6,       // skip the 1.1 MB list at start-up if the 25 newest events reach back this far
     oneTap: false, turbo: false, sound: true, keepAwake: true,
     groupBy: 'date', theme: 'auto', expanded: {}, autoOpen: true,
     shareMinMs: 500, shareMaxMs: 180000,  // sharing: a client's own check is never further apart than shareMaxMs
     soloStepMs: 1000, soloMaxMs: 30000,   // relay unreachable: check alone every (students last seen sharing) x step, at most max
+    soloMinMs: 8000, soloPerMemberMs: 15,  // …and at least every 8 s, 15 ms per student last seen in the room (a hall of 2000: 30 s)
     standbyPerMemberMs: 300, standbyMinMs: 60000, standbyMaxMs: 300000,   // sharing but not a scout: own safety check every members x 300 ms (1-5 min)
   }, loadCfg());
   // only the list layout and the theme are the student's to change (v3.2 has no settings drawer)
@@ -97,6 +99,11 @@
   const isTransient = (e) => e instanceof NetError || (e instanceof HttpError && (e.status >= 500 || e.status === 429 || e.status === 408));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const jitter = (ms, f = 0.15) => Math.round(ms * (1 - f + Math.random() * 2 * f));
+  // run fn over items with at most `n` at a time (start-up catch-up must not burst ETH with dozens of requests)
+  async function pool(items, n, fn) {
+    const queue = [...items];
+    await Promise.all(Array.from({ length: Math.min(n, queue.length) }, async () => { while (queue.length) await fn(queue.shift()); }));
+  }
 
   // ---------------------------------------------------------------- network
   const lat = { feed: 1300, detail: 500, vote: 500, other: 400, list: 3000 }; // EWMA of observed latency (ms), raised after a timeout: sets time limits
@@ -270,7 +277,11 @@
   const hasFreshOpen = () => [...state.clickers.values()].some((c) => isLive(c) && !c.roundStopped && Date.now() - c.lastEventAt < CFG.openFastMin * 60e3);
   // fast checking: around your lectures (timetable), while a question is open, and whenever the clicker is open full
   // screen and on screen (the iPhone app, focus mode), e.g. in an exercise class that is not in the timetable
-  const onScreen = () => mode === 'focus' && !document.hidden;
+  // (an app left lying open outside lectures falls back to the slow pace after 20 minutes without a touch)
+  let lastUseAt = Date.now();
+  for (const evName of ['pointerdown', 'keydown', 'touchstart', 'wheel']) window.addEventListener(evName, () => { lastUseAt = Date.now(); }, { capture: true, passive: true });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) lastUseAt = Date.now(); });
+  const onScreen = () => mode === 'focus' && !document.hidden && Date.now() - lastUseAt < CFG.onScreenFastMs;
   const fastMode = () => CFG.turbo || onScreen() || hasFreshOpen() || !!currentLecture() || !state.lecturesFetchedAt;
 
   // ---------------------------------------------------------------- clicker details
@@ -352,16 +363,15 @@
 
   async function pollFeed(initial) {
     const gapSuspicious = !initial && Date.now() - state.lastOwnPollAt > 3 * CFG.hiddenCadenceMs;
-    let n = initial || gapSuspicious ? CFG.feedLarge : CFG.feedSmall;
+    let n = initial || gapSuspicious || state.widenNext ? CFG.feedLarge : CFG.feedSmall;
     state.lastFeedStartAt = Date.now();
     relay.confirmDue = 0;
     let feed = await req(`dashboard/activity-feed?semkez=${state.semkez}&maxActivities=${n}`, { kind: 'feed' }) || [];
     const allNew = (f) => f.length >= n && f.every((a) => !state.receivedActivities.has(a.id));
-    if (!initial && n < CFG.feedLarge && allNew(feed)) {           // burst: widen the window once
-      n = CFG.feedLarge;
-      feed = await req(`dashboard/activity-feed?semkez=${state.semkez}&maxActivities=${n}`, { kind: 'feed' }) || [];
-    }
-    const gap = !initial && allNew(feed);
+    // burst (everything new): the next check, at the normal spacing, asks for the wider window (never two at once)
+    if (!initial && n < CFG.feedLarge && allNew(feed)) state.widenNext = true;
+    else if (n >= CFG.feedLarge) state.widenNext = false;
+    const gap = !initial && n >= CFG.feedLarge && allNew(feed);
     if (gap) { state.scanDone = false; state.gapCount++; }           // still a gap: reconcile with the list
     for (const a of feed) state.receivedActivities.add(a.id);
     if (initial) {
@@ -393,7 +403,7 @@
     // and filed in the list, unless the saved list already has them as closed. Beyond the cap the list download does it.
     let catchUp = 0;
     const listClosed = (id) => !state.list.partial && (state.listIndex.get(id) || []).some((h) => h.item.state === 'CLOSED');
-    await Promise.all([...byClicker].map(async ([id, g]) => {
+    await pool([...byClicker], 3, async ([id, g]) => {
       const ack = () => g.ids.forEach((x) => state.seenActivities.add(x));
       if (initial && g.latest.type === 'CLICKER_CLOSE' && !state.clickers.has(id)) {
         if (listClosed(id)) { ack(); return; }
@@ -416,7 +426,7 @@
         state.pendingRefresh.set(id, g);                        // retried next poll
         if (e instanceof AuthError) authErr = e; else state.lastError = `question ${id}: ${e.message}`;
       }
-    }));
+    });
     if (authErr) throw authErr;
     if (state.seenActivities.size > 5000) state.seenActivities = new Set([...state.seenActivities].slice(-1000));
     if (state.receivedActivities.size > 5000) state.receivedActivities = new Set([...state.receivedActivities].slice(-1000));
@@ -435,7 +445,7 @@
       }
     }
     setList({ byDate: (list && list.byDate) || [], byCourse: (list && list.byCourse) || [], fetchedAt: asked }, true, asked);
-    await Promise.all(todo.map(async ([id, courseTitle, known]) => {
+    await pool(todo, 3, async ([id, courseTitle, known]) => {
       const reopened = known && known.state !== 'OPEN';
       const { detail } = await fetchClicker(id);
       detail.courseTitle = detail.courseTitle || courseTitle;
@@ -448,7 +458,7 @@
         notify(detail, true); alert = true;
       }
       publish(detail, alert);
-    }));
+    });
     state.scanDone = true;
   }
 
@@ -541,9 +551,12 @@
   // One connection per room (a room is one course's lecture; on Cloudflare each room is its own small server that
   // sleeps between messages). At most two rooms at once: the lecture now and the next one at a changeover.
   const MAX_ROOM_SOCKETS = 2;
-  const relay = { conns: new Map(), rooms: new Map(), want: new Map(), offset: 0, hintAt: new Map(), hints: [], queue: [], draining: false, quietUntil: 0, confirms: [], confirmDue: 0, lastN: 1,
+  const relay = { conns: new Map(), rooms: new Map(), want: new Map(), offset: 0, hintAt: new Map(), hints: [], queue: [], draining: false, quietUntil: 0, confirms: [], confirmDue: 0, lastN: 1, lastM: 1, badIds: new Set(),
     get open() { for (const c of this.conns.values()) if (c.open) return true; return false; } };
-  try { relay.lastN = Math.max(1, Number(localStorage.getItem('fast-clicker-relay-n')) || 1); } catch {}
+  try { relay.lastN = Math.max(1, Number(localStorage.getItem('fast-clicker-relay-n')) || 1); relay.lastM = Math.max(1, Number(localStorage.getItem('fast-clicker-relay-m')) || 1); } catch {}
+  // Hints are not trusted: each costs at most one small read of that question from ETH, a few a minute at most, and an
+  // id that ETH refused (not this student's question, or no such question) is never read again because of a hint.
+  const HINT_READS_PER_MIN = 4;
   const hash32 = (str) => {                                     // 128-bit string hash as 32 hex digits (not a secret)
     let h1 = 1779033703, h2 = 3144134277, h3 = 1013904242, h4 = 2773480762;
     for (let i = 0, k; i < str.length; i++) {
@@ -627,10 +640,10 @@
       else if (conn.open) relayJoin(conn);
     }
   }
-  function relayKeepAlive() {                                   // every 25 s
+  function relayKeepAlive() {                                   // every 40 s
     for (const conn of relay.conns.values()) {
       if (!conn.ws) continue;
-      if (Date.now() - conn.lastMsgAt > TS * 70000) {             // silent for too long: start over
+      if (Date.now() - conn.lastMsgAt > TS * 100000) {            // silent for too long: start over
         dropSocket(conn); relayRetry(conn);
         if (state.leader && !state.polling) schedule();
         continue;
@@ -658,7 +671,10 @@
       const n = Math.max(0, Math.min(5000, m.n | 0));
       relay.rooms.set(m.room, { n, slot: Math.max(-1, Math.min(n - 1, m.slot | 0)), m: Math.max(0, Math.min(5000, m.m | 0)), every: Math.max(CFG.shareMinMs, Math.min(5000, Number(m.every) || 1000)) });
       const busiest = sharedPlan();                              // remembered for checking alone if the relay goes away
-      if (busiest && busiest.n !== relay.lastN) { relay.lastN = busiest.n; try { localStorage.setItem('fast-clicker-relay-n', String(busiest.n)); } catch {} }
+      if (busiest && (busiest.n !== relay.lastN || busiest.m !== relay.lastM)) {
+        relay.lastN = busiest.n; relay.lastM = Math.max(1, busiest.m);
+        try { localStorage.setItem('fast-clicker-relay-n', String(relay.lastN)); localStorage.setItem('fast-clicker-relay-m', String(relay.lastM)); } catch {}
+      }
       if (state.leader && !state.polling && sharedPlan()) schedule();   // move to the (new) slot
       render();
     } else if (m.t === 'hint') onHint(m);
@@ -686,7 +702,8 @@
     const now = Date.now();
     if (now < Math.max(relay.quietUntil, state.notBefore)) return;   // ETH asked for a pause
     relay.hints = relay.hints.filter((t) => now - t < 60000);
-    if (relay.hints.length >= 12 || relay.queue.length >= 4 || now - (relay.hintAt.get(m.k) || 0) < TS * 1500) return;   // flood guard
+    if (relay.badIds.has(m.k)) return;
+    if (relay.hints.length >= HINT_READS_PER_MIN || relay.queue.length >= 2 || now - (relay.hintAt.get(m.k) || 0) < TS * 1500) return;   // flood guard
     relay.hintAt.set(m.k, now);
     if (relay.hintAt.size > 200) relay.hintAt.clear();
     const room = relay.rooms.get(m.room);
@@ -708,11 +725,11 @@
           const now = Date.now();
           if (now < Math.max(relay.quietUntil, state.notBefore)) { relay.queue.length = 0; break; }
           relay.hints = relay.hints.filter((t) => now - t < 60000);
-          if (relay.hints.length >= 12) { relay.queue.length = 0; break; }   // budget: 12 question reads a minute for hints
+          if (relay.hints.length >= HINT_READS_PER_MIN) { relay.queue.length = 0; break; }   // budget: a few question reads a minute for hints
           relay.hints.push(now);
           try { await hintRefresh(h); break; } catch (e) {
             if (e instanceof AuthError) { state.authLost = true; relay.queue.length = 0; tryRelogin(); render(); break; }
-            if (!isTransient(e)) break;                          // e.g. not this student's question: nothing to do
+            if (!isTransient(e)) { relay.badIds.add(h.id); if (relay.badIds.size > 500) relay.badIds.clear(); break; }   // not this student's question: never again
             if (e.retryAfterMs) { relay.quietUntil = Date.now() + e.retryAfterMs; relay.queue.length = 0; break; }
           }
         }
@@ -863,7 +880,7 @@
       } else {
         let cadence = !fast ? CFG.idleCadenceMs : document.hidden ? CFG.hiddenCadenceMs : CFG.cadenceMs;
         // relay configured but unreachable: check alone, but the more students were sharing, the slower (ETH load)
-        if (fast && relayUrl && relay.want.size && !sharedPlan()) cadence = Math.max(cadence, Math.min(CFG.soloMaxMs, relay.lastN * CFG.soloStepMs));
+        if (fast && relayUrl && relay.want.size && !sharedPlan()) cadence = Math.max(cadence, Math.min(CFG.soloMaxMs, Math.max(CFG.soloMinMs, relay.lastN * CFG.soloStepMs, relay.lastM * CFG.soloPerMemberMs)));
         // server slower than usual: back off (start to start), but less during a lecture, when finding the question matters
         if (latOk.feed > 2500) cadence = Math.max(cadence, Math.round(Math.min(latOk.feed, 30000) * (fast ? 1.5 : 3)));
         const maxBackoff = fast ? Math.min(CFG.maxBackoffMs, CFG.lectureBackoffMs) : CFG.maxBackoffMs;
@@ -1015,7 +1032,7 @@
             }
             if (Date.now() > deadline) return;
             setStatus(id, 'pending', `${e.message === 'offline' ? 'Offline' : 'Weak connection'}, still trying… (attempt ${attempt + 1})`);
-            await waitOnlineOr(backoff(attempt, e.retryAfterMs));
+            await waitOnlineOr(Math.max(backoff(attempt, e.retryAfterMs), state.notBefore - Date.now()));
           }
         }
       });
@@ -1136,7 +1153,7 @@
     // stop the page's own timers (dashboard refreshes, 5-min service-worker update check, …), never ours
     for (let i = 1; i <= TIMER_WATERMARK; i++) { clearTimeout(i); clearInterval(i); }
     document.body.replaceChildren(host);
-    document.title = 'ETH Clicker';
+    document.title = 'Clicker';
     if (!document.querySelector('meta[name=viewport]')) {
       const m = document.createElement('meta'); m.name = 'viewport'; m.content = 'width=device-width,initial-scale=1,viewport-fit=cover'; document.head.appendChild(m);
     }
@@ -1164,7 +1181,7 @@
     myTimers.stat = setInterval(updateStat, 1000);
     myTimers.sweep = setInterval(sweepSwCache, 60e3);
     myTimers.recheck = setInterval(recheckUnverified, Math.max(200, 10000 * TS));
-    myTimers.relay = setInterval(relayKeepAlive, Math.max(100, 25000 * TS));
+    myTimers.relay = setInterval(relayKeepAlive, Math.max(100, 40000 * TS));
   }
 
   // ---------------------------------------------------------------- UI (shadow DOM, isolated from the app's CSS)
@@ -1196,6 +1213,55 @@
   const tr = (o) => typeof o === 'string' ? o : o ? (o[LANG] || o.de || o.en || '') : '';
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 
+  // Question and answer text comes from ETH as HTML (formatting, MathJax formulas as SVG/MathML, pictures as data:
+  // URLs). It is shown inside a logged-in EduApp page, so it is cleaned first: only formatting, formula and picture
+  // elements survive; scripts, frames, forms, event handlers, javascript: links, external pictures and style sheets
+  // never do. (EduApp shows the same text itself; this is defence in depth, e.g. against a hijacked lecturer account.)
+  const SAFE_TAGS = new Set(('a abbr b bdi bdo blockquote br caption center cite code col colgroup dd del dfn div dl dt em figcaption figure '
+    + 'font h1 h2 h3 h4 h5 h6 hr i img ins kbd li mark ol p pre q s samp small span strike strong sub sup table tbody td tfoot th thead tr tt u ul var wbr '
+    // SVG (MathJax output)
+    + 'svg g path use defs symbol rect line circle ellipse polygon polyline text tspan title desc clippath lineargradient radialgradient stop mask pattern marker '
+    // MathML (MathJax's accessible copy)
+    + 'math mi mn mo ms mtext mspace mrow mfrac msqrt mroot mstyle merror mpadded mphantom mfenced menclose msub msup msubsup munder mover munderover '
+    + 'mmultiscripts mprescripts none mtable mtr mtd mlabeledtr maligngroup malignmark semantics annotation').split(' '));
+  const DROP_TAGS = /^(script|style|iframe|frame|frameset|object|embed|applet|link|meta|base|form|input|button|textarea|select|option|noscript|template|foreignobject|audio|video|source|track|portal|animate|animatemotion|animatetransform|set|image|feimage|annotation-xml|mjx-assistive-mml)$/;
+  const SAFE_IMG = /^(data:image\/(png|jpe?g|gif|webp|bmp|svg\+xml)[;,]|\/(?!\/))/i;
+  const cleanCache = new Map();
+  function clean(html) {
+    html = String(html ?? '');
+    if (!html) return '';
+    let out = cleanCache.get(html);
+    if (out !== undefined) return out;
+    try {
+      const t = document.createElement('template');           // inert: nothing in it runs or loads while it is cleaned
+      t.innerHTML = html;
+      const walk = (parent) => {
+        for (const el of [...parent.children]) {
+          const tag = el.localName.toLowerCase();
+          if (DROP_TAGS.test(tag)) { el.remove(); continue; }
+          if (!SAFE_TAGS.has(tag) && !tag.startsWith('mjx-')) { walk(el); el.replaceWith(...el.childNodes); continue; }
+          for (const { name } of [...el.attributes]) {
+            const n = name.toLowerCase(), v = el.getAttribute(name) || '';
+            const bad = n.startsWith('on') || n === 'srcset' || n === 'formaction' || n === 'action' || n === 'background' || n === 'ping'
+              || (/(javascript|vbscript|data)\s*:/i.test(v.replace(/[\u0000-\u0020]/g, '')) && !(tag === 'img' && n === 'src' && SAFE_IMG.test(v)))
+              || (n === 'style' && /url\s*\(|expression\s*\(|@import|behavior\s*:/i.test(v))
+              || ((n === 'href' || n === 'xlink:href') && (tag === 'use' ? !v.startsWith('#') : tag !== 'a' || !/^(https?:|mailto:)/i.test(v.trim())))
+              || (n === 'src' && (tag !== 'img' || !SAFE_IMG.test(v)));
+            if (bad) el.removeAttribute(name);
+          }
+          if (tag === 'img' && !el.hasAttribute('src')) { el.remove(); continue; }
+          if (tag === 'a') { el.setAttribute('target', '_blank'); el.setAttribute('rel', 'noopener noreferrer'); }
+          walk(el);
+        }
+      };
+      walk(t.content);
+      out = t.innerHTML;
+    } catch { out = esc(html.replace(/<[^>]*>/g, ' ')); }
+    if (cleanCache.size > 400) cleanCache.clear();
+    cleanCache.set(html, out);
+    return out;
+  }
+
   // icons: the Material Design glyphs EduApp uses for the same things
   const HAND = 'M10.185 8.826a.778.79 0 0 1 .778-.789.778.79 0 0 1 .777.79v3.528l.941.102 3.841 1.729c.412.19.661.607.661 1.065v3.442a1.216 1.216 0 0 1-1.166 1.183h-5.054c-.296 0-.576-.118-.778-.339l-3.81-3.315.575-.608a.77.77 0 0 1 .576-.252h.17l2.489 1.357zm-.778 2.716V8.826a1.555 1.579 0 0 1 1.556-1.578 1.555 1.579 0 0 1 1.555 1.578v2.716a3.15 3.15 0 0 0 1.555-2.716 3.11 3.157 0 0 0-3.11-3.157 3.11 3.157 0 0 0-3.11 3.157c0 1.16.63 2.171 1.554 2.716';
   const ICON = {
@@ -1213,7 +1279,7 @@
     exit: '<path d="M19,3H5C3.89,3 3,3.89 3,5V9H5V5H19V19H5V15H3V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M10.08,15.58L11.5,17L16.5,12L11.5,7L10.08,8.41L12.67,11H3V13H12.67L10.08,15.58Z"/>',
     fullscreen: '<path d="M5,5H10V7H7V10H5V5M14,5H19V10H17V7H14V5M17,14H19V19H14V17H17V14M10,17V19H5V14H7V17H10Z"/>',
     minus: '<path d="M19,13H5V11H19V13Z"/>',
-    clicker: '<path d="M12.0325 20.2597a1 1 0 10.0001 0ZM8.948 19.6295h6.0564l-.0024-8.9143H8.9481ZM11.8981 8.8136q1.389.0036 2.7767.0024c.806-.0181 1.5974.5988 1.6738 1.4205.0206 3.5572.0049 7.1169.0097 10.6741.1357.9199-.5648 1.8435-1.5102 1.8956-1.7271.0194-3.4554.0049-5.1813.0097-.9175.1212-1.961-.4315-2.0483-1.4253-.0218-3.5548-.0036-7.1132-.0097-10.6692-.1345-.9199.5648-1.8459 1.5102-1.898q1.3901-.0121 2.7791-.0097m.0897-4.5947c2.0156 0 4.0323.7515 5.4637 2.2495L15.9317 7.9896c-2.0241-1.9949-5.8031-2.167-7.8453.0364L6.5266 6.4686c1.4326-1.4981 3.4457-2.2495 5.4613-2.2495M12.0073 1a10.8353 10.8353 90 017.7144 3.23L18.3534 5.5996C15.081 2.2544 8.9713 2.086 5.6698 5.6238L4.3402 4.2906C6.0164 2.2023 9.1906.9855 12 1"></path>',
+    clicker: '<path d="M3.7 4.3h7.6a1.7 1.7 0 0 1 0 3.4H3.7a1.7 1.7 0 0 1 0-3.4zM3.7 10.3h12.6a1.7 1.7 0 0 1 0 3.4H3.7a1.7 1.7 0 0 1 0-3.4zM3.7 16.3h3.6a1.7 1.7 0 0 1 0 3.4H3.7a1.7 1.7 0 0 1 0-3.4zM21 10.1a1.9 1.9 0 1 1 0 3.8a1.9 1.9 0 1 1 0-3.8z"/>',   // the app's own poll mark (not EduApp's glyph)
   };
   const icon = (name, cls = '', label = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="currentColor" ${label ? `role="img" aria-label="${esc(label)}"` : 'aria-hidden="true"'}>${ICON[name]}</svg>`;
   // course colours exactly as EduApp picks them (hash of course number + type into its palette)
@@ -1369,7 +1435,7 @@
     <button class="fab" data-a="open"></button>
     <div class="app">
       <header class="bar">
-        <div class="brand">${icon('clicker')}<h1>ETH Clicker</h1></div><span class="grow"></span>
+        <div class="brand">${icon('clicker')}<h1>Clicker</h1></div><span class="grow"></span>
         <button class="iconbtn x" data-a="min" title="Minimize" aria-label="Minimize">${icon('minus')}</button>
         <button class="iconbtn fs" data-a="focus" title="Full screen" aria-label="Full screen">${icon('fullscreen')}</button>
         <button class="iconbtn ex" data-a="exit" title="Back to EduApp" aria-label="Back to EduApp">${icon('exit')}</button>
@@ -1459,7 +1525,7 @@
   }
   const sumCache = new Map();
   function summaryHtml(x) {                 // one line of the question: its first words and formulas
-    const q = x.question || '';
+    const q = clean(x.question);
     const key = x.id + ':' + q.length;
     let out = sumCache.get(key);
     if (out !== undefined) return out;
@@ -1593,14 +1659,14 @@
     let h = `<h3 class="sr-only">${esc(c.title)}</h3><div class="course">${c.courseTitle ? esc(c.courseTitle) + ' · ' : ''}${kindText(c)}</div>`;
     if (c.roundStopped) h += `<div class="note gray" style="margin:0 0 12px">The lecturer stopped this round. You'll be alerted when the next round starts.</div>`;
     else if (voteAgain(c)) h += `<div class="note round" role="alert"><b>New round: vote again.</b> The lecturer restarted voting; your earlier answer does not count for this round. Choose and tap ${L.send}.</div>`;
-    h += `<div class="q">${c.question || ''}</div>`;
+    h += `<div class="q">${clean(c.question)}</div>`;
     if (c.type === 'TEXT') {
       h += `<textarea data-a="text" data-id="${c.id}" placeholder="${esc(L.yourAnswer)}">${esc(currentAnswer(c))}</textarea>`;
     } else {
       const cur = currentAnswer(c);
       h += `<div class="${c.type === 'MCSA' ? 'radio' : 'check'}">`;
       for (const e of c.entries) {
-        h += `<button class="opt ${cur.includes(e.id) ? 'sel' : ''} ${e.selected ? 'server' : ''}" data-a="pick" data-id="${c.id}" data-e="${e.id}" role="${c.type === 'MCSA' ? 'radio' : 'checkbox'}" aria-checked="${cur.includes(e.id)}"><span class="box"></span><span class="grow">${e.answer || ''}</span></button>`;
+        h += `<button class="opt ${cur.includes(e.id) ? 'sel' : ''} ${e.selected ? 'server' : ''}" data-a="pick" data-id="${c.id}" data-e="${e.id}" role="${c.type === 'MCSA' ? 'radio' : 'checkbox'}" aria-checked="${cur.includes(e.id)}"><span class="box"></span><span class="grow">${clean(e.answer)}</span></button>`;
       }
       h += '</div>';
     }
@@ -1612,7 +1678,7 @@
   function buildClosed(c) {
     const div = document.createElement('div');
     div.className = 'card closed'; div.dataset.id = c.id;
-    let h = `<h3 class="sr-only">${esc(c.title)}</h3><div class="q">${c.question || ''}</div>`;
+    let h = `<h3 class="sr-only">${esc(c.title)}</h3><div class="q">${clean(c.question)}</div>`;
     const sumText = L[c.answerState];
     if (sumText) h += `<p class="summary ${esc(c.answerState)}">${sumText}</p>`;
     if (c.type === 'TEXT') h += `<textarea class="ro" readonly rows="8">${esc(c.individualAnswer || '')}</textarea>`;
@@ -1625,7 +1691,7 @@
           const you = !e.selected || e.correct === undefined ? '' : e.correct ? `<span class="you ok" aria-label="${esc(L.youRight)}">${L.you}</span>` : `<span class="you no" aria-label="${esc(L.youWrong)}">${L.you}</span>`;
           r = `<div class="vr"><div class="vb"><p class="vt">${esc(e.voteRatio)}% / ${esc(e.voteCount)} ${L.votes}</p><div class="track"><div class="fill" style="width:${Math.max(0, Math.min(100, Number(e.voteRatio) || 0))}%"></div></div></div><p class="vi">${ok}${you}</p></div>`;
         }
-        h += `<li class="${e.selected ? 'sel' : ''}"><span class="box"></span><div class="w"><div class="ans">${e.answer || ''}</div>${r}</div></li>`;
+        h += `<li class="${e.selected ? 'sel' : ''}"><span class="box"></span><div class="w"><div class="ans">${clean(e.answer)}</div>${r}</div></li>`;
       }
       h += '</ul>';
     }
@@ -1674,7 +1740,7 @@
     el.dtitle.textContent = item ? `${item.title || ''} (${label})` : '';
     let msg = '';
     if (ui.err) msg = `<div class="note" style="margin:0 0 12px">Could not load this question (${esc(ui.err)}). <button class="chip" data-a="reload" data-id="${ui.id}">Try again</button></div>`;
-    else if (!c) msg = `${item && item.question ? `<div class="q">${item.question}</div>` : ''}<div class="more"><div class="spin"></div></div>`;
+    else if (!c) msg = `${item && item.question ? `<div class="q">${clean(item.question)}</div>` : ''}<div class="more"><div class="spin"></div></div>`;
     setHtml(el.dmsg, msg);
     const i = ui.group.indexOf(ui.id), n = ui.group.length;
     setHtml(el.gnav, n > 1 ? `${i > 0 ? `<button class="iconbtn prev" data-a="nav" data-d="-1" aria-label="${esc(L.prev)}">${icon('chevron')}</button>` : '<span></span>'}<p>${i + 1} / ${n}</p>${i < n - 1 ? `<button class="iconbtn next" data-a="nav" data-d="1" aria-label="${esc(L.next)}">${icon('chevron')}</button>` : '<span></span>'}` : '');
@@ -1689,7 +1755,7 @@
     el.fab.style.display = panelOpen ? 'none' : '';
     el.app.style.display = panelOpen ? '' : 'none';
     el.fab.className = 'fab' + (alerting ? ' alert' : '');
-    el.fab.textContent = live.length ? `Clicker open (${live.length})` : 'ETH Clicker';
+    el.fab.textContent = live.length ? `Clicker open (${live.length})` : 'Clicker';
     $('.x').style.display = $('.fs').style.display = mode === 'focus' ? 'none' : '';
     $('.ex').style.display = mode === 'focus' && !hooks.noExit ? '' : 'none';
     const tone = !state.running ? 'slow' : state.authLost ? 'warn' : state.lastError ? 'err' : fastMode() ? '' : 'slow';

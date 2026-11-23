@@ -6,7 +6,6 @@ recon/
 # build output and dependencies
 tools/node_modules/
 tools/_*
-tools/package-lock.json
 ios/build/
 ios/simbuild/
 ios/out/
@@ -18,3 +17,5 @@ android/build/
 android/app/build/
 android/local.properties
 android/keystore/
+# install page build output (published by tools/publish-site.js)
+install/public/

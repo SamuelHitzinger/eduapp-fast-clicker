@@ -7,12 +7,16 @@ on:
       - ".github/workflows/ios.yml"
   workflow_dispatch:
 
+# read-only token: the builds never write to the repository
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: macos-15
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -39,7 +43,7 @@ jobs:
         working-directory: ios
         run: grep -E "error:|warning:" -A3 device-build.log | head -n 80 || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: FastClicker-ipa
           path: ios/out/FastClicker.ipa
@@ -57,14 +61,14 @@ jobs:
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" simbuild/Build/Products/Debug-iphonesimulator/FastClicker.app
-          xcrun simctl launch "$UDID" ch.students.fastclicker
+          xcrun simctl launch "$UDID" ch.students.clicker
           sleep 25
           mkdir -p out
           xcrun simctl io "$UDID" screenshot out/sim-launch.png
           xcrun simctl spawn "$UDID" log show --last 3m --predicate 'process == "FastClicker"' --style compact > out/sim-log.txt 2>&1 || true
           tail -n 40 out/sim-log.txt || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: simulator-smoke

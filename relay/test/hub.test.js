@@ -284,15 +284,15 @@ test('replay: new joiners get the last 30 s of hints, oldest first, marked repla
 
 // ------------------------------------------------------------------ rate limits
 
-test('per-connection hint limit: 20 per rolling minute', () => {
+test('per-connection hint limit: 10 per rolling minute', () => {
   const { conn, join, hint, advance } = setup();
   const [a, b] = [conn(), conn()];
   join(a, [R1]);
   join(b, [R1]);
   b.take();
   a.take();
-  for (let i = 0; i < 21; i++) hint(a, R1, { k: i + 1 });
-  assert.equal(b.take('hint').length, 20);
+  for (let i = 0; i < 11; i++) hint(a, R1, { k: i + 1 });
+  assert.equal(b.take('hint').length, 10);
   assert.deepEqual(a.take('err'), [{ t: 'err', code: 'rate' }]);
   advance(60_000);
   hint(a, R1, { k: 999 });
@@ -315,15 +315,16 @@ test('per-connection message limit: 60/min dropped, >180/min closed', () => {
   check(hub);
 });
 
-test('per-room hint limit: 30 accepted per rolling minute', () => {
+test('per-room hint limit: 20 accepted per rolling minute', () => {
   const { conn, join, hint } = setup();
-  const [a, b, x] = [conn(), conn(), conn()];
-  for (const k of [a, b, x]) join(k, [R1]);
+  const [a, b, c, x] = [conn(), conn(), conn(), conn()];
+  for (const k of [a, b, c, x]) join(k, [R1]);
   x.take();
-  for (let i = 0; i < 16; i++) hint(a, R1, { k: 100 + i });
-  for (let i = 0; i < 16; i++) hint(b, R1, { k: 200 + i });
-  assert.equal(x.take('hint').length, 30);
-  assert.deepEqual(b.take('err'), [{ t: 'err', code: 'rate' }]);
+  for (let i = 0; i < 8; i++) hint(a, R1, { k: 100 + i });
+  for (let i = 0; i < 8; i++) hint(b, R1, { k: 200 + i });
+  for (let i = 0; i < 8; i++) hint(c, R1, { k: 300 + i });
+  assert.equal(x.take('hint').length, 20);
+  assert.deepEqual(c.take('err'), [{ t: 'err', code: 'rate' }]);
 });
 
 test('per-room+clicker limit: one accepted hint per event type per second', () => {
@@ -694,4 +695,17 @@ test('a scout that enters a room later is restored behind the ones already there
   const again = new Hub({ now: () => clock.t });
   again.restore([a, b].map((c) => ({ conn: c, ...states.get(c) })));
   assert.deepEqual(again.rooms.get(R1).scouts.map((s) => s.conn), [b, a]);
+});
+
+test('one network gets at most MAX_SCOUTS_PER_NET active slots; others from elsewhere still get theirs', () => {
+  const { hub, conn, join, advance } = setup({ MAX_SCOUTS_PER_NET: 2, MAX_ACTIVE_SCOUTS: 4 });
+  const squat = [conn('2001:db8:1:2::a'), conn('2001:db8:1:2::b'), conn('2001:db8:1:2:ffff::1')]; // one /64
+  for (const c of squat) { join(c, [R1], true); advance(400); }
+  const real = [conn('10.1.1.1'), conn('10.2.2.2')];
+  for (const c of real) { join(c, [R1], true); advance(400); }
+  const slot = (c) => c.out.filter((m) => m.t === 'roster').at(-1).slot;
+  assert.deepEqual(squat.map(slot), [0, 1, -1], 'third connection of the same /64 stands by');
+  assert.deepEqual(real.map(slot), [2, 3]);
+  assert.equal(real[0].out.filter((m) => m.t === 'roster').at(-1).n, 4);
+  check(hub);
 });

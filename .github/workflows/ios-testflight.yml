@@ -1,0 +1,76 @@
+name: iPhone app to TestFlight
+
+# Run by hand (Actions → "iPhone app to TestFlight" → Run workflow) once the Apple Developer Program account exists.
+# Needs these repository secrets (see ios/TESTFLIGHT.md):
+#   APPLE_TEAM_ID        the 10-character Team ID
+#   ASC_KEY_ID           App Store Connect API key ID
+#   ASC_ISSUER_ID        App Store Connect issuer ID
+#   ASC_KEY_P8_B64       the downloaded AuthKey_XXXX.p8, base64-encoded
+# Signing certificates and profiles are created by Xcode itself with that API key (automatic signing).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testflight:
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: App Store Connect key
+        env:
+          P8: ${{ secrets.ASC_KEY_P8_B64 }}
+        run: |
+          if [ -z "$P8" ]; then echo "::error::App Store Connect secrets are missing (see ios/TESTFLIGHT.md)"; exit 1; fi
+          echo "$P8" | base64 -d > "$RUNNER_TEMP/AuthKey.p8"
+
+      - name: Archive (signed for the App Store)
+        working-directory: ios
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          KID: ${{ secrets.ASC_KEY_ID }}
+          ISS: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          xcodebuild -project FastClicker.xcodeproj -scheme FastClicker -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath build/Clicker.xcarchive archive \
+            DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic CURRENT_PROJECT_VERSION=$((1000 + GITHUB_RUN_NUMBER)) \
+            -allowProvisioningUpdates -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" \
+            -authenticationKeyID "$KID" -authenticationKeyIssuerID "$ISS" 2>&1 | tail -n 30
+
+      - name: Upload to TestFlight
+        working-directory: ios
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          KID: ${{ secrets.ASC_KEY_ID }}
+          ISS: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          cat > build/ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>${TEAM}</string>
+            <key>signingStyle</key><string>automatic</string>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive -archivePath build/Clicker.xcarchive -exportOptionsPlist build/ExportOptions.plist \
+            -exportPath build/export -allowProvisioningUpdates -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" \
+            -authenticationKeyID "$KID" -authenticationKeyIssuerID "$ISS" 2>&1 | tail -n 30
+
+      - name: Remove the key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8"

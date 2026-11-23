@@ -4,13 +4,11 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- the 20 s reminder on time; Android may refuse it, then the reminder is inexact -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
-        android:label="ETH Clicker"
+        android:label="Clicker"
         android:supportsRtl="true"
         android:theme="@style/Theme.ETHClicker"
         android:usesCleartextTraffic="false">

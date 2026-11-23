@@ -40,7 +40,7 @@ import androidx.webkit.WebViewFeature
 import org.json.JSONObject
 
 /**
- * ETH Clicker for Android: eduapp.ethz.ch in a WebView with the ETH Clicker script injected in focus mode,
+ * Clicker for Android: eduapp.ethz.ch in a WebView with the Clicker script injected in focus mode,
  * the same script and hooks as the iPhone app (ios/FastClicker/ClickerViewController.swift). The login is
  * ETH's own page on eduapp.ethz.ch; this code never sees a password.
  */
@@ -79,10 +79,13 @@ class MainActivity : ComponentActivity() {
         createChannel()
 
         CookieManager.getInstance().setAcceptCookie(true)  // keeps the ETH login between launches
-        CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
+        CookieManager.getInstance().setAcceptThirdPartyCookies(web, false)   // the login is first-party (eduapp.ethz.ch)
         web.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
+            allowFileAccess = false                         // nothing on the phone is reachable from the page
+            allowContentAccess = false
+            mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
             mediaPlaybackRequiresUserGesture = false
             setSupportMultipleWindows(true)                // the page's "Log in" button opens a window: shown as a dialog
             javaScriptCanOpenWindowsAutomatically = true
@@ -100,6 +103,7 @@ class MainActivity : ComponentActivity() {
         web.webViewClient = ClickerClient()
         web.webChromeClient = object : WebChromeClient() {
             override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
+                if (!isUserGesture) return false                // only the student's own tap on "Log in" opens a window
                 val popup = showLogin(null) ?: return false
                 (resultMsg.obj as WebView.WebViewTransport).webView = popup
                 resultMsg.sendToTarget()
@@ -154,7 +158,7 @@ class MainActivity : ComponentActivity() {
 
     // ---------------------------------------------------------------- the injected script
 
-    /** The tested ETH Clicker build (assets/fast-clicker.js) with the app's hooks; checked again inside the page. */
+    /** The tested Clicker build (assets/fast-clicker.js) with the app's hooks; checked again inside the page. */
     private val injected: String by lazy {
         val core = assets.open("fast-clicker.js").bufferedReader().use { it.readText() }
         """
@@ -189,16 +193,24 @@ class MainActivity : ComponentActivity() {
 
     private fun isEthHost(host: String?) = host?.lowercase()?.let { it == "ethz.ch" || it.endsWith(".ethz.ch") } == true
 
+    /** Pages shown in the app: ETH's own, over https only. */
+    private fun isEthPage(uri: Uri) = uri.scheme == "https" && isEthHost(uri.host)
+
+    /** Only ordinary web links leave the app (to the browser); intent:, tel:, file: and the like are ignored. */
     private fun openOutside(uri: Uri) {
-        try { startActivity(Intent(Intent.ACTION_VIEW, uri)) } catch (_: ActivityNotFoundException) {}
+        if (uri.scheme != "https" && uri.scheme != "http") return
+        try { startActivity(Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE)) } catch (_: ActivityNotFoundException) {}
+    }
+
+    /** Main-frame navigation rule for both web views: ETH pages stay, a tapped link elsewhere opens in the browser, anything else is blocked. */
+    private fun keepInApp(request: WebResourceRequest): Boolean {
+        if (!request.isForMainFrame || isEthPage(request.url)) return true
+        if (request.hasGesture() && !request.isRedirect) openOutside(request.url)
+        return false
     }
 
     private inner class ClickerClient : WebViewClient() {
-        override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-            // Links to other websites open in the browser; everything on ETH stays in the app.
-            if (request.isForMainFrame && !isEthHost(request.url.host)) { openOutside(request.url); return true }
-            return false
-        }
+        override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = !keepInApp(request)
 
         override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
             // not logged in (or expired); this can arrive before or after onPageStarted, so it is only reset once used
@@ -246,9 +258,15 @@ class MainActivity : ComponentActivity() {
     private fun showLogin(url: String?): WebView? {
         if (login != null) return null
         val popup = WebView(this)
-        CookieManager.getInstance().setAcceptThirdPartyCookies(popup, true)
-        popup.settings.javaScriptEnabled = true
-        popup.settings.domStorageEnabled = true
+        CookieManager.getInstance().setAcceptThirdPartyCookies(popup, false)
+        popup.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            allowFileAccess = false
+            allowContentAccess = false
+            mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            setSupportMultipleWindows(false)
+        }
         val dialog = Dialog(this, android.R.style.Theme_DeviceDefault_NoActionBar)
         val frame = FrameLayout(this)
         frame.setBackgroundColor(if (isSystemDark()) Color.rgb(18, 18, 18) else Color.WHITE)
@@ -267,12 +285,8 @@ class MainActivity : ComponentActivity() {
             dialog.dismiss()
         }
         popup.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                // the login may pass through other sign-in pages (e.g. a second factor): those redirects stay here;
-                // only a link the student taps to another website opens in the browser
-                if (request.isForMainFrame && request.hasGesture() && !request.isRedirect && !isEthHost(request.url.host)) { openOutside(request.url); return true }
-                return false
-            }
+            // the login runs only on ETH's own pages (https *.ethz.ch); a page elsewhere could imitate it, so it never loads here
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = !keepInApp(request)
             override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
                 finish()                                         // its page was killed (memory): close, never crash
                 return true

@@ -36,6 +36,7 @@ function makeServer({ lectureNow = true, chaos = null } = {}) {
   S.fetch = async (url, opts = {}) => {
     const u = new URL(url, 'https://eduapp.ethz.ch');
     S.urls.push(u.pathname + u.search);
+    (S.reqs = S.reqs || []).push({ t: Date.now(), p: u.pathname });
     u.searchParams.delete('_fc');
     const p = u.pathname.replace('/web/gw/', '') + (u.search || '');
     const method = opts.method || 'GET';
@@ -106,7 +107,7 @@ function boot(S, { settings = {}, hooks = {}, mode, url = 'https://eduapp.ethz.c
   if (locks) Object.defineProperty(w.navigator, 'locks', { value: locks, configurable: true });
   if (BroadcastChannel) w.BroadcastChannel = BroadcastChannel;
   if (caches) { w.caches = caches; w.Response = Response; }
-  w.localStorage.setItem('fast-clicker-settings', JSON.stringify({ cadenceMs: 120, hiddenCadenceMs: 120, idleCadenceMs: 120, maxBackoffMs: 300, authCadenceMs: 150, loginCadenceMs: 150, silentEveryMs: 300, ...settings }));
+  w.localStorage.setItem('fast-clicker-settings', JSON.stringify({ cadenceMs: 120, hiddenCadenceMs: 120, idleCadenceMs: 120, maxBackoffMs: 300, authCadenceMs: 150, loginCadenceMs: 150, silentEveryMs: 300, soloMinMs: 120, ...settings }));
   for (const [k, v] of Object.entries(preset)) w.localStorage.setItem(k, v);
   w.__FC_HOOKS = hooks;
   if (mode) w.__FC_MODE = mode;

@@ -1,4 +1,4 @@
-# ETH Clicker v3.3.0
+# Clicker for EduApp v3.4.0 (beta)
 
 A replacement for the clicker section of ETH EduApp. It looks like EduApp's own clicker pages, but a new question appears by itself within seconds, your answer gets through on bad lecture-hall Wi-Fi, and you see when it really arrived.
 
@@ -87,6 +87,24 @@ The address goes into `relay/relay-url.txt`; `node tools/build.js` puts it into 
 ## Build
 
 `node tools/build.js` builds `site/` (`index.html`, the pinned `fast-clicker.<hash>.js`, the add-on folder and zip) and `ios/FastClicker/Resources/fast-clicker.js`.
+
+## Security (v3.4, after two independent audits)
+
+- **Login and data:** the student logs in on ETH's own pages (same-origin Keycloak). The script never sees the password; questions, answers and the session only travel between the device and eduapp.ethz.ch. The relay only ever gets a room code and "question N changed".
+- **Question HTML is cleaned** before it is shown (`clean()`): formatting, MathJax SVG/MathML and `data:` pictures stay; scripts, frames, forms, event handlers, `javascript:` links, outside pictures and style-sheet URLs are removed (test X1). Defence in depth against e.g. a hijacked lecturer account.
+- **Apps:** only https pages on `*.ethz.ch` load in the app and in the login window; a tapped link elsewhere opens in the browser, anything else is blocked. The native bridge only accepts messages from the top frame of https://eduapp.ethz.ch. Android: no file/content access, no mixed content, no backup, lock-screen notifications private.
+- **Relay abuse is bounded:** a hint costs each client at most one read of that question (4 a minute at most), ids ETH refused are never read again for a hint, at most 20 of a room's 60 active scouts come from one network (IPv4 address / IPv6 /64), 10 hints per connection and 20 per room per minute, connections that never join are closed after 30 s. Worst case an attacker makes detection slower (standby safety check, 1–5 min) or causes a few cheap reads; it can never vote, change an answer, start a round or see content.
+- **ETH load:** one feed request at a time, at least 4 s apart (also for "check now", returning to the app and the widened feed after a burst); ETH's Retry-After pauses everything including vote retries; start-up reads at most 3 questions at once; with the relay down each client checks every 8–30 s depending on the room size; an app left open outside lectures slows down after 20 min without a touch.
+- **Builds:** GitHub Actions pinned to commit SHAs, read-only token, Android release key only on `main` (a main build without it fails), build lockfile tracked.
+- **Not verified:** ETH's own server-side sanitising and capacity; Cloudflare's behaviour under deliberate abuse (on the free plan an exhausted quota only switches clients to checking on their own, it never costs money).
+
+## Store release (before publishing anywhere public)
+
+1. **Ask ETH first** (EduApp team / IT Services): permission to use the EduApp API from a third-party app at this scale, a traffic budget, and whether the app may mention ETH/EduApp. Report the unopened-question exposure (`DRAFT` questions readable with their text before they open) to ETH's IT security.
+2. **Name and look:** the app is "Clicker" with its own icon; store listings must say it is unofficial and not made or endorsed by ETH Zurich. The fonts and colours come from EduApp's own pages at run time (nothing of ETH's is bundled), but ask ETH whether the EduApp-like look is acceptable.
+3. **Apple:** guideline 4.2 (apps that are mostly a website) and 5.2 (third-party content/IP) are the likely review issues; native alerts, notifications and the reliability features are the arguments. TestFlight setup: `../ios/TESTFLIGHT.md`.
+4. **Google Play:** a privacy policy and the data-safety form (IP addresses reach the relay; nothing is stored), target SDK current, no restricted permissions (the exact-alarm permission was removed).
+5. **Privacy policy:** state what the relay sees (IP address, lecture room code), that nothing is kept, and that the login stays with ETH.
 
 ## Real fix (for ETH)
 

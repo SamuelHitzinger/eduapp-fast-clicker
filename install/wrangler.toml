@@ -1,0 +1,8 @@
+# The beta install page (static files only): https://clicker.<account>.workers.dev
+# Published by `node tools/publish-site.js`; it holds no logins and talks to nobody.
+name = "clicker"
+compatibility_date = "2026-06-01"
+
+[assets]
+directory = "./public"
+not_found_handling = "404-page"

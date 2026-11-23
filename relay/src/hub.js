@@ -24,10 +24,10 @@ export const DEFAULT_LIMITS = Object.freeze({
   REPLAY_MS: 30_000, // hints replayed to a connection that newly joins a room
 
   RATE_WINDOW_MS: 60_000, // all rate limits below are per rolling minute
-  CONN_HINTS_PER_MIN: 20,
+  CONN_HINTS_PER_MIN: 10,
   CONN_MSGS_PER_MIN: 60,
   CONN_CLOSE_FACTOR: 3, // more than 3x CONN_MSGS_PER_MIN -> connection closed
-  ROOM_HINTS_PER_MIN: 30,
+  ROOM_HINTS_PER_MIN: 20,
   SAME_EVENT_MS: 1000, // per room+clicker: one accepted hint per event type per second
   ERR_EVERY_MS: 10_000, // each `err` code is sent at most once per 10 s per connection
 
@@ -41,6 +41,9 @@ export const DEFAULT_LIMITS = Object.freeze({
   // 60 scouts at one check per second in total = each scout checks every 60 s, so the room's load on ETH stays
   // about one feed request per second however many students join.
   MAX_ACTIVE_SCOUTS: 60,
+  // …and at most this many of them from one network (one IPv4 address or IPv6 /64), so nobody can take a room's
+  // slots with a pile of connections that never check. A hall behind one campus address still gets 20 active scouts.
+  MAX_SCOUTS_PER_NET: 20,
 
   IDLE_MS: 120_000, // nothing received for this long -> closed
   JOIN_DEADLINE_MS: 30_000, // a connection that has not joined a room by then is closed (it only holds a place)
@@ -241,11 +244,9 @@ export class Hub {
     }
     for (const room of this.rooms.values()) {
       if (!quiet) { this._markDirty(room); continue; }
-      const n = Math.min(room.scouts.length, this.L.MAX_ACTIVE_SCOUTS);
-      const slots = new Map(room.scouts.map((s, i) => [s, i]));
+      const slots = this._slots(room);
       for (const st of room.members) {
-        const i = slots.has(st) ? slots.get(st) : -1;
-        st.lastRoster.set(room.id, n + '/' + (i < n ? i : -1) + '/' + sizeBucket(room.members.size));
+        st.lastRoster.set(room.id, slots.size + '/' + (slots.has(st) ? slots.get(st) : -1) + '/' + sizeBucket(room.members.size));
       }
     }
   }
@@ -436,19 +437,34 @@ export class Hub {
       room.lastFlush = now;
       // O(members): slot lookup via a Map built once, and members whose
       // (n, slot) did not change are skipped.
-      const slots = new Map(room.scouts.map((s, i) => [s, i]));
+      const slots = this._slots(room);
       for (const member of room.members) this._sendRoster(member, room, now, slots);
     }
   }
 
+  /** The active scouts' slots: the first MAX_ACTIVE_SCOUTS in scout order, at most MAX_SCOUTS_PER_NET per network. */
+  _slots(room) {
+    const slots = new Map();
+    const perNet = new Map();
+    for (const s of room.scouts) {
+      if (slots.size >= this.L.MAX_ACTIVE_SCOUTS) break;
+      const net = netOf(s.ip);
+      const k = perNet.get(net) || 0;
+      if (k >= this.L.MAX_SCOUTS_PER_NET) continue;
+      perNet.set(net, k + 1);
+      slots.set(s, slots.size);
+    }
+    return slots;
+  }
+
   _sendRoster(st, room, now, slots) {
-    // only the first MAX_ACTIVE_SCOUTS scouts get a slot; later ones stand by until one of them leaves
-    const n = Math.min(room.scouts.length, this.L.MAX_ACTIVE_SCOUTS);
-    const i = slots ? (slots.has(st) ? slots.get(st) : -1) : room.scouts.indexOf(st);
-    const slot = i < n ? i : -1;
+    // only the active scouts get a slot; the others stand by until one of them leaves
+    const map = slots || this._slots(room);
+    const n = map.size;
+    const slot = map.has(st) ? map.get(st) : -1;
     // members hear of the room's size when it changes noticeably (standby members check less often in big rooms)
     const key = n + '/' + slot + '/' + sizeBucket(room.members.size);
-    if (slots && st.lastRoster.get(room.id) === key) return;
+    if (slots && st.lastRoster.get(room.id) === key) return;   // (a direct reply always goes out)
     st.lastRoster.set(room.id, key);
     this._send(
       st,
@@ -543,6 +559,17 @@ function newRoom(id, L) {
     lastFlush: -Infinity,
     lastActive: 0,
   };
+}
+
+/** The network an address belongs to: the IPv4 address itself, or the /64 of an IPv6 address. */
+function netOf(ip) {
+  const a = String(ip || '');
+  if (!a.includes(':')) return a;
+  const parts = a.toLowerCase().split('::');
+  const head = parts[0] ? parts[0].split(':') : [];
+  const tail = parts.length > 1 && parts[1] ? parts[1].split(':') : [];
+  const full = parts.length > 1 ? [...head, ...Array(Math.max(0, 8 - head.length - tail.length)).fill('0'), ...tail] : head;
+  return full.slice(0, 4).map((h) => h.replace(/^0+(?=.)/, '')).join(':') + '::/64';
 }
 
 /** Room sizes in steps of 25 % (exact up to 20): a member is told the size again only when it changed that much. */

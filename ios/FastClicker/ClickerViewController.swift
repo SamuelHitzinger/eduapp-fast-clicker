@@ -3,7 +3,7 @@ import WebKit
 import AudioToolbox
 import UserNotifications
 
-/// Main screen: eduapp.ethz.ch with the ETH Clicker script injected in focus mode.
+/// Main screen: eduapp.ethz.ch with the Clicker script injected in focus mode.
 /// The script draws the whole clicker section itself (list, question pages, results).
 final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
     /// A tiny same-origin page (129 bytes of JSON) instead of the 1 MB EduApp web app: the script replaces it.
@@ -63,7 +63,7 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
 
     // MARK: - Injected script
 
-    /// The tested ETH Clicker build (Resources/fast-clicker.js) wrapped with the app's hooks.
+    /// The tested Clicker build (Resources/fast-clicker.js) wrapped with the app's hooks.
     /// It does not run in the login sheet (window.opener) or on ETH's login pages.
     private static func injectedScript() -> String? {
         guard let url = Bundle.main.url(forResource: "fast-clicker", withExtension: "js"),
@@ -104,7 +104,8 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         // Only the clicker page itself may talk to the app (not ETH's login pages or anything inside a frame).
-        guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.host == "eduapp.ethz.ch",
+        guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
+              message.frameInfo.securityOrigin.host == "eduapp.ethz.ch", message.frameInfo.securityOrigin.port == 0 || message.frameInfo.securityOrigin.port == 443,
               let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
         switch type {
         case "alert": handleAlert(body)
@@ -195,14 +196,17 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        // Links to other websites open in Safari; everything on ETH stays in the app.
-        if navigationAction.navigationType == .linkActivated, let url = navigationAction.request.url,
-           let host = url.host, !(host == "ethz.ch" || host.hasSuffix(".ethz.ch")) {
-            UIApplication.shared.open(url)
-            decisionHandler(.cancel)
-            return
-        }
-        decisionHandler(.allow)
+        decisionHandler(Self.ethOnly(navigationAction))
+    }
+
+    /// Pages shown in the app (and in the login sheet) are ETH's own, over https: a page elsewhere could imitate the
+    /// ETH login. A link the student taps to another website opens in Safari; any other navigation there is blocked.
+    static func ethOnly(_ action: WKNavigationAction) -> WKNavigationActionPolicy {
+        guard action.targetFrame?.isMainFrame ?? true, let url = action.request.url else { return .allow }
+        if url.scheme == "about" { return .allow }                        // our own "No connection" page
+        if url.scheme == "https", let host = url.host?.lowercased(), host == "ethz.ch" || host.hasSuffix(".ethz.ch") { return .allow }
+        if action.navigationType == .linkActivated, url.scheme == "https" || url.scheme == "http" { UIApplication.shared.open(url) }
+        return .cancel
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
@@ -258,7 +262,9 @@ final class ClickerViewController: UIViewController, WKNavigationDelegate, WKUID
     /// The page's own "Log in" button opens a window: show it as a sheet that closes itself after login.
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        guard presentedViewController == nil else { return nil }
+        // only a window for ETH's own login (the page's "Log in" button) is opened
+        guard presentedViewController == nil, let url = navigationAction.request.url, url.scheme == "https",
+              url.host?.lowercased() == "eduapp.ethz.ch" else { return nil }
         let sheet = LoginViewController(configuration: configuration) { [weak self] in
             self?.webView.evaluateJavaScript("window.dispatchEvent(new Event('online'))", completionHandler: nil)
         }
@@ -305,6 +311,11 @@ final class LoginViewController: UIViewController, WKNavigationDelegate, WKUIDel
     func load(_ url: URL) { webView.load(URLRequest(url: url)) }
 
     @objc private func cancelTapped() { finish() }
+
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        decisionHandler(ClickerViewController.ethOnly(navigationAction))
+    }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         if let url = webView.url, url.host == "eduapp.ethz.ch", url.path.hasPrefix("/web/gw/") {

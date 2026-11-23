@@ -1,4 +1,4 @@
-// ETH Clicker for Android. Built by .github/workflows/android.yml (no Android SDK needed on the PC).
+// Clicker for Android (an unofficial client for ETH EduApp's clicker). Built by .github/workflows/android.yml (no Android SDK needed on the PC).
 // The version follows ios/project.yml; versionCode comes from the CI run number so every build installs over the last.
 plugins {
     id("com.android.application")
@@ -12,11 +12,11 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "ch.students.ethclicker"
+        applicationId = "ch.students.clicker"
         minSdk = 26
         targetSdk = 35
         versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 1
-        versionName = "3.3.0"
+        versionName = "3.4.0"
     }
 
     signingConfigs {

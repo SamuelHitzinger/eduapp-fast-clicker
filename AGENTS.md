@@ -1,4 +1,4 @@
-# ETH Clicker (EduApp Fast Clicker)
+# Clicker for EduApp (formerly ETH Clicker / Fast Clicker)
 
 A replacement for the clicker section of ETH EduApp (eduapp.ethz.ch): it looks like EduApp's own clicker pages, but is faster and more reliable. Every way to install it (iPhone app, Android app, bookmarklet, browser add-on) uses one script:
 
@@ -26,6 +26,9 @@ The reference for the look is EduApp itself: `hermes_out/v3/ui/` holds phone scr
 - No separate-origin website or credential proxy: login must stay on ETH's own pages (same-origin oauth2-proxy + Keycloak).
 - The relay may only ever carry "clicker N changed" hints. It must never receive ETH logins, cookies, question text or answers, and nothing it sends may make a client do more than read one question from ETH.
 - No settings drawer (removed in v3.2 at the user's request): keep the screen to the app bar, the list and the question page. The timing recorder and the "peek next id" experiment were removed too; don't bring back reads of question ids the feed has not announced.
+- Question/answer HTML from ETH is always shown through `clean()` (never raw `innerHTML`). Apps load only https `*.ethz.ch` pages (main view and login window); keep it that way.
+- The user-facing name is "Clicker" (unofficial; never present it as an ETH product, never use ETH logos). App ids: Android `ch.students.clicker`, iOS `ch.students.clicker`.
+- Beta install page: `node tools/publish-site.js` publishes `site/` + the latest APK to https://clicker.fast-clicker-relay.workers.dev/ (approved by the user on 2026-11-23). Pinned scripts listed in `install/published-pins.txt` must stay online. App Store / Play Store publication still needs the user's explicit go and ETH's answer (see README "Store release").
 - Do not increase the load on ETH: one feed request at a time per client, never faster than every 4 s, and never download the semester list automatically during a lecture.
 - Publishing anything publicly (GitHub Pages, stores) needs the user's explicit OK. Hosting the relay was approved on 2026-11-12.
 - "Authentication failed" on the login page is ETH's wrong-credentials message, not an app bug. A cookie or flow problem shows HTTP 500 instead.

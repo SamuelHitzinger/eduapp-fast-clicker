@@ -696,6 +696,83 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     stop();
   }
 
+  // ---------- X: safety before a wider release (v3.4)
+  {
+    // question and answer HTML from ETH is cleaned: formatting, formulas and pictures stay; anything active goes
+    const S = makeServer();
+    const evil = { ...mcsa(980001, 'Evil'),
+      question: '<p>Q <b>bold</b> <script>window.__pwn=1</script><img src="x" onerror="window.__pwn=2"><svg onload="window.__pwn=3" width="2ex" height="1ex"><path d="M0 0"/><use href="#m1"/><use href="https://evil.example/x.svg#a"/></svg>'
+        + '<a href="javascript:window.__pwn=4">link</a><a href="https://ethz.ch">ok</a><iframe src="https://evil.example"></iframe><img src="https://evil.example/t.png"><img src="data:image/png;base64,iVBORw0KGgo=">'
+        + '<form action="https://evil.example"><input name="p"></form><div style="background:url(https://evil.example/t)">x</div><math><mi>x</mi></math></p>',
+      entries: [{ id: 1, answer: '<img src=x onerror="window.__pwn=5">A', selected: false }, { id: 2, answer: '<b>B</b>', selected: false }] };
+    S.addClicker(evil);
+    const { root, w, stop } = boot(S);
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 980001, courseTitle: { de: 'Analysis I' } });
+    await until(() => root.querySelector('.card[data-id="980001"] .q'));
+    await wait(300);
+    const card = root.querySelector('.card[data-id="980001"]');
+    const html = card.innerHTML;
+    const kept = !!card.querySelector('.q b') && !!card.querySelector('.q svg path') && !!card.querySelector('.q use[href="#m1"]') && !!card.querySelector('.q math mi')
+      && !!card.querySelector('.q img[src^="data:image/png"]') && !!card.querySelector('.q a[href="https://ethz.ch"][rel~="noopener"]') && !!card.querySelector('.opt b');
+    const gone = !/<script|onerror|onload|javascript:|<iframe|<form|<input|evil\.example/i.test(html);
+    check('X1 question HTML is cleaned: formatting, formulas, data pictures and safe links stay; scripts, handlers, frames, forms, outside links/pictures go',
+      kept && gone && w.__pwn === undefined, `kept ${kept}, gone ${gone}, pwn ${w.__pwn}`);
+    stop();
+  }
+  {
+    // hints: an id ETH refuses is never read again because of a hint, and hints cause at most a few reads a minute
+    const S = makeServer(); const R = fakeRelay();
+    const { fc, stop } = boot(S, { hooks: { relayUrl: 'wss://relay.test/v1', WebSocket: R.WebSocket }, settings: { shareMinMs: 10 } });
+    await until(() => R.joined());
+    const room = R.joined().rooms[0];
+    R.last().push({ t: 'roster', room, n: 2, slot: 0, m: 2, every: 1000, now: Date.now() });
+    S.forbid.add(990777);
+    const reads = () => S.log.filter((l) => l === 'GET clickers/990777').length;
+    R.last().push({ t: 'hint', room, k: 990777, e: 'CLICKER_OPEN', a: 1, c: new Date().toISOString() });
+    await until(() => reads() === 1, 3000);
+    await wait(1700);
+    R.last().push({ t: 'hint', room, k: 990777, e: 'CLICKER_OPEN', a: 2, c: new Date().toISOString() });
+    await wait(800);
+    const r1 = reads();
+    for (let i = 0; i < 20; i++) R.last().push({ t: 'hint', room, k: 991000 + i, e: 'CLICKER_OPEN', a: 100 + i, c: new Date().toISOString() });
+    await wait(1500);
+    const other = S.log.filter((l) => /^GET clickers\/991\d{3}$/.test(l)).length;
+    check('X2 a question ETH refused is not read again for a hint; a flood of hints causes at most 4 reads a minute', r1 === 1 && other <= 3, `refused id read ${r1}x, flood reads ${other}`);
+    stop();
+  }
+  {
+    // the app left open on screen outside lectures slows down after a while without a touch
+    const S = makeServer({ lectureNow: false });
+    const { w, fc, stop } = boot(S, { mode: 'focus', settings: { cadenceMs: 100, idleCadenceMs: 5000, onScreenFastMs: 400 } });
+    await until(() => fc.state.lastPollAt > 0);
+    await wait(700);                                   // no touches: fast pace over
+    const n0 = feedPolls(S);
+    await wait(800);
+    const idle = feedPolls(S) - n0;
+    w.dispatchEvent(new w.Event('pointerdown'));       // a touch: fast again
+    await wait(100);
+    fc.checkNow();
+    const n1 = feedPolls(S);
+    await wait(350);
+    const used = feedPolls(S) - n1;
+    check('X3 open on screen but untouched outside lectures, the app falls back to the slow pace; a touch makes it fast again', idle === 0 && used >= 2, `idle ${idle}, after touch ${used}`);
+    stop();
+  }
+  {
+    // a burst of activity never makes two feed requests in a row without the normal spacing
+    const S = makeServer();
+    const { fc, stop } = boot(S, { settings: { cadenceMs: 400 } });
+    await until(() => fc.state.lastPollAt > 0);
+    await wait(500);
+    for (let i = 0; i < 12; i++) S.push({ objectType: 'CHANNEL', type: 'CHANNEL_COMMENT_CREATE', objectId: 1, itemId: 5000 + i });
+    const t0 = Date.now();
+    await wait(1500);
+    const times = S.reqs.filter((u) => u.t > t0 && u.p.includes('activity-feed')).map((u) => u.t);
+    const gaps = times.slice(1).map((t, i) => t - times[i]);
+    check('X4 after a burst of activity, the wider feed request waits for the normal spacing', times.length >= 2 && gaps.every((g) => g >= 300), JSON.stringify(gaps));
+    stop();
+  }
+
   // ---------- E: ETH Clicker (v3.2): one simple screen, no settings drawer, no timing experiment
   {
     const S = makeServer();
@@ -703,7 +780,7 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     await until(() => root.querySelector('.card[data-id="322454"]'));
     await wait(500);
     const bar = root.querySelector('header.bar');
-    check('E1 the app is called ETH Clicker and has no menu or settings drawer', /ETH Clicker/.test(bar.textContent)
+    check('E1 the app is called Clicker and has no menu or settings drawer', /^\s*Clicker\s*$/.test(bar.querySelector('h1').textContent)
       && !root.querySelector('[data-a="menu"], #drawer, .drawer, #menu, [data-a="record"], [data-a="turbo"], [data-a="onetap"], [data-a="pause"]'));
     check('E2 the top bar keeps check-now and the dark-mode button; in the app no exit or full-screen button shows',
       !!root.querySelector('[data-a="now"]') && !!root.querySelector('#themebtn')

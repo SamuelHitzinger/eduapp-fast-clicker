@@ -28,7 +28,7 @@ const full = 'javascript:' + `(()=>{window.__FC_MODE='focus';${min.replace(/;$/,
 // 2) pinned, immutable script for the short loader (Subresource Integrity)
 const sri = 'sha384-' + crypto.createHash('sha384').update(min).digest('base64');
 const shortFile = `fast-clicker.${crypto.createHash('sha256').update(min).digest('hex').slice(0, 10)}.js`;
-// older pinned files are kept on purpose: installed short bookmarks reference them by name + hash
+// pinned files that were ever published are kept by tools/publish-site.js: installed short bookmarks reference them by name + hash
 fs.writeFileSync(path.join(site, shortFile), min);
 fs.writeFileSync(path.join(site, 'fast-clicker.user.js'), src);
 // iPhone and Android apps: the same tested build, injected by the app
@@ -36,12 +36,19 @@ fs.writeFileSync(path.join(root, 'ios/FastClicker/Resources/fast-clicker.js'), m
 fs.mkdirSync(path.join(root, 'android/app/src/main/assets'), { recursive: true });
 fs.writeFileSync(path.join(root, 'android/app/src/main/assets/fast-clicker.js'), min);
 
-// 3) install page
+// 3) install page (the TestFlight invitation link goes into tools/testflight-url.txt once the beta exists)
+const tfFile = path.join(__dirname, 'testflight-url.txt');
+const testflight = fs.existsSync(tfFile) ? fs.readFileSync(tfFile, 'utf8').trim() : '';
+if (testflight && !/^https:\/\/testflight\.apple\.com\/join\/[A-Za-z0-9]+$/.test(testflight)) throw new Error('tools/testflight-url.txt must hold a https://testflight.apple.com/join/... link');
+const apkPath = path.join(root, 'app-download', 'Clicker.apk');
+const apkSize = fs.existsSync(apkPath) ? (fs.statSync(apkPath).size / 1e6).toFixed(1) + ' MB' : 'about 1 MB';
 const html = fs.readFileSync(path.join(site, 'template.html'), 'utf8')
   .replace('__FULL_JSON__', () => JSON.stringify(full).replace(/</g, '\\u003c'))
   .replace('__SHORT_FILE_JSON__', () => JSON.stringify(shortFile))
   .replace('__SHORT_SRI_JSON__', () => JSON.stringify(sri))
   .replace('__VERSION__', version)
+  .replace('__TESTFLIGHT_JSON__', () => JSON.stringify(testflight))
+  .replace('__APK_SIZE__', apkSize)
   .replace('__DATE__', new Date().toISOString().slice(0, 10));
 fs.writeFileSync(path.join(site, 'index.html'), html);
 fs.writeFileSync(path.join(site, '.nojekyll'), '');
@@ -51,16 +58,16 @@ const ext = path.join(site, 'extension');
 fs.writeFileSync(path.join(ext, 'fast-clicker.js'), min);
 fs.writeFileSync(path.join(ext, 'manifest.json'), JSON.stringify({
   manifest_version: 3,
-  name: 'ETH Clicker',
+  name: 'Clicker for EduApp',
   version,
-  description: 'Shows ETH EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi. Unofficial.',
+  description: 'Shows EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi. Unofficial; not made by ETH Zurich.',
   icons: { 16: 'icon-16.png', 32: 'icon-32.png', 48: 'icon-48.png', 128: 'icon-128.png' },
   content_scripts: [{
     matches: ['https://eduapp.ethz.ch/*'],
     exclude_matches: ['https://eduapp.ethz.ch/keycloak/*', 'https://eduapp.ethz.ch/oauth2/*', 'https://eduapp.ethz.ch/mgmt/*'],
     js: ['fast-clicker.js'], run_at: 'document_idle', world: 'MAIN',
   }],
-  browser_specific_settings: { gecko: { id: 'eduapp-fast-clicker@students.ethz', strict_min_version: '128.0' } },
+  browser_specific_settings: { gecko: { id: 'clicker-for-eduapp@beta', strict_min_version: '128.0' } },
 }, null, 2));
 const zip = path.join(site, 'fast-clicker-extension.zip');
 execFileSync('python', ['-I', path.join(__dirname, 'zipdir.py'), zip, ext]);
