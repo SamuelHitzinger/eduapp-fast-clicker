@@ -136,6 +136,7 @@ test('roster broadcasts are coalesced to one per room per 300 ms (latest state w
   const { hub, conn, join, advance } = setup();
   const x = conn();
   join(x, [R1]);
+  advance(400); // (x's own arrival is a change too)
   x.take();
   const scouts = [conn(), conn(), conn(), conn()];
   join(scouts[0], [R1], true); // first change: broadcast immediately
@@ -647,7 +648,7 @@ test('a room remembers accepted hints across an eviction: duplicates stay droppe
 test('nextDueAt() tells a host without a timer when a coalesced roster is due', () => {
   const { hub, clock, conn, join } = setup();
   const [a, b] = [conn(), conn()];
-  assert.equal(hub.nextDueAt(), null);
+  assert.equal(hub.nextDueAt(), clock.t + DEFAULT_LIMITS.JOIN_DEADLINE_MS, 'not joined yet: closed if they never do');
   join(a, [R1], true);            // first change goes out at once
   join(b, [R1], true);            // within 300 ms: coalesced
   assert.equal(hub.nextDueAt(), clock.t + DEFAULT_LIMITS.ROSTER_COALESCE_MS);
@@ -655,4 +656,28 @@ test('nextDueAt() tells a host without a timer when a coalesced roster is due', 
   hub.tick();
   assert.equal(hub.nextDueAt(), null);
   assert.deepEqual(a.out.at(-1).n, 2);
+});
+
+test('a connection that never joins is closed after JOIN_DEADLINE_MS; a joined one is not', () => {
+  const { hub, conn, join, advance } = setup({ IDLE_MS: 1e9 });
+  const lazy = conn(), ok = conn();
+  join(ok, [R1], false);
+  advance(DEFAULT_LIMITS.JOIN_DEADLINE_MS + 10);
+  assert.equal(lazy.closed && lazy.closed.code, CLOSE.IDLE);
+  assert.equal(ok.closed, null);
+  assert.equal(hub.nextDueAt(), null);
+  check(hub);
+});
+
+test('standby members hear when the room has grown noticeably (they check on their own less often)', () => {
+  const { conn, join, advance } = setup();
+  const watcher = conn();
+  join(watcher, [R1], false);
+  advance(400);
+  watcher.take();
+  for (let i = 0; i < 99; i++) { join(conn(), [R1], false); if (i % 10 === 0) advance(50); }
+  advance(400);
+  const seen = watcher.take('roster').map((m) => m.m);
+  assert.ok(seen.length >= 1 && seen.length <= 15, `told ${seen.length} times`);
+  assert.equal(seen.at(-1), 100);
 });

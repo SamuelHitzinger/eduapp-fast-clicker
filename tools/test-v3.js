@@ -616,13 +616,17 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
   {
     // pulling down in the iPhone app = "check now": no restart, the feed is asked right away
     const S = makeServer();
-    const { fc, stop } = boot(S, { settings: { cadenceMs: 5000, idleCadenceMs: 5000 } });
+    const { fc, stop } = boot(S, { settings: { cadenceMs: 6000, idleCadenceMs: 6000 } });
     await until(() => fc.state.lastPollAt > 0);
-    await wait(100);
-    const n = S.log.filter((l) => l.includes('activity-feed')).length;
-    fc.checkNow();
-    const asked = await until(() => S.log.filter((l) => l.includes('activity-feed')).length > n, 1000);
-    check('V4 "check now" asks the feed right away', asked);
+    const feeds = () => S.log.filter((l) => l.includes('activity-feed')).length;
+    const n = feeds();
+    const t0 = fc.state.lastFeedStartAt;
+    fc.checkNow();                                       // right after a check: waits for the 4 s floor
+    await wait(1000);
+    const early = feeds() > n;
+    const asked = await until(() => feeds() > n, 5000);
+    const gap = Date.now() - t0;
+    check('V4 "check now" asks the feed as soon as allowed: not within 4 s of the last check, well before the normal 6 s', !early && asked && gap >= 3900 && gap < 5500, `after ${gap} ms`);
     stop();
   }
   // ---------- R+: one relay connection per room (v3.3)
@@ -669,6 +673,27 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     };
     const small = await count(20), big = await count(2000);
     check('R20 standing by, a client checks on its own less often in a big room (60 scouts share the work)', small >= 5 && big <= 1, `room of 20: ${small} checks, room of 2000: ${big} in 1.5 s`);
+  }
+
+  {
+    // standing by in a big room, a "round changed?" hint holds automatic re-sends but sends nobody to the feed early
+    const S = makeServer(); const R = fakeRelay();
+    const { fc, stop } = boot(S, { hooks: { relayUrl: 'wss://relay.test/v1', WebSocket: R.WebSocket }, settings: { cadenceMs: 100, shareMinMs: 10 } });
+    await until(() => R.joined());
+    const room = R.joined().rooms[0];
+    R.last().push({ t: 'roster', room, n: 60, slot: -1, m: 2000, every: 1000, now: Date.now() });
+    await wait(300);
+    S.addClicker(mcsa(990001, 'Big room'));
+    R.last().push({ t: 'hint', room, k: 990001, e: 'CLICKER_OPEN', a: 41, c: new Date().toISOString() });
+    await until(() => fc.state.clickers.get(990001), 4000);
+    await wait(1600);                                    // (hints about the same question are at least 1.5 s apart)
+    const n0 = feedPolls(S);
+    R.last().push({ t: 'hint', room, k: 990001, e: 'CLICKER_START_ROUND', a: 42, c: new Date().toISOString() });
+    await until(() => fc.state.hold.has(990001), 4000);
+    await wait(1500);
+    check('R21 standing by in a big room, a round-change hint holds re-sends but brings no feed check forward',
+      fc.state.hold.has(990001) && !fc.relay.confirmDue && feedPolls(S) === n0, `feed checks +${feedPolls(S) - n0}`);
+    stop();
   }
 
   // ---------- E: ETH Clicker (v3.2): one simple screen, no settings drawer, no timing experiment

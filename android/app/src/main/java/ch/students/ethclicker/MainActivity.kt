@@ -214,22 +214,27 @@ class MainActivity : ComponentActivity() {
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
             if (!request.isForMainFrame) return
             // No connection at launch: a small retry page instead of a blank screen.
-            val dark = isSystemDark()
-            val bg = if (dark) "#121212" else "#fff"
-            val fg = if (dark) "#eee" else "#333"
-            val html = """
-                <meta name="viewport" content="width=device-width,initial-scale=1">
-                <body style="font:17px sans-serif;padding:40px 24px;background:$bg;color:$fg">
-                <h2>No connection to EduApp</h2><p>Check the Wi-Fi, then try again.</p>
-                <p><a href="$START_URL" style="display:inline-block;padding:12px 20px;border-radius:6px;background:#08407e;color:#fff;text-decoration:none">Try again</a></p></body>
-            """.trimIndent()
-            view.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
+            showNotice(view, "No connection to EduApp", "Check the Wi-Fi, then try again.", "Try again")
         }
 
         override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
             recreate()                                       // the page's process was killed: start fresh
             return true
         }
+    }
+
+    /** A small page of our own (no connection, not logged in) with one button that starts the clicker again. */
+    private fun showNotice(view: WebView, heading: String, text: String, button: String) {
+        val dark = isSystemDark()
+        val bg = if (dark) "#121212" else "#fff"
+        val fg = if (dark) "#eee" else "#333"
+        val html = """
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <body style="font:17px sans-serif;padding:40px 24px;background:$bg;color:$fg">
+            <h2>$heading</h2><p>$text</p>
+            <p><a href="$START_URL" style="display:inline-block;padding:12px 20px;border-radius:6px;background:#08407e;color:#fff;text-decoration:none">$button</a></p></body>
+        """.trimIndent()
+        view.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
     }
 
     // ---------------------------------------------------------------- login (ETH's own pages, in a dialog)
@@ -244,6 +249,7 @@ class MainActivity : ComponentActivity() {
         val dialog = Dialog(this, android.R.style.Theme_DeviceDefault_NoActionBar)
         dialog.setContentView(popup)
         var done = false
+        var loggedIn = false
         fun finish() {
             if (done) return
             done = true
@@ -257,7 +263,7 @@ class MainActivity : ComponentActivity() {
             override fun onPageFinished(view: WebView, url: String?) {
                 view.evaluateJavascript(loginFieldScript, null)
                 val u = url?.let(Uri::parse)
-                if (u?.host == "eduapp.ethz.ch" && u.path.orEmpty().startsWith("/web/gw/")) finish()   // logged in
+                if (u?.host == "eduapp.ethz.ch" && u.path.orEmpty().startsWith("/web/gw/")) { loggedIn = true; finish() }   // logged in
             }
         }
         popup.webChromeClient = object : WebChromeClient() {
@@ -267,8 +273,11 @@ class MainActivity : ComponentActivity() {
             login = null
             CookieManager.getInstance().flush()
             popup.destroy()
-            if (url != null) web.loadUrl(START_URL)          // the app asked for the login: start the clicker
-            else web.evaluateJavascript("window.dispatchEvent(new Event('online'))", null)   // the page's own button
+            when {
+                url == null -> web.evaluateJavascript("window.dispatchEvent(new Event('online'))", null)   // the page's own button
+                loggedIn -> web.loadUrl(START_URL)           // the app asked for the login: start the clicker
+                else -> showNotice(web, "Not logged in", "Log in with your ETH account to see clicker questions.", "Log in")   // cancelled: no new dialog by itself
+            }
         }
         login = dialog
         dialog.show()

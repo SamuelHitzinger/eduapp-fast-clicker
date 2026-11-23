@@ -63,7 +63,7 @@ export class RelayRoom extends DurableObject {
     for (const ws of this.ctx.getWebSockets()) {
       const att = safeAttachment(ws);
       if (!att || att.room !== room) continue;
-      entries.push({ conn: this.connFor(ws, att), rooms: att.rooms, scout: att.scout, seq: att.seq });
+      entries.push({ conn: this.connFor(ws, att), rooms: att.rooms, scout: att.scout, seq: att.seq, joined: att.joined });
     }
     this.hub.restore(entries, { quiet });
     return this.hub;
@@ -75,6 +75,7 @@ export class RelayRoom extends DurableObject {
     conn = {
       id: att.id,
       ip: att.ip,
+      since: att.since,
       onlyRoom: att.room,
       att,
       ws,
@@ -92,7 +93,7 @@ export class RelayRoom extends DurableObject {
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
     this.ctx.acceptWebSocket(server);
-    const att = { room, id: crypto.randomUUID(), ip: request.headers.get('CF-Connecting-IP') || 'unknown', rooms: [], scout: false, seq: 0 };
+    const att = { room, id: crypto.randomUUID(), ip: request.headers.get('CF-Connecting-IP') || 'unknown', since: Date.now(), rooms: [], scout: false, seq: 0, joined: false };
     server.serializeAttachment(att);
     hub.connect(this.connFor(server, att)); // over capacity: it is told `full` and closed
     await this.schedule();
@@ -128,7 +129,7 @@ export class RelayRoom extends DurableObject {
     this.conns.delete(ws);
   }
 
-  /** A coalesced roster broadcast is due. */
+  /** A coalesced roster broadcast is due, or a connection that never joined has to go. */
   async alarm() {
     if (!this.hub) {
       // woken only for this: rebuild, and tell every member its slot (what was pending is not known any more)

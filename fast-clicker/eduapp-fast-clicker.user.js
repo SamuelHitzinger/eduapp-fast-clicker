@@ -736,17 +736,26 @@
       publish(c, true);
     } else {
       publish(c, false);
-      if (c.state === 'OPEN' && h.type !== 'CLICKER_OPEN') confirmSoon(id, h.members);
+      // a possible round change: automatic re-sends of this question wait until a feed check has spoken (the hold).
+      // The feed is asked soon only by the clients that take turns checking (at most 60 per room) and by those with
+      // an answer on its way; the others wait for their own next check, so a big room never sends its whole hall to
+      // the feed at once (a held re-send asks for the check itself, see sendVote)
+      const sp = sharedPlan();
+      const answering = state.sending.has(id) || state.resend.has(id) || state.unverified.has(id);
+      if (c.state === 'OPEN' && h.type !== 'CLICKER_OPEN') holdForRound(id, (sp && sp.slot >= 0) || answering ? h.members : -1);
     }
     render();
   }
-  function confirmSoon(id, members) {
+  function holdForRound(id, members) {                          // members < 0: hold only, no early feed check
+    state.hold.set(id, { at: Date.now() });
+    if (members >= 0) confirmSoon(members);
+  }
+  function confirmSoon(members) {
     const now = Date.now();
     relay.confirms = relay.confirms.filter((t) => now - t < 300000);
     if (relay.confirmDue || relay.confirms.length >= 6) return;  // one at a time, at most 6 in 5 minutes
     relay.confirms.push(now);
     relay.confirmDue = now + Math.random() * TS * Math.min(8000, 25 * members);
-    state.hold.set(id, { at: now });
     if (state.leader && !state.polling) schedule();
   }
 
@@ -853,7 +862,7 @@
       } else {
         let cadence = !fast ? CFG.idleCadenceMs : document.hidden ? CFG.hiddenCadenceMs : CFG.cadenceMs;
         // relay configured but unreachable: check alone, but the more students were sharing, the slower (ETH load)
-        if (fast && relayUrl && relay.want.size && !relay.open) cadence = Math.max(cadence, Math.min(CFG.soloMaxMs, relay.lastN * CFG.soloStepMs));
+        if (fast && relayUrl && relay.want.size && !sharedPlan()) cadence = Math.max(cadence, Math.min(CFG.soloMaxMs, relay.lastN * CFG.soloStepMs));
         // server slower than usual: back off (start to start), but less during a lecture, when finding the question matters
         if (latOk.feed > 2500) cadence = Math.max(cadence, Math.round(Math.min(latOk.feed, 30000) * (fast ? 1.5 : 3)));
         const maxBackoff = fast ? Math.min(CFG.maxBackoffMs, CFG.lectureBackoffMs) : CFG.maxBackoffMs;
@@ -866,8 +875,11 @@
       if (relay.confirmDue) ms = Math.min(ms, relay.confirmDue - now);   // a hint asked for the feed's word on a round change
       // floors that nothing overrides: the normal rhythm after the last feed check, and any pause ETH asked for
       if (state.lastFeedStartAt && fastMode()) ms = Math.max(ms, state.lastFeedStartAt + CFG.cadenceMs - now);
-      ms = Math.max(0, ms, state.notBefore - now);
     }
+    // also for "check now" and coming back to the app: never two feed checks within 4 s, and any pause ETH asked for
+    const now = Date.now();
+    if (state.lastFeedStartAt) ms = Math.max(ms, state.lastFeedStartAt + Math.min(CFG.cadenceMs, 4000) - now);
+    ms = Math.max(0, ms, state.notBefore - now);
     state.dueAt = Date.now() + ms;
     state.timer = setTimeout(tick, ms);
   }
@@ -983,6 +995,7 @@
           // An automatic send (a retry, or a repair after verification) waits while a hint has raised the possibility of a
           // new round, until a feed check has actually succeeded. Only the student's own tap sends without waiting.
           if ((attempt > 0 || repair > 0) && state.hold.has(id)) {
+            if (!relay.confirmDue) confirmSoon(0);             // a standby client asks the feed itself, now that it matters
             if (Date.now() > deadline) { setStatus(id, 'err', 'Could not check whether a new round started. Check your answer and tap Send again.'); attempt = -1; return; }
             if (state.status.get(id)?.text !== 'Checking whether a new round started…') setStatus(id, 'pending', 'Checking whether a new round started…');
             await sleep(Math.max(40, TS * 250));

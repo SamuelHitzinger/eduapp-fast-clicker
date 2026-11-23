@@ -43,6 +43,7 @@ export const DEFAULT_LIMITS = Object.freeze({
   MAX_ACTIVE_SCOUTS: 60,
 
   IDLE_MS: 120_000, // nothing received for this long -> closed
+  JOIN_DEADLINE_MS: 30_000, // a connection that has not joined a room by then is closed (it only holds a place)
   ROSTER_COALESCE_MS: 300, // at most one roster broadcast per room per 300 ms
   SWEEP_MS: 5_000, // how often tick() runs the (O(connections + rooms)) sweep
 });
@@ -111,6 +112,7 @@ export class Hub {
     this.onRoomMemory = onRoomMemory; // (roomId, memory) after an accepted hint
     this.loadRoomMemory = loadRoomMemory; // (roomId) -> memory | null, when a room is (re)created
     this.scoutSeq = 0; // order in which connections became scouts (survives a restore)
+    this.unjoined = new Set(); // connections that have not joined yet (closed after JOIN_DEADLINE_MS)
     this.conns = new Map(); // conn object -> ConnState
     this.ipCounts = new Map(); // ip -> open connections
     this.rooms = new Map(); // room id -> Room
@@ -137,7 +139,9 @@ export class Hub {
       safeClose(conn, CLOSE.FULL, 'full');
       return false;
     }
-    this.conns.set(conn, this._state(conn, ip));
+    const st = this._state(conn, ip);
+    this.conns.set(conn, st);
+    this.unjoined.add(st);
     this.ipCounts.set(ip, (this.ipCounts.get(ip) || 0) + 1);
     return true;
   }
@@ -148,6 +152,8 @@ export class Hub {
       conn,
       ip,
       lastSeen: this.now(),
+      since: Number(conn.since) || this.now(), // connected at
+      joined: false,
       scout: false,
       seq: 0, // when it became a scout: decides its slot
       rooms: new Set(), // room ids
@@ -175,6 +181,7 @@ export class Hub {
     const st = this.conns.get(conn);
     if (!st) return;
     this.conns.delete(conn);
+    this.unjoined.delete(st);
     const left = (this.ipCounts.get(st.ip) || 1) - 1;
     if (left > 0) this.ipCounts.set(st.ip, left);
     else this.ipCounts.delete(st.ip);
@@ -202,6 +209,7 @@ export class Hub {
   nextDueAt() {
     let t = Infinity;
     for (const room of this.dirty) t = Math.min(t, room.lastFlush + this.L.ROSTER_COALESCE_MS);
+    for (const st of this.unjoined) t = Math.min(t, st.since + this.L.JOIN_DEADLINE_MS);
     return t === Infinity ? null : t;
   }
 
@@ -212,13 +220,15 @@ export class Hub {
    */
   restore(entries, { quiet = true } = {}) {
     const sorted = [...entries].sort((x, y) => (x.seq || 0) - (y.seq || 0));
-    for (const { conn, rooms, scout, seq } of sorted) {
+    for (const { conn, rooms, scout, seq, joined } of sorted) {
       if (this.conns.has(conn)) continue;
       const ip = String(conn.ip || 'unknown');
       const st = this._state(conn, ip);
       this.conns.set(conn, st);
       this.ipCounts.set(ip, (this.ipCounts.get(ip) || 0) + 1);
       st.scout = !!scout;
+      st.joined = !!joined;
+      if (!st.joined) this.unjoined.add(st);
       st.seq = Number(seq) || 0;
       if (st.seq > this.scoutSeq) this.scoutSeq = st.seq;
       for (const id of Array.isArray(rooms) ? rooms.slice(0, this.L.MAX_ROOMS_PER_CONN) : []) {
@@ -235,7 +245,7 @@ export class Hub {
       const slots = new Map(room.scouts.map((s, i) => [s, i]));
       for (const st of room.members) {
         const i = slots.has(st) ? slots.get(st) : -1;
-        st.lastRoster.set(room.id, n + '/' + (i < n ? i : -1));
+        st.lastRoster.set(room.id, n + '/' + (i < n ? i : -1) + '/' + sizeBucket(room.members.size));
       }
     }
   }
@@ -244,6 +254,7 @@ export class Hub {
   tick() {
     this._flushDue();
     const now = this.now();
+    for (const st of [...this.unjoined]) if (now - st.since >= this.L.JOIN_DEADLINE_MS) this._kick(st, CLOSE.IDLE, 'no join');
     if (now - this.lastSweep < this.L.SWEEP_MS) return;
     this.lastSweep = now;
     for (const st of this.conns.values()) {
@@ -322,6 +333,8 @@ export class Hub {
         this._leave(st, id);
       }
     }
+    st.joined = true;
+    this.unjoined.delete(st);
     const scoutChanged = st.scout !== scout;
     st.scout = scout;
     if (scout && scoutChanged) st.seq = ++this.scoutSeq;
@@ -338,13 +351,11 @@ export class Hub {
       room.members.add(st);
       room.lastActive = now;
       st.rooms.add(id);
-      if (scout) {
-        room.scouts.push(st);
-        this._markDirty(room);
-      }
+      if (scout) room.scouts.push(st);
+      this._markDirty(room); // also the room's size, which sets how often standby members check on their own
     }
 
-    if (this.onConnState) this.onConnState(st.conn, { rooms: [...st.rooms], scout: st.scout, seq: st.seq });
+    if (this.onConnState) this.onConnState(st.conn, { rooms: [...st.rooms], scout: st.scout, seq: st.seq, joined: true });
 
     // Direct reply: one roster per requested room, then replays for new rooms.
     for (const id of want) this._sendRoster(st, this.rooms.get(id), now);
@@ -406,7 +417,8 @@ export class Hub {
     if (!room) return;
     room.members.delete(st);
     room.lastActive = this.now();
-    if (removeFrom(room.scouts, st)) this._markDirty(room);
+    removeFrom(room.scouts, st);
+    this._markDirty(room);
     this._maybeDrop(room);
   }
 
@@ -434,7 +446,8 @@ export class Hub {
     const n = Math.min(room.scouts.length, this.L.MAX_ACTIVE_SCOUTS);
     const i = slots ? (slots.has(st) ? slots.get(st) : -1) : room.scouts.indexOf(st);
     const slot = i < n ? i : -1;
-    const key = n + '/' + slot;
+    // members hear of the room's size when it changes noticeably (standby members check less often in big rooms)
+    const key = n + '/' + slot + '/' + sizeBucket(room.members.size);
     if (slots && st.lastRoster.get(room.id) === key) return;
     st.lastRoster.set(room.id, key);
     this._send(
@@ -530,6 +543,11 @@ function newRoom(id, L) {
     lastFlush: -Infinity,
     lastActive: 0,
   };
+}
+
+/** Room sizes in steps of 25 % (exact up to 20): a member is told the size again only when it changed that much. */
+function sizeBucket(m) {
+  return m <= 20 ? m : 20 + Math.round(Math.log(m / 20) / Math.log(1.25));
 }
 
 /** A room's recent hints, for a host that may be evicted from memory (JSON-safe, small). */
