@@ -14,6 +14,54 @@ import { Hub, ALLOWED_ORIGINS, ROOM_LIMITS, ROOM_ID_RE } from './hub.js';
 
 const PING = '{"t":"ping"}';
 const PONG = '{"t":"pong"}';
+const SNAPSHOT_MS = 5 * 60_000; // a busy room writes one line of numbers to the metrics database every 5 minutes
+
+// ---------------------------------------------------------------- anonymous beta diagnostics (POST /v1/report)
+// The apps report numbers about themselves (timings, counts) every ~10 minutes and when a question opens: no names,
+// logins, questions or answers. Stored in D1 (`clicker-metrics`), read with `node tools/monitor.js`.
+const REPORT_MAX_BYTES = 4096;
+const PLATFORMS = new Set(['ios', 'android', 'web', 'addon']);
+const KINDS = new Set(['period', 'question']);
+const recent = new Map(); // ip -> [window start, count] (best effort, per Worker instance)
+function cleanData(o, depth = 0) {
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+  const out = {};
+  let n = 0;
+  for (const [k, v] of Object.entries(o)) {
+    if (!/^[A-Za-z0-9_]{1,24}$/.test(k) || ++n > 60) return null;
+    if (typeof v === 'number') { if (!Number.isFinite(v)) return null; out[k] = Math.round(v * 1000) / 1000; }
+    else if (typeof v === 'boolean') out[k] = v ? 1 : 0;
+    else if (v && typeof v === 'object' && depth === 0) { const c = cleanData(v, 1); if (!c) return null; out[k] = c; }
+    else return null;                                       // no strings: nothing but numbers can be stored
+  }
+  return out;
+}
+async function report(request, env) {
+  const cors = { 'access-control-allow-origin': 'https://eduapp.ethz.ch', 'access-control-allow-methods': 'POST', 'access-control-allow-headers': 'content-type' };
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  const origin = request.headers.get('Origin');
+  if (origin !== null && !ALLOWED_ORIGINS.includes(origin)) return new Response('forbidden', { status: 403 });
+  const ip = request.headers.get('CF-Connecting-IP') || '?';
+  const now = Date.now();
+  const r = recent.get(ip);
+  if (r && now - r[0] < 60_000) { if (++r[1] > 30) return new Response(null, { status: 429, headers: cors }); } else recent.set(ip, [now, 1]);
+  if (recent.size > 5000) recent.clear();
+  const text = await request.text();
+  if (!env.METRICS || text.length > REPORT_MAX_BYTES) return new Response(null, { status: 413, headers: cors });
+  let m;
+  try { m = JSON.parse(text); } catch { return new Response(null, { status: 400, headers: cors }); }
+  const data = m && cleanData(m.data);
+  if (!data || !/^[0-9a-f]{16}$/.test(m.install) || !PLATFORMS.has(m.platform) || !KINDS.has(m.kind) || !/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(m.version)) {
+    return new Response(null, { status: 400, headers: cors });
+  }
+  await env.METRICS.prepare('INSERT INTO reports (ts, day, install, platform, version, kind, data) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(now, new Date(now).toISOString().slice(0, 10), m.install, m.platform, m.version, m.kind, JSON.stringify(data)).run().catch(() => {});
+  if (Math.random() < 0.01) {                                  // kept 90 days, then deleted
+    const old = now - 90 * 86400e3;
+    await env.METRICS.batch([env.METRICS.prepare('DELETE FROM reports WHERE ts < ?').bind(old), env.METRICS.prepare('DELETE FROM rooms WHERE ts < ?').bind(old)]).catch(() => {});
+  }
+  return new Response(null, { status: 204, headers: cors });
+}
 
 export default {
   async fetch(request, env) {
@@ -21,6 +69,7 @@ export default {
     if (url.pathname === '/health' && request.method === 'GET') {
       return new Response('{"ok":true}', { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
     }
+    if (url.pathname === '/v1/report' && (request.method === 'POST' || request.method === 'OPTIONS')) return report(request, env);
     const m = /^\/v1\/room\/([^/]+)$/.exec(url.pathname);
     if (!m || !ROOM_ID_RE.test(m[1])) return new Response('not found', { status: 404 });
     if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') return new Response('expected websocket', { status: 426 });
@@ -39,10 +88,12 @@ export class RelayRoom extends DurableObject {
     this.conns = new Map(); // WebSocket -> conn handed to the hub
     this.memory = null; // the room's recent hints, as last stored
     this.alarmAt = null; // when the next alarm is set for (null: none)
+    this.snap = { at: 0, hints: 0 }; // last metrics snapshot, hints accepted since
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG));
     ctx.blockConcurrencyWhile(async () => {
       this.memory = (await ctx.storage.get('mem')) || null;
       this.alarmAt = await ctx.storage.getAlarm();         // a roster broadcast was pending when the room went to sleep
+      this.snap = (await ctx.storage.get('snap')) || { at: 0, hints: 0 };
     });
   }
 
@@ -58,7 +109,8 @@ export class RelayRoom extends DurableObject {
       },
       onRoomMemory: (id, mem) => {
         this.memory = mem;
-        this.ctx.storage.put('mem', mem).catch(() => {});
+        this.snap.hints++;
+        this.ctx.storage.put({ mem, snap: this.snap }).catch(() => {});
       },
       loadRoomMemory: () => this.memory,
     });
@@ -148,11 +200,33 @@ export class RelayRoom extends DurableObject {
       this.ensureHub(att.room, { quiet: false });
     }
     this.hub.tick();
+    await this.snapshot();
     await this.schedule();
   }
 
+  /** One line of numbers for the metrics database, every 5 minutes while the room is in use. */
+  async snapshot() {
+    const room = this.hub && this.room && this.hub.rooms.get(this.room);
+    const now = Date.now();
+    if (!room || !room.members.size || now - this.snap.at < SNAPSHOT_MS - 1000) return;
+    const active = this.hub._slots(room).size;
+    const hints = this.snap.hints;
+    this.snap = { at: now, hints: 0 };
+    await this.ctx.storage.put('snap', this.snap);
+    if (this.env.METRICS) {
+      await this.env.METRICS.prepare('INSERT INTO rooms (ts, day, room, members, scouts, standby, hints) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .bind(now, new Date(now).toISOString().slice(0, 10), this.room.slice(0, 8), room.members.size, active, room.members.size - active, hints).run().catch(() => {});
+    }
+  }
+
   async schedule() {
-    const due = this.hub && this.hub.nextDueAt();
+    let due = this.hub && this.hub.nextDueAt();
+    const room = this.hub && this.room && this.hub.rooms.get(this.room);
+    if (room && room.members.size) {                       // the next metrics snapshot while the room is in use
+      if (!this.snap.at) this.snap.at = Date.now() - SNAPSHOT_MS + 60_000;   // the first one a minute after the room opens
+      const snapDue = Math.max(this.snap.at + SNAPSHOT_MS, Date.now() + 1000);
+      due = due == null ? snapDue : Math.min(due, snapDue);
+    }
     if (due == null) return;
     const at = Math.max(Date.now() + 10, due);
     if (this.alarmAt != null && this.alarmAt <= at) return;   // an earlier alarm is set already (no write per join)

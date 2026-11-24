@@ -1,11 +1,13 @@
 name: Build Android app
 
+# Started by hand (Actions → Build Android app → Run workflow), to save GitHub's monthly build minutes.
 on:
-  push:
-    paths:
-      - "android/**"
-      - ".github/workflows/android.yml"
   workflow_dispatch:
+    inputs:
+      smoke:
+        description: "Also run the emulator smoke test (about 10 more minutes)"
+        type: boolean
+        default: false
 
 # read-only token: the builds never write to the repository
 permissions:
@@ -68,6 +70,7 @@ jobs:
 
   smoke:
     needs: build
+    if: inputs.smoke
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

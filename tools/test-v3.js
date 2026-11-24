@@ -856,6 +856,33 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     B.stop();
   }
 
+  {
+    // anonymous beta diagnostics: numbers only, a random install id, nothing about the person, course or answers
+    const S = makeServer(); const reports = [];
+    const { root, w, stop } = boot(S, { hooks: { onReport: (m) => reports.push(JSON.parse(JSON.stringify(m))) } });
+    await until(() => root.querySelector('.card[data-id="322454"]'));
+    S.addClicker({ ...mcsa(980010, 'Secret title'), question: '<p>Secret question text</p>' });
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 980010, courseTitle: { de: 'Analysis I' } });
+    await until(() => root.querySelector('.opt[data-id="980010"]'));
+    root.querySelector('.opt[data-id="980010"][data-e="2"]').click();
+    root.querySelector('.send[data-id="980010"]').click();
+    await until(() => S.votes.some((v) => v.id === 980010));
+    await wait(300);
+    Object.defineProperty(w.document, 'hidden', { value: true, configurable: true });
+    w.document.dispatchEvent(new w.Event('visibilitychange'));
+    await wait(100);
+    const q = reports.find((r) => r.kind === 'question');
+    const per = reports.find((r) => r.kind === 'period');
+    const text = JSON.stringify(reports);
+    const numbersOnly = (o) => Object.values(o).every((v) => typeof v === 'number' || typeof v === 'boolean' || (v && typeof v === 'object' && numbersOnly(v)));
+    check('X10 diagnostics report the question delay and a period summary (requests, vote, relay) as numbers only, with a random install id',
+      !!q && typeof q.data.delay === 'number' && !!per && per.data.feed && per.data.feed.n > 0 && per.data.vote.ok === 1
+      && reports.every((r) => /^[0-9a-f]{16}$/.test(r.install) && r.platform === 'web' && numbersOnly(r.data)), text.slice(0, 400));
+    check('X11 diagnostics never contain names, courses, question texts or answers',
+      !/Secret|Analysis|322454|980010|selected|ethz/i.test(text), text.slice(0, 300));
+    stop();
+  }
+
   // ---------- E: ETH Clicker (v3.2): one simple screen, no settings drawer, no timing experiment
   {
     const S = makeServer();

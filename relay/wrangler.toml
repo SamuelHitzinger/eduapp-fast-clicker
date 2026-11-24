@@ -12,3 +12,10 @@ class_name = "RelayRoom"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["RelayRoom"]
+
+# Anonymous beta diagnostics (POST /v1/report from the apps, room snapshots from the rooms). Query: node tools/monitor.js
+[[d1_databases]]
+binding = "METRICS"
+database_name = "clicker-metrics"
+database_id = "6491f177-224d-483f-8dd9-6e5e0347b329"
+migrations_dir = "migrations"

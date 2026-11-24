@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ETH Clicker: privacy</title>
+<style>
+  :root{--bg:#f4f5f8;--card:#fff;--text:#16181d;--muted:#5f6672;--line:#e3e6ec}
+  @media (prefers-color-scheme:dark){:root{--bg:#121417;--card:#1b1e23;--text:#e9ebef;--muted:#9aa1ad;--line:#2b3038}}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  main{max-width:760px;margin:0 auto;padding:24px 16px 60px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0}
+  h1{font-size:26px;margin:8px 0}
+  h2{font-size:19px;margin:0 0 8px}
+  .muted{color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<main>
+  <h1>ETH Clicker: privacy</h1>
+  <p class="muted">ETH Clicker is an unofficial beta app for the clicker feature of ETH Zurich's EduApp, made by a student. It is not made or endorsed by ETH Zurich.</p>
+
+  <section class="card">
+    <h2>Your ETH login, questions and answers</h2>
+    <p>You log in on ETH's own login page. The app never sees or stores your password. Your session, the clicker questions and your answers only travel between your device and eduapp.ethz.ch, exactly as in EduApp. To start faster, the app keeps a copy of your semester's question list on your device, tied to your account; it is deleted when someone else logs in on the same device.</p>
+  </section>
+
+  <section class="card">
+    <h2>The helper service (relay)</h2>
+    <p>To notice new questions faster, the phones in the same lecture share a small service on Cloudflare. It only passes on "question number N changed"; each phone then asks EduApp itself. While you are connected it sees your IP address (used only to limit abuse) and a code for the lecture room, which is a hash: it does not know the course. It keeps the last few "question changed" notices of a room for up to 10 minutes and nothing about you.</p>
+  </section>
+
+  <section class="card">
+    <h2>Anonymous beta diagnostics</h2>
+    <p>During the beta the app sends numbers about how well it works, every 10 minutes and when a question opens: how long it took until a question appeared, how often and how fast EduApp answered and with which kind of error, whether answers got through and after how many attempts, and whether the helper service was connected. Each report carries the app's platform and version and a random id the app creates on first start. It contains no name, login, course, question, question number, answer or location, and the id is not linked to your ETH account. The numbers are stored on Cloudflare and deleted after 90 days. They are only used to see whether the beta works and how much load it puts on EduApp.</p>
+  </section>
+
+  <section class="card">
+    <h2>Nothing else</h2>
+    <p>No advertising, no tracking across apps or websites, no sale or sharing of data. Questions about this page: __CONTACT__</p>
+  </section>
+  <p class="muted">Last updated __DATE__.</p>
+</main>
+</body>
+</html>

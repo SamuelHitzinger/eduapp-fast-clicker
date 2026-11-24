@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ETH Clicker (unofficial)
 // @namespace    https://eduapp.ethz.ch/
-// @version      3.4.2
+// @version      3.5.0
 // @description  Shows opened ETH EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi.
 // @match        https://eduapp.ethz.ch/*
 // @run-at       document-idle
@@ -36,7 +36,7 @@
 //     The relay never sees logins, questions or answers (relay/README.md).
 (() => {
   'use strict';
-  const VERSION = '3.4.2';
+  const VERSION = '3.5.0';
   const RELAY_URL = '';     // wss://… of the hint relay; empty = every client checks the feed itself (set by tools/build.js)
   const MODE = window.__FC_MODE === 'focus' ? 'focus' : 'panel';
   if (window.__fastClicker) { window.__fastClicker.show(MODE); return; }
@@ -79,6 +79,7 @@
     feedSmall: 8, feedLarge: 60,
     catchUpMax: 25,           // at start, read at most this many questions that closed while the app was off
     onScreenFastMs: 20 * 60e3, // open on screen outside lectures: fast checks for 20 min after the last touch
+    diag: true, diagEveryMin: 10, // anonymous beta diagnostics (see "anonymous beta diagnostics"); only with a relay configured
     catchUpRecentH: 12,       // …and with no saved list yet, only those of the last 12 hours
     scanIfFeedSpanH: 6,       // skip the 1.1 MB list at start-up if the 25 newest events reach back this far
     oneTap: false, turbo: false, sound: true, keepAwake: true,
@@ -103,6 +104,19 @@
   async function pool(items, n, fn) {
     const queue = [...items];
     await Promise.all(Array.from({ length: Math.min(n, queue.length) }, async () => { while (queue.length) await fn(queue.shift()); }));
+  }
+
+  // ---------------------------------------------------------------- anonymous beta diagnostics
+  // Numbers only, so the beta can be watched (how fast questions arrive, whether answers get through, how hard EduApp is
+  // being asked): request counts, timings and error classes, question delays, vote outcomes, relay state. No names,
+  // logins, course names, question texts or answers; a random id per installation (not linked to the ETH account).
+  // Sent to the relay's /v1/report every 10 minutes and when a question opens; nothing if no relay is configured.
+  const diag = { since: Date.now(), req: {}, vote: { n: 0, ok: 0, fail: 0, att: 0, ms: 0 }, hints: 0, hintReads: 0, samples: 0, open: 0, fast: 0, screen: 0, sent: 0 };
+  function diagReq(kind, ms, outcome) {
+    const k = kind === 'feed' || kind === 'detail' || kind === 'vote' || kind === 'list' ? kind : 'other';
+    const d = diag.req[k] || (diag.req[k] = { n: 0, ok: 0, e5: 0, e429: 0, e4: 0, net: 0, to: 0, auth: 0, ms: 0, max: 0 });
+    d.n++; d[outcome]++;
+    if (outcome === 'ok') { d.ms += ms; d.max = Math.max(d.max, ms); }
   }
 
   // ---------------------------------------------------------------- network
@@ -135,13 +149,15 @@
     } catch (e) {
       clearTimeout(timer);
       if (e && e.name === 'AbortError') lat[kind] = Math.max(lat[kind], 2 * timeoutMs / TS);   // next time wait (much) longer, up to the cap
+      diagReq(kind, 0, e && e.name === 'AbortError' ? 'to' : 'net');
       throw new NetError(e && e.name === 'AbortError' ? `no answer within ${Math.round(timeoutMs / 1000)} s` : 'network error');
     }
     const serverDate = Date.parse(r.headers.get('date') || '');
     if (serverDate) state.serverOffset = serverDate + 500 - Date.now();   // the header has whole seconds
     try {
-      if (r.status === 401 || r.type === 'opaqueredirect' || (r.status >= 300 && r.status < 400)) throw new AuthError('signed out');
+      if (r.status === 401 || r.type === 'opaqueredirect' || (r.status >= 300 && r.status < 400)) { diagReq(kind, 0, 'auth'); throw new AuthError('signed out'); }
       if (!r.ok) {
+        diagReq(kind, 0, r.status === 429 ? 'e429' : r.status >= 500 ? 'e5' : 'e4');
         const raw = r.headers.get('retry-after');
         let ra = Number(raw);
         if (raw && !Number.isFinite(ra)) { const d = Date.parse(raw); ra = d ? (d - Date.now()) / 1000 : NaN; }   // an HTTP date
@@ -153,6 +169,7 @@
       const ct = r.headers.get('content-type') || '';
       if (text && !ct.includes('json')) throw new AuthError('signed out (got a web page instead of data)');
       const ms = performance.now() - t0;
+      diagReq(kind, ms, 'ok');
       lat[kind] = Math.round(lat[kind] * 0.7 + ms * 0.3);
       if (kind === 'feed') latOk.feed = Math.round(latOk.feed * 0.7 + ms * 0.3);
       state.lastLatency = Math.round(ms);
@@ -347,6 +364,7 @@
       if (meta.courseTitle) c.courseTitle = meta.courseTitle;
       if (meta.courseCode) c.courseCode = meta.courseCode;
       if (meta.type !== 'GAP') c.lastEventAt = meta.createdAt ? Math.min(Date.now(), Date.parse(meta.createdAt) || Date.now()) : Date.now();
+      if ((meta.type === 'CLICKER_OPEN' || meta.type === 'CLICKER_START_ROUND') && Date.parse(meta.createdAt)) { c.openedAtSrv = Date.parse(meta.createdAt); c.openedVia = 'feed'; }
       if (meta.type === 'CLICKER_STOP_ROUND') c.roundStopped = true;
       else if (meta.type !== 'CLICKER_CLOSE' && meta.type !== 'GAP') c.roundStopped = false;
       const alert = !sameOpening && meta.type !== 'GAP' && c.state === 'OPEN' && !c.roundStopped && (!initial || Date.now() - c.lastEventAt < 3 * 3600e3);
@@ -474,10 +492,11 @@
   // starts with nothing saved. If the account cannot be told (no userinfo), a fresh manual login also clears it.
   const ACCOUNT_KEY = 'fast-clicker-account';
   const listCacheKey = () => '/__fast-clicker/list-' + state.semkez + (state.account ? '-' + state.account : '');
-  async function wipeAccountData() {
+  async function wipeAccountData(full) {   // full: another person is known to be logged in now
     try { if (window.caches) { if (caches.delete) await caches.delete(LIST_CACHE); else { const c = await caches.open(LIST_CACHE); if (c.delete) await c.delete(listCacheKey()); } } } catch {}
     state.list = { byDate: [], byCourse: [], fetchedAt: 0, partial: true }; state.listIndex = new Map(); state.listRev++;
     state.scanDone = false; listCacheTried = false;
+    if (!full) return;
     for (const id of [...state.draft.keys()]) state.draft.delete(id);   // an answer chosen by the previous person is never sent for the next one
     state.resend.clear(); state.unverified.clear();
   }
@@ -491,7 +510,7 @@
     const acct = hash32('acct|' + String(id).toLowerCase()).slice(0, 16);
     let last = null;
     try { last = localStorage.getItem(ACCOUNT_KEY); } catch {}
-    if (last && last !== acct) await wipeAccountData();          // someone else logged in on this device
+    if (last && last !== acct) await wipeAccountData(true);      // someone else logged in on this device
     try { localStorage.setItem(ACCOUNT_KEY, acct); } catch {}
     state.account = acct;
   }
@@ -716,6 +735,62 @@
       relaySend(conn, { t: 'hint', room, k: ev.k, e: ev.e, a: ev.a, c: String(ev.c || '').slice(0, 32) });
     }
   }
+  // ---------------------------------------------------------------- anonymous beta diagnostics: sending
+  const reportUrl = relayUrl ? relayUrl.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:').replace(/\/+$/, '') + '/report' : '';
+  let installId = '';
+  try {
+    installId = localStorage.getItem('fast-clicker-install') || '';
+    if (!/^[0-9a-f]{16}$/.test(installId)) {
+      installId = [...crypto.getRandomValues(new Uint8Array(8))].map((b) => b.toString(16).padStart(2, '0')).join('');
+      localStorage.setItem('fast-clicker-install', installId);
+    }
+  } catch {}
+  const platform = hooks.platform || (hooks.nativeAlerts ? (/Android/.test(navigator.userAgent) ? 'android' : 'ios') : 'web');
+  function sendReport(kind, data) {
+    if (!installId || CFG.diag === false) return;
+    const msg = { install: installId, platform, version: VERSION, kind, data };
+    if (hooks.onReport) { try { hooks.onReport(msg); } catch {} return; }
+    if (!reportUrl) return;
+    const body = JSON.stringify(msg);
+    try {
+      if (navigator.sendBeacon && navigator.sendBeacon(reportUrl, new Blob([body], { type: 'text/plain' }))) return;
+      fetch(reportUrl, { method: 'POST', body, keepalive: true, mode: 'cors', credentials: 'omit', headers: { 'Content-Type': 'text/plain' } }).catch(() => {});
+    } catch {}
+  }
+  function diagSample() {                                       // once a minute: what state the app is in
+    diag.samples++;
+    if (relay.open) diag.open++;
+    if (fastMode()) diag.fast++;
+    if (onScreen()) diag.screen++;
+  }
+  function diagQuestion(c) {
+    if (!c.openedAtSrv) return;
+    const sp = sharedPlan();
+    sendReport('question', {
+      delay: Math.max(0, Math.min(3600e3, serverNow() - c.openedAtSrv)),   // from "question opened" (ETH's clock) to on screen here
+      hint: c.openedVia === 'hint', round: (c.gen || 0) > 0, hidden: !!document.hidden,
+      relay: relay.open, n: sp ? sp.n : 0, m: sp ? sp.m : 0, scout: !!(sp && sp.slot >= 0), feedMs: Math.round(latOk.feed),
+    });
+  }
+  function diagFlush(force) {
+    const mins = (Date.now() - diag.since) / 60e3;
+    const any = Object.keys(diag.req).length || diag.vote.n;
+    if (!any || (!force && mins < CFG.diagEveryMin)) return;
+    const req = {};
+    for (const [k, d] of Object.entries(diag.req)) req[k] = { ...d, ms: d.ok ? Math.round(d.ms / d.ok) : 0, max: Math.round(d.max) };
+    const sp = sharedPlan();
+    sendReport('period', {
+      mins: Math.round(mins * 10) / 10, ...req,
+      vote: { ...diag.vote, ms: diag.vote.ok ? Math.round(diag.vote.ms / diag.vote.ok) : 0 },
+      relay: { open: diag.samples ? diag.open / diag.samples : 0, n: sp ? sp.n : 0, m: sp ? sp.m : 0, scout: !!(sp && sp.slot >= 0), hints: diag.hints, reads: diag.hintReads },
+      share: { fast: diag.samples ? diag.fast / diag.samples : 0, screen: diag.samples ? diag.screen / diag.samples : 0 },
+    });
+    diag.since = Date.now(); diag.req = {}; diag.vote = { n: 0, ok: 0, fail: 0, att: 0, ms: 0 };
+    diag.hints = 0; diag.hintReads = 0; diag.samples = 0; diag.open = 0; diag.fast = 0; diag.screen = 0;
+  }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) diagFlush(true); });
+  window.addEventListener('pagehide', () => diagFlush(true));
+
   // A hint is only a wake-up call. The relay and the students behind it are not trusted: a hint never marks a feed
   // event as handled, never starts a new round, never changes an answer. It makes this client read that one
   // question from ETH, and what ETH says decides:
@@ -737,7 +812,8 @@
     const members = (room && room.m) || 0;
     // a full hall does not hit ETH in the same moment: the bigger the room, the wider the spread (2,000 students:
     // 2.5 s, i.e. about 800 question reads a second at most, each ~25 ms of ETH's time)
-    relay.queue.push({ id: m.k, type: m.e, title: info.title, members, at: now + Math.random() * TS * Math.min(2500, Math.max(300, 1.25 * members)) });
+    diag.hints++;
+    relay.queue.push({ id: m.k, type: m.e, title: info.title, members, c: typeof m.c === 'string' ? m.c : '', at: now + Math.random() * TS * Math.min(2500, Math.max(300, 1.25 * members)) });
     drainHints();
   }
   async function drainHints() {                                 // one question at a time
@@ -754,6 +830,7 @@
           relay.hints = relay.hints.filter((t) => now - t < 60000);
           if (relay.hints.length >= HINT_READS_PER_MIN) { relay.queue.length = 0; break; }   // budget: a few question reads a minute for hints
           relay.hints.push(now);
+          diag.hintReads++;
           try { await hintRefresh(h); break; } catch (e) {
             if (e instanceof AuthError) { state.authLost = true; relay.queue.length = 0; tryRelogin(); render(); break; }
             if (!isTransient(e)) { relay.badIds.add(h.id); if (relay.badIds.size > 500) relay.badIds.delete(relay.badIds.values().next().value); break; }   // not this student's question: never again
@@ -775,6 +852,7 @@
       if (before) { c.gen = (c.gen || 0) + 1; resetRound(id); }  // closed before, open now: it starts clean
       if (!c.courseTitle) c.courseTitle = h.title;
       c.lastEventAt = Date.now(); c.roundStopped = false; c.hintOpenAt = serverNow();
+      if (Date.parse(h.c)) { c.openedAtSrv = Date.parse(h.c); c.openedVia = 'hint'; }
       state.dismissed.delete(id);
       patchList(c, true);
       notify(c, true);
@@ -964,14 +1042,15 @@
       setBanner('Login expired. Renewing…');
       if (await silentRelogin() && await checkSession()) return loggedIn();
     }
-    if (await checkSession()) return loggedIn(true);  // e.g. the user logged in in another tab (or in the app's login window)
+    if (await checkSession()) return loggedIn();      // e.g. the user logged in in another tab (or in the app's login window)
     state.loginNeeded = true;
     render();
   }
   function loggedIn(manual) {
     if (manual) {
       const before = state.account;
-      checkAccount().then(async () => { if (!state.account || state.account !== before && before) { if (!state.account) await wipeAccountData(); render(); } });
+      // a known different account was wiped in checkAccount; if the account cannot be told, only the saved list goes
+      checkAccount().then(async () => { if (!state.account) await wipeAccountData(false); if (state.account !== before) render(); });
     }
     state.authLost = false; state.loginNeeded = false; state.lastError = null;
     if (loginWin && !loginWin.closed) { try { loginWin.close(); } catch {} }
@@ -1058,6 +1137,7 @@
           try {
             await req(`clickers/${id}/vote`, { method: 'POST', body, kind: 'vote' });
             delivered = true;
+            diag.vote.ok++; diag.vote.att += attempt; diag.vote.ms += performance.now() - t0;
             return;
           } catch (e) {
             if (e instanceof AuthError) { state.authLost = true; continue; }
@@ -1071,7 +1151,9 @@
           }
         }
       });
+      diag.vote.n++;
       if (!delivered) {
+        diag.vote.fail++;
         if (attempt >= 0 && state.stamp.get(id) === stamp && state.clickers.get(id).gen === gen && state.clickers.get(id).state === 'OPEN') {
           setStatus(id, 'err', 'Could not reach EduApp for 2 minutes. Tap Send to try again.');
         }
@@ -1141,6 +1223,7 @@
   const newRound = (c) => (c.gen || 0) > 0;
   const voteAgain = (c) => c.state === 'OPEN' && !c.roundStopped && newRound(c) && state.sentGen.get(c.id) !== c.gen;
   function notify(c, desktop) {
+    diagQuestion(c);
     if (hooks.onAlert) {                 // native app shell: it plays sound, vibrates and notifies
       try { hooks.onAlert({ id: c.id, title: c.title || '', course: c.courseTitle || '', round: newRound(c) }); } catch {}
       autoShow(c.id);
@@ -1195,7 +1278,7 @@
     document.documentElement.style.cssText = `background:${window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? '#1d1f23' : '#fff'}`;
     document.body.style.cssText = 'margin:0';
   }
-  const myTimers = { stat: null, sweep: null, recheck: null, relay: null };
+  const myTimers = { stat: null, sweep: null, recheck: null, relay: null, diag: null };
   // accepted-but-unverified answers (verification failed, e.g. during a login expiry) are re-read later
   function recheckUnverified() {
     if (state.authLost || hooks.offline) return;
@@ -1217,6 +1300,7 @@
     myTimers.sweep = setInterval(sweepSwCache, 60e3);
     myTimers.recheck = setInterval(recheckUnverified, Math.max(200, 10000 * TS));
     myTimers.relay = setInterval(relayKeepAlive, Math.max(100, 40000 * TS));
+    myTimers.diag = setInterval(() => { diagSample(); diagFlush(false); }, Math.max(100, 60000 * TS));
   }
 
   // ---------------------------------------------------------------- UI (shadow DOM, isolated from the app's CSS)
