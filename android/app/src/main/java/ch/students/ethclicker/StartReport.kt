@@ -6,7 +6,14 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.ConnectException
 import java.net.HttpURLConnection
+import java.net.Inet6Address
+import java.net.InetAddress
+import java.net.NoRouteToHostException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import javax.net.ssl.SSLException
 import java.net.URL
 import java.security.SecureRandom
 import java.util.concurrent.Executors
@@ -52,14 +59,49 @@ object StartReport {
      * One attempt's outcome. [ms]: time since the attempt started; [errorCode]: WebViewClient.ERROR_*; [netError]: see [NET];
      * [attempt]: 1 for the first in this launch, then 2, 3 … after "Try again"; [pastVpn]: this try went past the VPN (MainActivity).
      */
-    fun send(ctx: Context, outcome: Int, ms: Long, attempt: Int, webViewMajor: Int, errorCode: Int = 0, netError: Int = 0, pastVpn: Boolean = false) {
+    fun send(ctx: Context, outcome: Int, ms: Long, attempt: Int, webViewMajor: Int, errorCode: Int = 0, netError: Int = 0, pastVpn: Boolean = false, extra: JSONObject? = null) {
         val app = ctx.applicationContext
         val data = JSONObject()
             .put("outcome", outcome).put("ms", ms).put("attempt", attempt)
             .put("err", errorCode).put("net", netError)
             .put("sdk", Build.VERSION.SDK_INT).put("wv", webViewMajor).put("pastVpn", pastVpn)
         network(app, data)
+        extra?.keys()?.forEach { data.put(it, extra.get(it)) }
         io.execute { deliver(app, data) }
+    }
+
+    /**
+     * After a failed start: can the phone reach EduApp outside the web component? Blocking (call off the main thread).
+     * Only yes/no and numbers come back, never an address: whether eduapp.ethz.ch resolves, whether it resolves to this
+     * phone or the local network (an ad blocker or DNS filter), whether a proxy is set, and how a plain request to
+     * the same small page went (an HTTP status, or which kind of error). The request carries no cookies or login.
+     */
+    fun probe(ctx: Context, url: String): JSONObject {
+        val r = JSONObject()
+        try {
+            val a = InetAddress.getAllByName(URL(url).host)
+            r.put("dnsOk", a.isNotEmpty()).put("dnsV6", a.any { it is Inet6Address })
+                .put("dnsLocal", a.any { it.isLoopbackAddress || it.isAnyLocalAddress || it.isSiteLocalAddress || it.isLinkLocalAddress })
+        } catch (_: Exception) { r.put("dnsOk", false) }
+        r.put("proxy", !System.getProperty("http.proxyHost").isNullOrEmpty())
+        try {
+            val cm = ctx.getSystemService(ConnectivityManager::class.java)
+            r.put("netProxy", cm?.getLinkProperties(cm.activeNetwork)?.httpProxy != null)
+        } catch (_: Exception) {}
+        try {
+            val c = URL(url).openConnection() as HttpURLConnection
+            c.instanceFollowRedirects = false
+            c.useCaches = false
+            c.connectTimeout = 8_000
+            c.readTimeout = 8_000
+            r.put("http", c.responseCode)                         // 401 (not logged in) or 302 means EduApp answered
+            c.disconnect()
+        } catch (e: Exception) {
+            r.put("http", 0).put("httpErr", when (e) {
+                is UnknownHostException -> 1; is ConnectException -> 2; is SocketTimeoutException -> 3; is SSLException -> 4
+                is NoRouteToHostException -> 5; is SecurityException -> 7; else -> 6 })
+        }
+        return r
     }
 
     /** The kind of connection right now: yes/no only. */

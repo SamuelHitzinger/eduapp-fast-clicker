@@ -48,6 +48,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.webkit.ProxyConfig
+import androidx.webkit.ProxyController
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import org.json.JSONObject
@@ -166,12 +168,50 @@ class MainActivity : ComponentActivity() {
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
 
     /** Reports how the current try to open EduApp ended (anonymous numbers, see StartReport); at most 8 per launch. */
-    private fun attemptDone(outcome: Int, errorCode: Int = 0, netError: Int = 0) {
+    private fun attemptDone(outcome: Int, errorCode: Int = 0, netError: Int = 0, extra: JSONObject? = null) {
         if (attemptStart == 0L) return
         val ms = System.currentTimeMillis() - attemptStart
         attemptStart = 0L
-        if (reports++ < 8) StartReport.send(this, outcome, ms, attempts, webViewVersion().substringBefore('.').toIntOrNull() ?: 0, errorCode, netError, bypass != null)
+        if (reports++ < 8) StartReport.send(this, outcome, ms, attempts, webViewVersion().substringBefore('.').toIntOrNull() ?: 0, errorCode, netError, bypass != null, extra?.put("direct", directProxy))
     }
+
+    // ---------------------------------------------------------------- past a proxy, and a check of what's wrong
+    private var directProxy = false                              // the web component ignores any proxy set on the phone
+
+    /** True if the web component now connects directly (no proxy); [then] loads EduApp again. */
+    private fun tryWithoutProxy(then: () -> Unit): Boolean {
+        if (directProxy || !WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) return false
+        directProxy = true
+        return try {
+            ProxyController.getInstance().setProxyOverride(ProxyConfig.Builder().addDirect().build(), { r -> r.run() }) { handler.post(then) }
+            true
+        } catch (_: Exception) { false }
+    }
+
+    /** Every way in failed: find out why (outside the web component), report it and say what to do. */
+    private fun diagnose(errorCode: Int, net: Int, description: String) {
+        val app = applicationContext
+        Thread {
+            val p = StartReport.probe(app, START_URL)
+            handler.post {
+                if (destroyed) return@post
+                attemptDone(StartReport.LOAD_ERROR, errorCode, net, p)
+                val http = p.optInt("http")
+                val why = when {
+                    !p.optBoolean("dnsOk", true) -> "This phone can't look up eduapp.ethz.ch. A DNS setting (Settings → Private DNS), an ad blocker or the Wi-Fi's filter may block it: allow eduapp.ethz.ch there or try mobile data."
+                    p.optBoolean("dnsLocal") -> "eduapp.ethz.ch is being redirected to this phone or the local network, which is what ad blockers and DNS filters do (Private DNS, AdGuard, NextDNS, Pi-hole, a school or company network). Allow eduapp.ethz.ch there, or try mobile data."
+                    http in 200..499 -> "The phone itself reaches EduApp, but Android's web component doesn't. Update \"Android System WebView\" and Chrome in the Play Store, restart the phone, then try again."
+                    else -> "This phone can't reach eduapp.ethz.ch at all right now, not even outside the app. Does https://eduapp.ethz.ch open in Chrome? If not, the Wi-Fi or network blocks it: try mobile data."
+                }
+                val vpn = if (vpnOn()) " A VPN is on: if it keeps failing, turn it off and try again." else ""
+                val check = "Check: DNS " + (if (!p.optBoolean("dnsOk", true)) "failed" else if (p.optBoolean("dnsLocal")) "local" else "ok") +
+                    " · direct " + (if (http > 0) "HTTP $http" else "error ${p.optInt("httpErr")}") +
+                    " · proxy " + (if (p.optBoolean("proxy") || p.optBoolean("netProxy")) "yes" else "no") + " · $description"
+                showStatus("No connection to EduApp", "$why$vpn\n\n$check", retry = true, update = http in 200..499)
+            }
+        }.start()
+    }
+
 
     // ---------------------------------------------------------------- past a VPN that doesn't reach EduApp
     // Some VPN setups (an exit node, routes that cover ETH, an app that filters traffic) cut the connection to
@@ -387,20 +427,20 @@ class MainActivity : ComponentActivity() {
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
             if (!request.isForMainFrame) return
             val net = StartReport.netError(error.description)
-            attemptDone(StartReport.LOAD_ERROR, error.errorCode, net)
-            if (bypass != null && net == -21 && bypassTries < 2) { bypassTries++; view.stopLoading(); handler.post { view.loadUrl(START_URL) }; return }   // the switch itself: once more
-            if (bypass != null) dropBypass()                      // past the VPN didn't help either
-            else if (tryPastVpn()) {
-                showStatus("Loading EduApp…", "Trying without the VPN…", retry = false, update = false)
+            view.stopLoading()
+            fun again(how: String) {
+                showStatus("Loading EduApp…", how, retry = false, update = false)
                 handler.removeCallbacks(noAnswer)
                 handler.postDelayed(noAnswer, NO_ANSWER_MS)
-                view.stopLoading()
                 handler.post { view.loadUrl(START_URL) }
-                return
             }
-            // No connection at launch: a small retry page instead of a blank screen.
-            val vpn = if (vpnOn()) " A VPN is on (the key symbol at the top of the screen): turn it off, or let ETH Clicker through it, then try again." else ""
-            showNotice(view, "No connection to EduApp", "Check the Wi-Fi or mobile data, then try again.$vpn (${error.description})", "Try again")
+            if (bypass != null && net == -21 && bypassTries < 2) { attemptDone(StartReport.LOAD_ERROR, error.errorCode, net); bypassTries++; again("Trying without the VPN…"); return }   // the switch itself: once more
+            if (bypass != null) dropBypass()                      // past the VPN didn't help either
+            else if (tryPastVpn()) { attemptDone(StartReport.LOAD_ERROR, error.errorCode, net); again("Trying without the VPN…"); return }
+            if (tryWithoutProxy { again("Trying without a proxy…") }) { attemptDone(StartReport.LOAD_ERROR, error.errorCode, net); return }
+            // Nothing helped: a page of our own (never a blank screen), then the check and what to do.
+            showNotice(view, "No connection to EduApp", "Checking the connection…", "")
+            diagnose(error.errorCode, net, error.description?.toString() ?: "")
         }
 
         override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
@@ -419,7 +459,7 @@ class MainActivity : ComponentActivity() {
             <meta name="viewport" content="width=device-width,initial-scale=1">
             <body style="font:17px sans-serif;padding:40px 24px;background:$bg;color:$fg">
             <h2>$heading</h2><p>$text</p>
-            <p><a href="$START_URL" style="display:inline-block;padding:12px 20px;border-radius:6px;background:#08407e;color:#fff;text-decoration:none">$button</a></p></body>
+            ${if (button.isEmpty()) "" else "<p><a href=\"$START_URL\" style=\"display:inline-block;padding:12px 20px;border-radius:6px;background:#08407e;color:#fff;text-decoration:none\">$button</a></p>"}</body>
         """.trimIndent()
         view.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
     }

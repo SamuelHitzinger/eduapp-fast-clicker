@@ -84,7 +84,8 @@ const bad = starts.filter((x) => x.outcome >= 3 && !(lastOk.get(x.install) > x.t
 for (const x of bad.slice(-15)) {
   const conn = [x.online === 0 ? 'offline' : null, x.wifi ? 'Wi-Fi' : null, x.cell ? 'mobile' : null, x.vpn ? (x.pastVpn ? 'VPN (app went past it)' : 'VPN') : null, x.privDns ? 'private DNS' : null, x.saver ? 'data saver' : null, x.validated === 0 ? 'not validated' : null].filter(Boolean).join('+') || '?';
   console.log(`  ${new Date(x.ts).toISOString().slice(0, 16)}Z ${x.install.slice(0, 6)} v${x.version} Android sdk ${x.sdk} WebView ${x.wv}: ${OUTCOME[x.outcome] || x.outcome}` +
-    (x.net ? ` net::ERR_${NET[x.net] || x.net}` : x.err ? ` (WebView error ${x.err})` : '') + ` after ${s(x.ms)}, try ${x.attempt}, ${conn}` + (x.age > 60 ? `, sent ${Math.round(x.age / 60)} min later` : ''));
+    (x.net ? ` net::ERR_${NET[x.net] || x.net}` : x.err ? ` (WebView error ${x.err})` : '') + ` after ${s(x.ms)}, try ${x.attempt}, ${conn}` + (x.age > 60 ? `, sent ${Math.round(x.age / 60)} min later` : '') +
+    (x.dnsOk !== undefined ? ` | check: DNS ${x.dnsOk === 0 ? 'failed' : x.dnsLocal ? 'LOCAL (blocker)' : 'ok'}${x.dnsV6 ? ' v6' : ''}, direct ${x.http ? 'HTTP ' + x.http : 'error ' + x.httpErr}, proxy ${x.proxy || x.netProxy ? 'yes' : 'no'}${x.direct ? ', proxy bypassed' : ''}` : ''));
 }
 
 // ---------------------------------------------------------------- relay rooms (as the relay sees them)
