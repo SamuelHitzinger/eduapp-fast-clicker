@@ -35,6 +35,9 @@ fs.writeFileSync(path.join(site, 'fast-clicker.user.js'), src);
 fs.writeFileSync(path.join(root, 'ios/FastClicker/Resources/fast-clicker.js'), min);
 fs.mkdirSync(path.join(root, 'android/app/src/main/assets'), { recursive: true });
 fs.writeFileSync(path.join(root, 'android/app/src/main/assets/fast-clicker.js'), min);
+// the Android app's own start-up report (StartReport.kt) goes to the same relay
+const reportUrl = relayUrl ? relayUrl.replace(/^wss:/, 'https:').replace(/\/+$/, '') + '/report' : '';
+fs.writeFileSync(path.join(root, 'android/app/src/main/assets/report-url.txt'), reportUrl);
 
 // 3) install page (the TestFlight invitation link goes into tools/testflight-url.txt once the beta exists)
 const tfFile = path.join(__dirname, 'testflight-url.txt');

@@ -8,8 +8,11 @@ import android.app.NotificationManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.media.AudioManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
@@ -76,7 +79,11 @@ class MainActivity : ComponentActivity() {
     private lateinit var statusText: TextView
     private lateinit var statusRetry: Button
     private lateinit var statusUpdate: Button
+    private var attemptStart = 0L                               // when the current try to open EduApp began (0: none open)
+    private var attempts = 0
+    private var reports = 0
     private val noAnswer = Runnable {
+        attemptDone(StartReport.NO_ANSWER)
         showStatus("EduApp doesn't answer", "Nothing arrived from eduapp.ethz.ch within 30 seconds. Check the internet connection (Wi-Fi or mobile data), then try again." +
             (if (oldWebView()) " This phone's web component is also out of date: please update it." else ""), retry = true, update = oldWebView())
     }
@@ -154,6 +161,19 @@ class MainActivity : ComponentActivity() {
     // ---------------------------------------------------------------- status screen (native, so it shows even if the page can't)
 
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
+
+    /** Reports how the current try to open EduApp ended (anonymous numbers, see StartReport); at most 8 per launch. */
+    private fun attemptDone(outcome: Int, errorCode: Int = 0, netError: Int = 0) {
+        if (attemptStart == 0L) return
+        val ms = System.currentTimeMillis() - attemptStart
+        attemptStart = 0L
+        if (reports++ < 8) StartReport.send(this, outcome, ms, attempts, webViewVersion().substringBefore('.').toIntOrNull() ?: 0, errorCode, netError)
+    }
+
+    private fun vpnOn() = try {
+        val cm = getSystemService(ConnectivityManager::class.java)
+        cm?.getNetworkCapabilities(cm.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+    } catch (_: Exception) { false }
 
     private fun webViewVersion(): String = try { WebViewCompat.getCurrentWebViewPackage(this)?.versionName ?: "?" } catch (_: Exception) { "?" }
 
@@ -297,6 +317,10 @@ class MainActivity : ComponentActivity() {
             if (request.isForMainFrame && errorResponse.statusCode == 401) needsLogin = true
         }
 
+        override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+            if (url?.startsWith(START_URL) == true && attemptStart == 0L) { attemptStart = System.currentTimeMillis(); attempts++ }
+        }
+
         override fun onPageCommitVisible(view: WebView, url: String?) {
             hideStatus()                                         // something is on screen: ETH's page, the clicker or a notice
         }
@@ -304,10 +328,12 @@ class MainActivity : ComponentActivity() {
         override fun onPageFinished(view: WebView, url: String?) {
             // Not logged in: only ETH's login (the clicker would start its own silent login next to it, and two
             // logins at once break ETH's check of the login request)
-            if (needsLogin) { needsLogin = false; showLogin(LOGIN_URL); return }
+            if (needsLogin) { needsLogin = false; attemptDone(StartReport.LOGIN); showLogin(LOGIN_URL); return }
             val uri = url?.let(Uri::parse)
             if (uri?.host == "eduapp.ethz.ch") view.evaluateJavascript(injected) { r ->
                 // null: the script did not run (a syntax this WebView doesn't know, or an error at start)
+                if (r == "\"ok\"") attemptDone(StartReport.OK)
+                if (r == null || r == "null") attemptDone(StartReport.SCRIPT_FAILED)
                 if (r == null || r == "null") showStatus("The clicker couldn't start", "This phone's web component (Android System WebView ${webViewVersion()}) may be out of date. Update it, then open ETH Clicker again.", retry = true, update = true)
             }
             view.evaluateJavascript(loginFieldScript, null)
@@ -315,11 +341,14 @@ class MainActivity : ComponentActivity() {
 
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
             if (!request.isForMainFrame) return
+            attemptDone(StartReport.LOAD_ERROR, error.errorCode, StartReport.netError(error.description))
             // No connection at launch: a small retry page instead of a blank screen.
-            showNotice(view, "No connection to EduApp", "Check the Wi-Fi or mobile data, then try again. (${error.description})", "Try again")
+            val vpn = if (vpnOn()) " A VPN is on (the key symbol at the top of the screen): turn it off, or let ETH Clicker through it, then try again." else ""
+            showNotice(view, "No connection to EduApp", "Check the Wi-Fi or mobile data, then try again.$vpn (${error.description})", "Try again")
         }
 
         override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+            attemptDone(StartReport.RENDERER_GONE)
             recreate()                                       // the page's process was killed: start fresh
             return true
         }

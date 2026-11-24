@@ -21,7 +21,7 @@ const SNAPSHOT_MS = 5 * 60_000; // a busy room writes one line of numbers to the
 // logins, questions or answers. Stored in D1 (`clicker-metrics`), read with `node tools/monitor.js`.
 const REPORT_MAX_BYTES = 4096;
 const PLATFORMS = new Set(['ios', 'android', 'web', 'addon']);
-const KINDS = new Set(['period', 'question']);
+const KINDS = new Set(['period', 'question', 'start']);   // start: how an app's attempt to open EduApp ended
 const recent = new Map(); // ip -> [window start, count] (best effort, per Worker instance)
 function cleanData(o, depth = 0) {
   if (!o || typeof o !== 'object' || Array.isArray(o)) return null;

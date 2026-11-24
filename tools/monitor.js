@@ -62,6 +62,29 @@ const relayOpen = per.length ? per.reduce((a, x) => a + n0(x.relay && x.relay.op
 console.log(`\n== Relay (as the apps see it)`);
 console.log(`  connected ${(relayOpen * 100).toFixed(0)}% of the time; hints received ${sum(0, (x) => x.relay && x.relay.hints)}, question reads because of hints ${sum(0, (x) => x.relay && x.relay.reads)}`);
 
+// ---------------------------------------------------------------- app starts (Android: did EduApp open at all?)
+const OUTCOME = { 1: 'ok', 2: 'login shown', 3: 'load error', 4: 'no answer 30 s', 5: 'clicker failed to start', 6: 'page process died' };
+const NET = { '-2': 'FAILED', '-3': 'ABORTED', '-7': 'TIMED_OUT', '-10': 'ACCESS_DENIED', '-20': 'BLOCKED_BY_CLIENT', '-21': 'NETWORK_CHANGED', '-100': 'CONNECTION_CLOSED', '-101': 'CONNECTION_RESET',
+  '-102': 'CONNECTION_REFUSED', '-103': 'CONNECTION_ABORTED', '-104': 'CONNECTION_FAILED', '-105': 'NAME_NOT_RESOLVED', '-106': 'INTERNET_DISCONNECTED', '-107': 'SSL_PROTOCOL_ERROR',
+  '-109': 'ADDRESS_UNREACHABLE', '-118': 'CONNECTION_TIMED_OUT', '-130': 'PROXY_CONNECTION_FAILED', '-137': 'NAME_RESOLUTION_FAILED', '-138': 'NETWORK_ACCESS_DENIED', '-200': 'CERT_COMMON_NAME_INVALID',
+  '-201': 'CERT_DATE_INVALID', '-202': 'CERT_AUTHORITY_INVALID', '-324': 'EMPTY_RESPONSE', '-337': 'HTTP2_PROTOCOL_ERROR', '-356': 'QUIC_PROTOCOL_ERROR' };
+const starts = q(`SELECT ts, install, version, data FROM reports WHERE kind = 'start' AND ts >= ${since} ORDER BY ts`).map((r) => ({ ts: r.ts, install: r.install, version: r.version, ...JSON.parse(r.data) }));
+console.log(`\n== App starts (${starts.length} attempts, ${new Set(starts.map((x) => x.install)).size} phones)`);
+const byOutcome = {};
+for (const x of starts) byOutcome[x.outcome] = (byOutcome[x.outcome] || 0) + 1;
+console.log('  ' + (Object.entries(byOutcome).map(([o, n]) => `${OUTCOME[o] || o}: ${n}`).join(', ') || 'none yet'));
+const okMs = starts.filter((x) => x.outcome === 1 || x.outcome === 2).map((x) => x.ms);
+if (okMs.length) console.log(`  time to EduApp: median ${s(pct(okMs, 0.5))}, 90% ${s(pct(okMs, 0.9))}`);
+// phones that never got in: their last attempts, with what is known about the phone and connection
+const lastOk = new Map();
+for (const x of starts) if (x.outcome === 1 || x.outcome === 2) lastOk.set(x.install, x.ts);
+const bad = starts.filter((x) => x.outcome >= 3 && !(lastOk.get(x.install) > x.ts));
+for (const x of bad.slice(-15)) {
+  const conn = [x.online === 0 ? 'offline' : null, x.wifi ? 'Wi-Fi' : null, x.cell ? 'mobile' : null, x.vpn ? 'VPN' : null, x.privDns ? 'private DNS' : null, x.saver ? 'data saver' : null, x.validated === 0 ? 'not validated' : null].filter(Boolean).join('+') || '?';
+  console.log(`  ${new Date(x.ts).toISOString().slice(0, 16)}Z ${x.install.slice(0, 6)} v${x.version} Android sdk ${x.sdk} WebView ${x.wv}: ${OUTCOME[x.outcome] || x.outcome}` +
+    (x.net ? ` net::ERR_${NET[x.net] || x.net}` : x.err ? ` (WebView error ${x.err})` : '') + ` after ${s(x.ms)}, try ${x.attempt}, ${conn}` + (x.age > 60 ? `, sent ${Math.round(x.age / 60)} min later` : ''));
+}
+
 // ---------------------------------------------------------------- relay rooms (as the relay sees them)
 const rooms = q(`SELECT room, MAX(members) AS peak, MAX(scouts) AS scouts, SUM(hints) AS hints, COUNT(*) AS snaps, MAX(ts) AS last FROM rooms WHERE ts >= ${since} GROUP BY room ORDER BY peak DESC`);
 const now = q(`SELECT COUNT(DISTINCT room) AS rooms, SUM(members) AS members FROM rooms WHERE ts >= ${Date.now() - 12 * 60e3}`)[0] || {};
