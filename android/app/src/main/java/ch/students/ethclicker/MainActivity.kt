@@ -12,6 +12,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.media.AudioManager
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
 import android.media.RingtoneManager
 import android.net.Uri
@@ -82,6 +83,8 @@ class MainActivity : ComponentActivity() {
     private var attemptStart = 0L                               // when the current try to open EduApp began (0: none open)
     private var attempts = 0
     private var reports = 0
+    private var bypass: Network? = null                         // the phone's own Wi-Fi/mobile network, used when EduApp can't be reached through a VPN
+    private var bypassTries = 0
     private val noAnswer = Runnable {
         attemptDone(StartReport.NO_ANSWER)
         showStatus("EduApp doesn't answer", "Nothing arrived from eduapp.ethz.ch within 30 seconds. Check the internet connection (Wi-Fi or mobile data), then try again." +
@@ -167,7 +170,47 @@ class MainActivity : ComponentActivity() {
         if (attemptStart == 0L) return
         val ms = System.currentTimeMillis() - attemptStart
         attemptStart = 0L
-        if (reports++ < 8) StartReport.send(this, outcome, ms, attempts, webViewVersion().substringBefore('.').toIntOrNull() ?: 0, errorCode, netError)
+        if (reports++ < 8) StartReport.send(this, outcome, ms, attempts, webViewVersion().substringBefore('.').toIntOrNull() ?: 0, errorCode, netError, bypass != null)
+    }
+
+    // ---------------------------------------------------------------- past a VPN that doesn't reach EduApp
+    // Some VPN setups (an exit node, routes that cover ETH, an app that filters traffic) cut the connection to
+    // eduapp.ethz.ch. Then the app tries once more over the phone's own Wi-Fi or mobile network, for this app only;
+    // other apps keep using the VPN. A VPN that doesn't allow apps past it (Android's "block connections without VPN")
+    // simply makes that try fail too, and the notice explains what to do.
+
+    private fun ownNetwork(): Network? = try {
+        val cm = getSystemService(ConnectivityManager::class.java)
+        @Suppress("DEPRECATION")
+        cm?.allNetworks?.mapNotNull { n -> cm.getNetworkCapabilities(n)?.let { n to it } }
+            ?.filter { (_, c) -> c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) && c.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) && c.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) }
+            ?.sortedBy { (_, c) -> if (c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) 0 else 1 }
+            ?.firstOrNull()?.first
+    } catch (_: Exception) { null }
+
+    /** True if the app now goes past the VPN and the caller should load EduApp again. */
+    private fun tryPastVpn(): Boolean {
+        if (bypass != null || bypassTries >= 2 || !vpnOn()) return false
+        val n = ownNetwork() ?: return false
+        val cm = getSystemService(ConnectivityManager::class.java) ?: return false
+        if (!cm.bindProcessToNetwork(n)) return false
+        bypass = n
+        bypassTries++
+        return true
+    }
+
+    /** Back to the phone's normal routing (through the VPN): the own network is gone or didn't help either. */
+    private fun dropBypass() {
+        if (bypass == null) return
+        bypass = null
+        try { getSystemService(ConnectivityManager::class.java)?.bindProcessToNetwork(null) } catch (_: Exception) {}
+    }
+
+    /** The network the app was bound to went away (left the Wi-Fi, for example): normal routing again. */
+    private fun checkBypass() {
+        val n = bypass ?: return
+        val alive = try { getSystemService(ConnectivityManager::class.java)?.getNetworkCapabilities(n) != null } catch (_: Exception) { false }
+        if (!alive) dropBypass()
     }
 
     private fun vpnOn() = try {
@@ -218,6 +261,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun retry() {
+        checkBypass()
         showStatus("Loading EduApp…", "", retry = false, update = false)
         handler.removeCallbacks(noAnswer)
         handler.postDelayed(noAnswer, NO_ANSWER_MS)
@@ -234,6 +278,7 @@ class MainActivity : ComponentActivity() {
         inForeground = true
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)   // keep the screen on while the app is open
         Alerts.markSeen(this)                                              // back in the app: no reminders needed
+        checkBypass()
         web.evaluateJavascript("window.dispatchEvent(new Event('online'))", null)   // check right away
     }
 
@@ -341,7 +386,18 @@ class MainActivity : ComponentActivity() {
 
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
             if (!request.isForMainFrame) return
-            attemptDone(StartReport.LOAD_ERROR, error.errorCode, StartReport.netError(error.description))
+            val net = StartReport.netError(error.description)
+            attemptDone(StartReport.LOAD_ERROR, error.errorCode, net)
+            if (bypass != null && net == -21 && bypassTries < 2) { bypassTries++; view.stopLoading(); handler.post { view.loadUrl(START_URL) }; return }   // the switch itself: once more
+            if (bypass != null) dropBypass()                      // past the VPN didn't help either
+            else if (tryPastVpn()) {
+                showStatus("Loading EduApp…", "Trying without the VPN…", retry = false, update = false)
+                handler.removeCallbacks(noAnswer)
+                handler.postDelayed(noAnswer, NO_ANSWER_MS)
+                view.stopLoading()
+                handler.post { view.loadUrl(START_URL) }
+                return
+            }
             // No connection at launch: a small retry page instead of a blank screen.
             val vpn = if (vpnOn()) " A VPN is on (the key symbol at the top of the screen): turn it off, or let ETH Clicker through it, then try again." else ""
             showNotice(view, "No connection to EduApp", "Check the Wi-Fi or mobile data, then try again.$vpn (${error.description})", "Try again")

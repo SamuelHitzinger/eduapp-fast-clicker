@@ -50,14 +50,14 @@ object StartReport {
 
     /**
      * One attempt's outcome. [ms]: time since the attempt started; [errorCode]: WebViewClient.ERROR_*; [netError]: see [NET];
-     * [attempt]: 1 for the first in this launch, then 2, 3 … after "Try again".
+     * [attempt]: 1 for the first in this launch, then 2, 3 … after "Try again"; [pastVpn]: this try went past the VPN (MainActivity).
      */
-    fun send(ctx: Context, outcome: Int, ms: Long, attempt: Int, webViewMajor: Int, errorCode: Int = 0, netError: Int = 0) {
+    fun send(ctx: Context, outcome: Int, ms: Long, attempt: Int, webViewMajor: Int, errorCode: Int = 0, netError: Int = 0, pastVpn: Boolean = false) {
         val app = ctx.applicationContext
         val data = JSONObject()
             .put("outcome", outcome).put("ms", ms).put("attempt", attempt)
             .put("err", errorCode).put("net", netError)
-            .put("sdk", Build.VERSION.SDK_INT).put("wv", webViewMajor)
+            .put("sdk", Build.VERSION.SDK_INT).put("wv", webViewMajor).put("pastVpn", pastVpn)
         network(app, data)
         io.execute { deliver(app, data) }
     }
