@@ -104,6 +104,7 @@ jobs:
             adb shell pm clear ch.students.clicker
             adb shell pm grant ch.students.clicker android.permission.POST_NOTIFICATIONS || true
             adb shell cmd uimode night yes
+            sleep 10                              # let the system settle after the theme switch
             adb logcat -c
             adb shell am start -W -n ch.students.clicker/ch.students.ethclicker.MainActivity
             sleep 25
