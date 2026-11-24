@@ -110,7 +110,9 @@ jobs:
             sleep 25
             adb exec-out screencap -p > smoke-dark.png
             adb logcat -d > smoke-log.txt
-            adb shell pidof ch.students.clicker
+            # the emulator's Google services often restart after the theme switch and take the app with them, so this
+            # step checks for a crash of the app itself instead of whether it still runs
+            ! grep -A 3 "FATAL EXCEPTION" smoke-log.txt | grep -q "ch.students.clicker"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
