@@ -4,166 +4,95 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ETH Clicker (beta, unofficial)</title>
-<meta name="description" content="An unofficial, faster way to answer EduApp clicker questions: app for Android and iPhone, or a bookmark in any browser. Beta.">
+<meta name="description" content="Download the ETH Clicker beta for Android, iPhone or your laptop. Unofficial.">
 <meta name="robots" content="noindex">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-180.png">
 <style>
-  :root{--blue:#1f407a;--bg:#f4f5f8;--card:#fff;--text:#16181d;--muted:#5f6672;--line:#e3e6ec;--ok:#1e8a7e}
-  @media (prefers-color-scheme:dark){:root{--bg:#121417;--card:#1b1e23;--text:#e9ebef;--muted:#9aa1ad;--line:#2b3038}}
+  /* EduApp's look: white app bar, grey tab strip, flat white page, ETH blue */
+  :root{--bg:#fff;--bar:#fff;--text:#1a1a1a;--muted:#6b6b6b;--line:#e3e3e3;--strip:#ececec;--blue:#215caf;--chip:#f4f4f4}
+  @media (prefers-color-scheme:dark){:root{--bg:#121212;--bar:#1c1c1c;--text:#ececec;--muted:#a0a0a0;--line:#2c2c2c;--strip:#262626;--blue:#4d86d6;--chip:#1f1f1f}}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-  main{max-width:760px;margin:0 auto;padding:20px 16px 60px}
-  header{display:flex;gap:14px;align-items:center;margin:8px 0 6px}
-  header img{width:56px;height:56px;border-radius:14px}
-  h1{font-size:26px;margin:0;line-height:1.2}
-  .lead{color:var(--muted);margin:6px 0 18px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0}
-  h2{font-size:19px;margin:0 0 10px}
-  .tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
-  .tab{border:1px solid var(--line);background:none;color:var(--text);border-radius:999px;padding:8px 14px;font-size:15px;cursor:pointer}
-  .tab[aria-selected=true]{background:var(--blue);border-color:var(--blue);color:#fff}
+  body{margin:0;background:var(--bg);color:var(--text);font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .bar{background:var(--bar);border-bottom:3px solid var(--line);height:64px;display:flex;align-items:center;gap:12px;padding:0 16px}
+  .bar img{width:36px;height:36px;border-radius:9px;border:1px solid var(--line);background:#fff}
+  .bar b{font-size:22px;letter-spacing:.01em}
+  .bar span{margin-left:auto;font-size:13px;color:var(--muted)}
+  .tabs{display:flex;background:var(--strip);padding:12px 12px 0}
+  .tab{flex:1;max-width:200px;border:0;background:none;color:var(--text);font:inherit;padding:12px 8px;cursor:pointer}
+  .tab[aria-selected=true]{background:var(--bg)}
+  main{max-width:640px;margin:0 auto;padding:24px 16px 40px}
+  .btn{display:block;text-align:center;background:var(--blue);color:#fff;border:0;border-radius:8px;padding:16px;font:inherit;font-weight:700;font-size:19px;text-decoration:none;cursor:pointer;width:100%}
+  .sub{color:var(--muted);font-size:14px;text-align:center;margin:8px 0 22px}
   ol{padding-left:22px;margin:0}
-  ol li{margin:0 0 12px}
-  .btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:12px;padding:12px 18px;font-size:16px;font-weight:600;cursor:pointer;text-decoration:none;background:var(--blue);color:#fff}
-  .btn.sec{background:none;border:1px solid var(--line);color:var(--text);font-weight:500}
-  .bm{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:12px;background:#ffd60a;color:#111;font-weight:700;text-decoration:none;border:2px dashed #b38f00;cursor:grab}
-  .done{color:var(--ok);font-weight:600;margin-left:8px}
-  .muted{color:var(--muted);font-size:14px}
-  .kbd{font:13px ui-monospace,Menlo,Consolas,monospace;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
-  details{margin:8px 0}
-  summary{cursor:pointer;font-weight:600}
-  ul.points{padding-left:20px;margin:6px 0}
-  .warn{background:#fff3cd;color:#664d03;border-radius:10px;padding:10px 12px;font-size:14px}
+  li{margin:0 0 10px}
+  .note{background:var(--chip);border-radius:8px;padding:14px 16px;margin:18px 0 0;font-size:15px}
+  .bm{display:inline-block;padding:12px 22px;border-radius:8px;background:var(--blue);color:#fff;font-weight:700;text-decoration:none;border:2px dashed rgba(255,255,255,.6);cursor:grab}
+  .small{color:var(--muted);font-size:14px}
+  .qr{display:flex;gap:16px;align-items:center;margin:0 0 22px}
+  .qr img{width:110px;height:110px;background:#fff;padding:5px;border-radius:6px;flex:none}
+  a{color:var(--blue)}
   .hide{display:none!important}
-  .qr{display:flex;gap:16px;align-items:center}
-  .qr img{width:132px;height:132px;background:#fff;padding:6px;border-radius:10px;flex:none}
-  .big{font-size:17px;padding:14px 22px}
-  .beta{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.04em;background:#ffd60a;color:#111;border-radius:6px;padding:2px 7px;vertical-align:middle;margin-left:6px}
-  footer{color:var(--muted);font-size:13px;margin-top:30px}
+  footer{border-top:1px solid var(--line);margin-top:32px;padding-top:14px;color:var(--muted);font-size:13px}
 </style>
 </head>
 <body>
+<div class="bar"><img src="icon-192.png" alt=""><b>ETH Clicker</b><span>Beta · unofficial</span></div>
+<div class="tabs" role="tablist">
+  <button class="tab" role="tab" data-p="android">Android</button>
+  <button class="tab" role="tab" data-p="ios">iPhone</button>
+  <button class="tab" role="tab" data-p="desktop">Computer</button>
+</div>
+
 <main>
-  <header>
-    <img src="icon-192.png" alt="">
-    <div><h1>ETH Clicker <span class="beta">BETA</span></h1><div class="muted">for EduApp · unofficial, not made by ETH Zurich</div></div>
-  </header>
-  <p class="lead">Clicker questions from your EduApp lectures appear within seconds, with a sound, and your answer gets through even on bad lecture-hall Wi-Fi. It works for every course you have in EduApp. You log in with your normal ETH account on ETH's own login page.</p>
-
-  <section class="card qr hide" id="qr-box">
+  <div class="qr hide" id="qr-box">
     <img src="qr.svg" alt="QR code of this page">
-    <div><b>Installing on a phone?</b><br><span class="muted">Scan this with the phone's camera to open this page there.</span></div>
-  </section>
+    <div class="small">Installing on a phone? Scan this with its camera.</div>
+  </div>
 
-  <section class="card">
-    <h2>Install</h2>
-    <div class="tabs" role="tablist">
-      <button class="tab" role="tab" data-p="android">Android / Samsung</button>
-      <button class="tab" role="tab" data-p="ios">iPhone / iPad</button>
-      <button class="tab" role="tab" data-p="desktop">Laptop / PC</button>
-    </div>
-
-    <div data-panel="desktop">
-      <ol>
-        <li>Show your bookmarks bar if it's hidden: <span class="kbd">Ctrl+Shift+B</span> (Mac: <span class="kbd">⌘+Shift+B</span>).</li>
-        <li>Drag this yellow button onto the bookmarks bar:<br><br>
-          <a class="bm" id="bm-link" href="#" title="Drag me to your bookmarks bar">⚡ Clicker</a>
-          <div class="muted" style="margin-top:8px">Clicking it here does nothing; it must be dragged. Can't drag? Use <a href="#" data-copy="full">copy the code</a> and create a bookmark named “Clicker” with the code as its address.</div>
-        </li>
-        <li>Done. In the lecture: <a href="https://eduapp.ethz.ch/" target="_blank" rel="noopener">open EduApp</a>, log in, then click <b>⚡ Clicker</b> in your bookmarks bar.</li>
-      </ol>
-    </div>
-
-    <div data-panel="ios">
-      <div id="tf-yes" class="hide">
-        <ol>
-          <li>Install Apple's <b>TestFlight</b> app from the App Store.</li>
-          <li><a class="btn big" id="tf-link" href="#">Join the ETH Clicker beta</a> and tap <b>Accept → Install</b>.</li>
-          <li>Open <b>ETH Clicker</b>, log in with your ETH account and allow notifications. Leave it open in the lecture.</li>
-        </ol>
-        <p class="muted">TestFlight installs updates by itself. A beta build stays usable for 90 days.</p>
-      </div>
-      <p id="tf-no" class="muted">The iPhone app is coming through Apple's TestFlight. Until then, use Clicker in Safari like this:</p>
-      <details id="ios-web"><summary>Use it in Safari without installing</summary>
-      <ol>
-        <li><button class="btn" data-copy="full">Copy the Clicker code</button><span class="done hide" data-done>Copied ✓</span></li>
-        <li>Bookmark this page: tap <b>Share</b> <span class="muted">(square with arrow)</span> → <b>Add Bookmark</b> → <b>Save</b>.</li>
-        <li>Tap the <b>Bookmarks</b> icon <span class="muted">(open book)</span> → <b>Edit</b> → tap the new bookmark. Change the name to <b>Clicker</b>. Tap the address, delete it, paste the copied code → <b>Done</b>.</li>
-        <li>Done. In the lecture: <a href="https://eduapp.ethz.ch/" target="_blank" rel="noopener">open EduApp</a> in Safari, log in, then tap <b>Bookmarks → Clicker</b>.</li>
-      </ol>
-      <p class="muted">Use Safari, not the EduApp icon on your home screen: home-screen apps can't run bookmarks.</p>
-      </details>
-    </div>
-
-    <div data-panel="android">
-      <ol>
-        <li><a class="btn big" href="Clicker.apk" download>Download the app</a> <span class="muted">(Clicker.apk, __APK_SIZE__)</span></li>
-        <li>Open the downloaded file (tap the download notification, or <b>Files → Downloads</b>). If the phone asks, allow <b>Install unknown apps</b> for your browser once, then tap <b>Install</b>.</li>
-        <li>Open <b>ETH Clicker</b>, log in with your ETH account and allow notifications. Leave it open in the lecture; questions pop up by themselves.</li>
-      </ol>
-      <p class="muted">Updates: download and install again from this page; your login stays. Samsung may show a "Play Protect" or "unverified app" warning because the beta isn't in the Play Store yet: tap <b>More details → Install anyway</b>.</p>
-      <details><summary>Or use it in Chrome without installing</summary>
-      <ol>
-        <li><button class="btn" data-copy="full">Copy the Clicker code</button><span class="done hide" data-done>Copied ✓</span></li>
-        <li>Bookmark this page: tap <b>⋮</b> → <b>☆</b> (star). Then tap <b>Edit</b> in the message at the bottom (or ⋮ → Bookmarks → ⋮ next to it → Edit).</li>
-        <li>Change the name to <b>Clicker</b>. Replace the URL with the copied code (long-press → Paste) and go back to save.</li>
-        <li>Done. In the lecture: <a href="https://eduapp.ethz.ch/" target="_blank" rel="noopener">open EduApp</a> in Chrome, log in, tap the address bar, type <b>Clicker</b>, and tap the suggestion with the <b>☆ star</b> (not the search one).</li>
-      </ol>
-      </details>
-    </div>
-
-    <p class="muted hide" id="short-hint">If pasting the long code doesn't work on your phone, <a href="#" data-copy="short">copy the short version</a> instead. It loads the same, pinned code from this website.</p>
-  </section>
-
-  <section class="card">
-    <h2>In the lecture</h2>
-    <ul class="points">
-      <li>Open EduApp, tap <b>Clicker</b>. EduApp switches to a clean full-screen view and stops its own background downloads.</li>
-      <li><b>Tap the screen once</b> so the alert sound can play. Keep the tab open: the screen stays on during your lectures.</li>
-      <li>When the lecturer opens a question it pops up with a sound (usually within 2–5 seconds). Tap your answer, then <b>Send</b>.</li>
-      <li><b>“Sent ✓”</b> means the server accepted it, and <b>“✓ Confirmed”</b> means it was double-checked. On bad Wi-Fi it keeps retrying for 2 minutes on its own, and your answer survives connection drops and an expired login.</li>
-    </ul>
-  </section>
-
-  <section class="card">
-    <h2>Why it's faster and more reliable</h2>
-    <ul class="points">
-      <li>The normal EduApp never checks for new questions by itself, and every refresh downloads all clicker questions of the semester (over 1 MB). Clicker checks a ~2 KB activity feed every few seconds around your lectures and only downloads the question that just opened.</li>
-      <li>EduApp gives up after one failed send and reloads the whole page when your login expires, losing your answer. Clicker retries on its own, renews your login in the background when ETH's single sign-on allows it, and confirms the answer with the server.</li>
-    </ul>
-  </section>
-
-  <section class="card">
-    <h2>Safe and private</h2>
-    <ul class="points">
-      <li>You log in on ETH's own login page. Clicker never sees your password, and your login, questions and answers only ever go between your phone and eduapp.ethz.ch.</li>
-      <li>To notice new questions faster, the phones in the same lecture share a small helper service (on Cloudflare). It only passes on "question number N changed"; each phone then asks EduApp itself. The service sees your IP address and a code for the lecture you're in while you're connected, and never anything about you, your questions or your answers. If it's down, Clicker simply checks EduApp on its own.</li>
-      <li>During the beta, Clicker sends anonymous numbers about how well it works (how fast questions appeared, whether answers got through, how quickly EduApp answered) with a random id made by the app. No name, login, course, question or answer. Kept for 90 days. <a href="privacy.html">Privacy details</a></li>
-      <li>It never answers for you. It only sends what you tap.</li>
-      <li>Considerate by design: during your lectures it makes one small request every ~4 s (every 15 s in a background tab, about once a minute otherwise), one at a time. Each request still costs the EduApp server about a second of work, so the load adds up if a whole lecture hall uses it. It slows down automatically as soon as EduApp answers slower than usual. Please don't modify it to check more often.</li>
-      <li>Unofficial: made by a student, not by ETH Zurich, and not endorsed by it. If EduApp changes, it may stop working until updated. This is a beta: please report problems to the person who gave you the link.</li>
-    </ul>
-  </section>
-
-  <details class="card">
-    <summary>Questions</summary>
-    <p><b>Why not a normal app or website?</b> Browsers only let code use your EduApp login when it runs on eduapp.ethz.ch itself. A separate site would need your ETH password, and you should never give that to anyone. The bookmark runs inside EduApp, so it doesn't need it.</p>
-    <p><b>Do I have to tap the bookmark every lecture?</b> Once per EduApp tab. If you reload the page, tap it again. On a laptop you can instead use the browser add-on below, which starts automatically.</p>
-    <p><b>Several EduApp tabs?</b> Fine. Only one of them checks for questions and the others get its updates.</p>
-    <p><b>“Login expired”?</b> Tap <b>Log in</b>, log in, and come back. Your chosen answer is kept and sent right after.</p>
-  </details>
-
-  <details class="card">
-    <summary>Browser add-on for laptops (starts automatically)</summary>
-    <p>Same code, shown as a small panel on every EduApp page, with a “Focus mode” button. Until it's published in the Chrome/Firefox add-on stores, installing it needs developer mode:</p>
+  <div data-panel="android">
+    <a class="btn" href="Clicker.apk" download>Download for Android</a>
+    <p class="sub">Clicker.apk · __APK_SIZE__</p>
     <ol>
-      <li><a href="fast-clicker-extension.zip" download>Download the add-on (.zip)</a> and unzip it.</li>
-      <li>Chrome/Edge/Brave: open <span class="kbd">chrome://extensions</span>, switch on <b>Developer mode</b>, click <b>Load unpacked</b>, choose the unzipped folder.</li>
+      <li>Open the downloaded file and tap <b>Install</b>. If asked, allow installing apps from your browser.</li>
+      <li>Open <b>ETH Clicker</b> and log in with your ETH account.</li>
     </ol>
-  </details>
+    <p class="note">Samsung warns about an unknown app? Tap <b>More details → Install anyway</b>. To update, download again.</p>
+  </div>
 
-  <footer>ETH Clicker __VERSION__ (beta) · built __DATE__ · <a href="fast-clicker.user.js">source code</a> · Not made or endorsed by ETH Zurich. EduApp is ETH Zurich's app.</footer>
+  <div data-panel="ios">
+    <div id="tf-yes" class="hide">
+      <a class="btn" id="tf-link" href="#">Get it on TestFlight</a>
+      <p class="sub">Apple's app for beta apps</p>
+      <ol>
+        <li>Install <a href="https://apps.apple.com/app/testflight/id899247664" rel="noopener">TestFlight</a> from the App Store.</li>
+        <li>Tap the button above, then <b>Accept → Install</b>.</li>
+        <li>Open <b>ETH Clicker</b> and log in with your ETH account.</li>
+      </ol>
+    </div>
+    <div id="tf-no">
+      <p class="note" style="margin:0 0 22px">The iPhone app is waiting for Apple's beta review. Until then, use it in Safari:</p>
+      <button class="btn" data-copy="full">Copy the Clicker code</button>
+      <p class="sub" data-done style="margin-bottom:12px">&nbsp;</p>
+      <ol>
+        <li>In Safari, bookmark this page (<b>Share → Add Bookmark</b>).</li>
+        <li>Open <b>Bookmarks → Edit</b>, tap the new bookmark, name it <b>Clicker</b> and replace its address with the copied code.</li>
+        <li>In the lecture, open <a href="https://eduapp.ethz.ch/" rel="noopener">EduApp</a> in Safari, log in, then tap <b>Bookmarks → Clicker</b>.</li>
+      </ol>
+      <p class="small hide" id="short-hint">Pasting fails? <a href="#" data-copy="short">Copy the short code</a> instead.</p>
+    </div>
+  </div>
+
+  <div data-panel="desktop">
+    <ol>
+      <li>Show the bookmarks bar: <b>Ctrl+Shift+B</b> (Mac: <b>⌘+Shift+B</b>).</li>
+      <li>Drag this button onto it:<br><br><a class="bm" id="bm-link" href="#" title="Drag me to your bookmarks bar">⚡ Clicker</a><br><br></li>
+      <li>In the lecture, open <a href="https://eduapp.ethz.ch/" rel="noopener">EduApp</a>, log in, then click <b>⚡ Clicker</b>.</li>
+    </ol>
+    <p class="small">Can't drag? <a href="#" data-copy="full">Copy the code</a> and save it as a bookmark. Or use the <a href="fast-clicker-extension.zip" download>browser add-on</a> (Chrome: <b>chrome://extensions</b> → Developer mode → Load unpacked).</p>
+  </div>
+
+  <footer>Not made or endorsed by ETH Zurich. During the beta the app sends anonymous usage numbers, never your login, questions or answers: <a href="privacy.html">privacy</a>. Version __VERSION__, __DATE__.</footer>
 </main>
 <script>
   const FULL = __FULL_JSON__;
@@ -171,17 +100,16 @@
   const hosted = location.protocol === 'https:';
   const shortCode = () => "javascript:(()=>{if(location.hostname!=='eduapp.ethz.ch'){if(confirm('Open EduApp now? Then tap this bookmark again.'))location.href='https://eduapp.ethz.ch/';return}if(window.__fastClicker)return void window.__fastClicker.show('focus');window.__FC_MODE='focus';var s=document.createElement('script');s.src=" + JSON.stringify(new URL(SHORT_FILE, location.href).href).replace(/"/g, "'") + ";s.integrity='" + SHORT_SRI + "';s.crossOrigin='anonymous';s.onerror=function(){alert('Clicker could not load. Check your connection and tap again.')};document.head.appendChild(s)})()";
   document.getElementById('bm-link').href = FULL;
-  const hint = document.getElementById('short-hint');
-  hint.classList.toggle('hide', !hosted);
-  async function copy(text, btn) {
+  document.getElementById('short-hint').classList.toggle('hide', !hosted);
+  async function copy(text) {
     try { await navigator.clipboard.writeText(text); }
     catch { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
-    const done = btn.parentElement.querySelector('[data-done]');
-    if (done) { done.classList.remove('hide'); setTimeout(() => done.classList.add('hide'), 4000); } else alert('Copied ✓');
+    const done = document.querySelector('[data-panel]:not(.hide) [data-done]');
+    if (done) { done.textContent = 'Copied ✓'; setTimeout(() => { done.innerHTML = '&nbsp;'; }, 4000); } else alert('Copied ✓');
   }
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-copy]');
-    if (b) { e.preventDefault(); copy(b.dataset.copy === 'short' && hosted ? shortCode() : FULL, b); }
+    if (b) { e.preventDefault(); copy(b.dataset.copy === 'short' && hosted ? shortCode() : FULL); }
     const t = e.target.closest('.tab');
     if (t) select(t.dataset.p);
   });
@@ -195,8 +123,11 @@
   select(phone || 'desktop');
   document.getElementById('qr-box').classList.toggle('hide', !!phone || !hosted);
   const TESTFLIGHT = __TESTFLIGHT_JSON__;
-  if (TESTFLIGHT) { document.getElementById('tf-link').href = TESTFLIGHT; document.getElementById('tf-yes').classList.remove('hide'); document.getElementById('tf-no').textContent = 'No TestFlight? You can also use Clicker in Safari:'; }
-  else document.getElementById('ios-web').open = true;
+  if (TESTFLIGHT) {
+    document.getElementById('tf-link').href = TESTFLIGHT;
+    document.getElementById('tf-yes').classList.remove('hide');
+    document.getElementById('tf-no').classList.add('hide');
+  }
 </script>
 </body>
 </html>
