@@ -14,7 +14,7 @@ A replacement for the clicker section of ETH EduApp (eduapp.ethz.ch): it looks l
 
 1. Edit the core script (or `ios/` Swift, or `relay/`), then run `node tools/build.js`.
 2. Run the tests: `node tools/test-mock.js`, `test-tabs.js`, `test-v3.js`, `test-chaos.js`, `test-bookmarklet.js`, `verify-site.js`, the relay's `node relay/test/run.js`, and `node tools/test-relay-e2e.js` (real clients against the real relay on a local port; needs `npm install` in `relay/` once). They use a mock server and never contact ETH. Bump `VERSION` in the core script, plus `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` in `ios/project.yml` and `versionName` in `android/app/build.gradle.kts`, for user-visible changes. To test the Cloudflare relay locally: `npx wrangler dev --port 8799` in `relay/`, then `RELAY_URL=http://127.0.0.1:8799 node test/integration-only.js`.
-3. Commit and push to `origin` (private GitHub repo). The iPhone and Android builds run automatically.
+3. Commit and push to `origin` (public GitHub repo since 2026-11-24, so Actions minutes are free). Start app builds by hand (see Rules).
 
 The reference for the look is EduApp itself: `hermes_out/v3/ui/` holds phone screenshots, HTML and style sheets of its clicker pages (local only).
 
@@ -32,5 +32,5 @@ The reference for the look is EduApp itself: `hermes_out/v3/ui/` holds phone scr
 - The user-facing name is "ETH Clicker" (the user's choice on 2026-11-24). Always mark it unofficial / not made by ETH Zurich and never use ETH's logo. The user wants EduApp's look kept, including the EduApp-style clicker icon (restored 2026-11-24). A store release under this name and look needs ETH's permission. App ids: Android `ch.students.clicker`, iOS `ch.students.clicker`.
 - Beta install page: `node tools/publish-site.js` publishes `site/` + the latest APK to https://clicker.fast-clicker-relay.workers.dev/ (approved by the user on 2026-11-23). Pinned scripts listed in `install/published-pins.txt` must stay online. App Store / Play Store publication still needs the user's explicit go and ETH's answer (see README "Store release").
 - Do not increase the load on ETH: one feed request at a time per client, never faster than every 4 s, and never download the semester list automatically during a lecture.
-- Publishing anything publicly (GitHub Pages, stores) needs the user's explicit OK. Hosting the relay was approved on 2026-11-12.
+- Publishing anything publicly (GitHub Pages, stores) needs the user's explicit OK. Hosting the relay was approved on 2026-11-12. The GitHub repo was made public on 2026-11-24 at the user's request (author email in history accepted by the user). Everything committed is public: never commit secrets, captured ETH data or personal details.
 - "Authentication failed" on the login page is ETH's wrong-credentials message, not an app bug. A cookie or flow problem shows HTTP 500 instead.
