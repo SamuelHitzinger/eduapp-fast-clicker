@@ -99,10 +99,24 @@ jobs:
             adb exec-out screencap -p > smoke.png
             adb logcat -d -s AndroidRuntime:E | tail -n 40
             adb shell pidof ch.students.clicker
+            # the same first start in dark mode (fresh data)
+            adb shell am force-stop ch.students.clicker
+            adb shell pm clear ch.students.clicker
+            adb shell pm grant ch.students.clicker android.permission.POST_NOTIFICATIONS || true
+            adb shell cmd uimode night yes
+            adb logcat -c
+            adb shell am start -W -n ch.students.clicker/ch.students.ethclicker.MainActivity
+            sleep 25
+            adb exec-out screencap -p > smoke-dark.png
+            adb logcat -d > smoke-log.txt
+            adb shell pidof ch.students.clicker
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: android-smoke
-          path: smoke.png
+          path: |
+            smoke.png
+            smoke-dark.png
+            smoke-log.txt
           retention-days: 14
