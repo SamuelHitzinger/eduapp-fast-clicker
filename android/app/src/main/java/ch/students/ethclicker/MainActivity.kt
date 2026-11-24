@@ -12,7 +12,6 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.media.AudioManager
 import android.net.ConnectivityManager
-import android.net.Network
 import android.net.NetworkCapabilities
 import android.media.RingtoneManager
 import android.net.Uri
@@ -48,8 +47,6 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.webkit.ProxyConfig
-import androidx.webkit.ProxyController
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import org.json.JSONObject
@@ -85,8 +82,6 @@ class MainActivity : ComponentActivity() {
     private var attemptStart = 0L                               // when the current try to open EduApp began (0: none open)
     private var attempts = 0
     private var reports = 0
-    private var bypass: Network? = null                         // the phone's own Wi-Fi/mobile network, used when EduApp can't be reached through a VPN
-    private var bypassTries = 0
     private val noAnswer = Runnable {
         attemptDone(StartReport.NO_ANSWER)
         showStatus("EduApp doesn't answer", "Nothing arrived from eduapp.ethz.ch within 30 seconds. Check the internet connection (Wi-Fi or mobile data), then try again." +
@@ -172,23 +167,11 @@ class MainActivity : ComponentActivity() {
         if (attemptStart == 0L) return
         val ms = System.currentTimeMillis() - attemptStart
         attemptStart = 0L
-        if (reports++ < 8) StartReport.send(this, outcome, ms, attempts, webViewVersion().substringBefore('.').toIntOrNull() ?: 0, errorCode, netError, bypass != null, extra?.put("direct", directProxy))
+        if (reports++ < 8) StartReport.send(this, outcome, ms, attempts, webViewVersion().substringBefore('.').toIntOrNull() ?: 0, errorCode, netError, extra)
     }
 
-    // ---------------------------------------------------------------- past a proxy, and a check of what's wrong
-    private var directProxy = false                              // the web component ignores any proxy set on the phone
-
-    /** True if the web component now connects directly (no proxy); [then] loads EduApp again. */
-    private fun tryWithoutProxy(then: () -> Unit): Boolean {
-        if (directProxy || !WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) return false
-        directProxy = true
-        return try {
-            ProxyController.getInstance().setProxyOverride(ProxyConfig.Builder().addDirect().build(), { r -> r.run() }) { handler.post(then) }
-            true
-        } catch (_: Exception) { false }
-    }
-
-    /** Every way in failed: find out why (outside the web component), report it and say what to do. */
+    // ---------------------------------------------------------------- why EduApp can't be loaded
+    /** Loading failed: find out why (outside the web component), report it and say what to do. */
     private fun diagnose(errorCode: Int, net: Int, description: String) {
         val app = applicationContext
         Thread {
@@ -210,47 +193,6 @@ class MainActivity : ComponentActivity() {
                 showStatus("No connection to EduApp", "$why$vpn\n\n$check", retry = true, update = http in 200..499)
             }
         }.start()
-    }
-
-
-    // ---------------------------------------------------------------- past a VPN that doesn't reach EduApp
-    // Some VPN setups (an exit node, routes that cover ETH, an app that filters traffic) cut the connection to
-    // eduapp.ethz.ch. Then the app tries once more over the phone's own Wi-Fi or mobile network, for this app only;
-    // other apps keep using the VPN. A VPN that doesn't allow apps past it (Android's "block connections without VPN")
-    // simply makes that try fail too, and the notice explains what to do.
-
-    private fun ownNetwork(): Network? = try {
-        val cm = getSystemService(ConnectivityManager::class.java)
-        @Suppress("DEPRECATION")
-        cm?.allNetworks?.mapNotNull { n -> cm.getNetworkCapabilities(n)?.let { n to it } }
-            ?.filter { (_, c) -> c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) && c.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) && c.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) }
-            ?.sortedBy { (_, c) -> if (c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) 0 else 1 }
-            ?.firstOrNull()?.first
-    } catch (_: Exception) { null }
-
-    /** True if the app now goes past the VPN and the caller should load EduApp again. */
-    private fun tryPastVpn(): Boolean {
-        if (bypass != null || bypassTries >= 2 || !vpnOn()) return false
-        val n = ownNetwork() ?: return false
-        val cm = getSystemService(ConnectivityManager::class.java) ?: return false
-        if (!cm.bindProcessToNetwork(n)) return false
-        bypass = n
-        bypassTries++
-        return true
-    }
-
-    /** Back to the phone's normal routing (through the VPN): the own network is gone or didn't help either. */
-    private fun dropBypass() {
-        if (bypass == null) return
-        bypass = null
-        try { getSystemService(ConnectivityManager::class.java)?.bindProcessToNetwork(null) } catch (_: Exception) {}
-    }
-
-    /** The network the app was bound to went away (left the Wi-Fi, for example): normal routing again. */
-    private fun checkBypass() {
-        val n = bypass ?: return
-        val alive = try { getSystemService(ConnectivityManager::class.java)?.getNetworkCapabilities(n) != null } catch (_: Exception) { false }
-        if (!alive) dropBypass()
     }
 
     private fun vpnOn() = try {
@@ -301,7 +243,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun retry() {
-        checkBypass()
         showStatus("Loading EduApp…", "", retry = false, update = false)
         handler.removeCallbacks(noAnswer)
         handler.postDelayed(noAnswer, NO_ANSWER_MS)
@@ -318,7 +259,6 @@ class MainActivity : ComponentActivity() {
         inForeground = true
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)   // keep the screen on while the app is open
         Alerts.markSeen(this)                                              // back in the app: no reminders needed
-        checkBypass()
         web.evaluateJavascript("window.dispatchEvent(new Event('online'))", null)   // check right away
     }
 
@@ -376,6 +316,16 @@ class MainActivity : ComponentActivity() {
         })();
     """.trimIndent()
 
+    /** ETH's login pages on eduapp.ethz.ch (oauth2-proxy, Keycloak, management). */
+    private fun isLoginPath(path: String?) = Regex("^/(keycloak|oauth2|mgmt)(/|$)").containsMatchIn(path.orEmpty())
+
+    /**
+     * Back on EduApp outside the login pages. After the first login ETH sometimes lands on EduApp's own start page
+     * (its logo, then the full 1 MB web app) instead of the clicker page the login was asked for; the app goes to the
+     * clicker in that case too.
+     */
+    private fun isEduAppPage(uri: Uri?) = uri != null && uri.scheme == "https" && uri.host == "eduapp.ethz.ch" && !isLoginPath(uri.path)
+
     private fun isEthHost(host: String?) = host?.lowercase()?.let { it == "ethz.ch" || it.endsWith(".ethz.ch") } == true
 
     /** Pages shown in the app: ETH's own, over https only. */
@@ -395,7 +345,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private inner class ClickerClient : WebViewClient() {
-        override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = !keepInApp(request)
+        override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+            // the main view shows only the clicker: EduApp's own pages (its start page after a login) lead to it
+            if (request.isForMainFrame && isEduAppPage(request.url) && !request.url.path.orEmpty().startsWith("/web/gw/")) { view.loadUrl(START_URL); return true }
+            return !keepInApp(request)
+        }
 
         override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
             // not logged in (or expired); this can arrive before or after onPageStarted, so it is only reset once used
@@ -428,17 +382,7 @@ class MainActivity : ComponentActivity() {
             if (!request.isForMainFrame) return
             val net = StartReport.netError(error.description)
             view.stopLoading()
-            fun again(how: String) {
-                showStatus("Loading EduApp…", how, retry = false, update = false)
-                handler.removeCallbacks(noAnswer)
-                handler.postDelayed(noAnswer, NO_ANSWER_MS)
-                handler.post { view.loadUrl(START_URL) }
-            }
-            if (bypass != null && net == -21 && bypassTries < 2) { attemptDone(StartReport.LOAD_ERROR, error.errorCode, net); bypassTries++; again("Trying without the VPN…"); return }   // the switch itself: once more
-            if (bypass != null) dropBypass()                      // past the VPN didn't help either
-            else if (tryPastVpn()) { attemptDone(StartReport.LOAD_ERROR, error.errorCode, net); again("Trying without the VPN…"); return }
-            if (tryWithoutProxy { again("Trying without a proxy…") }) { attemptDone(StartReport.LOAD_ERROR, error.errorCode, net); return }
-            // Nothing helped: a page of our own (never a blank screen), then the check and what to do.
+            // a page of our own (never a blank screen), then the check and what to do
             showNotice(view, "No connection to EduApp", "Checking the connection…", "")
             diagnose(error.errorCode, net, error.description?.toString() ?: "")
         }
@@ -499,6 +443,7 @@ class MainActivity : ComponentActivity() {
         popup.webViewClient = object : WebViewClient() {
             // the login runs only on ETH's own pages (https *.ethz.ch); a page elsewhere could imitate it, so it never loads here
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                if (request.isForMainFrame && isEduAppPage(request.url)) { loggedIn = true; finish(); return true }   // logged in: EduApp itself is never shown here
                 if (keepInApp(request)) return false
                 if (request.isForMainFrame) finish()              // not an ETH page: never shown here (a tapped link went to the browser)
                 return true
@@ -507,10 +452,13 @@ class MainActivity : ComponentActivity() {
                 finish()                                         // its page was killed (memory): close, never crash
                 return true
             }
+            override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                // a server redirect (the login's last step) may not pass shouldOverrideUrlLoading
+                if (isEduAppPage(url?.let(Uri::parse))) { view.stopLoading(); loggedIn = true; finish() }
+            }
             override fun onPageFinished(view: WebView, url: String?) {
                 view.evaluateJavascript(loginFieldScript, null)
-                val u = url?.let(Uri::parse)
-                if (u?.host == "eduapp.ethz.ch" && u.path.orEmpty().startsWith("/web/gw/")) { loggedIn = true; finish() }   // logged in
+                if (isEduAppPage(url?.let(Uri::parse))) { loggedIn = true; finish() }   // logged in
             }
         }
         popup.webChromeClient = object : WebChromeClient() {

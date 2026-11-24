@@ -74,18 +74,16 @@ const byOutcome = {};
 for (const x of starts) byOutcome[x.outcome] = (byOutcome[x.outcome] || 0) + 1;
 console.log('  ' + (Object.entries(byOutcome).map(([o, n]) => `${OUTCOME[o] || o}: ${n}`).join(', ') || 'none yet'));
 const okMs = starts.filter((x) => x.outcome === 1 || x.outcome === 2).map((x) => x.ms);
-const past = starts.filter((x) => x.pastVpn);
-if (past.length) console.log(`  tries past a VPN: ${past.length}, of them reached EduApp: ${past.filter((x) => x.outcome <= 2).length}`);
 if (okMs.length) console.log(`  time to EduApp: median ${s(pct(okMs, 0.5))}, 90% ${s(pct(okMs, 0.9))}`);
 // phones that never got in: their last attempts, with what is known about the phone and connection
 const lastOk = new Map();
 for (const x of starts) if (x.outcome === 1 || x.outcome === 2) lastOk.set(x.install, x.ts);
 const bad = starts.filter((x) => x.outcome >= 3 && !(lastOk.get(x.install) > x.ts));
 for (const x of bad.slice(-15)) {
-  const conn = [x.online === 0 ? 'offline' : null, x.wifi ? 'Wi-Fi' : null, x.cell ? 'mobile' : null, x.vpn ? (x.pastVpn ? 'VPN (app went past it)' : 'VPN') : null, x.privDns ? 'private DNS' : null, x.saver ? 'data saver' : null, x.validated === 0 ? 'not validated' : null].filter(Boolean).join('+') || '?';
+  const conn = [x.online === 0 ? 'offline' : null, x.wifi ? 'Wi-Fi' : null, x.cell ? 'mobile' : null, x.vpn ? 'VPN' : null, x.privDns ? 'private DNS' : null, x.saver ? 'data saver' : null, x.validated === 0 ? 'not validated' : null].filter(Boolean).join('+') || '?';
   console.log(`  ${new Date(x.ts).toISOString().slice(0, 16)}Z ${x.install.slice(0, 6)} v${x.version} Android sdk ${x.sdk} WebView ${x.wv}: ${OUTCOME[x.outcome] || x.outcome}` +
     (x.net ? ` net::ERR_${NET[x.net] || x.net}` : x.err ? ` (WebView error ${x.err})` : '') + ` after ${s(x.ms)}, try ${x.attempt}, ${conn}` + (x.age > 60 ? `, sent ${Math.round(x.age / 60)} min later` : '') +
-    (x.dnsOk !== undefined ? ` | check: DNS ${x.dnsOk === 0 ? 'failed' : x.dnsLocal ? 'LOCAL (blocker)' : 'ok'}${x.dnsV6 ? ' v6' : ''}, direct ${x.http ? 'HTTP ' + x.http : 'error ' + x.httpErr}, proxy ${x.proxy || x.netProxy ? 'yes' : 'no'}${x.direct ? ', proxy bypassed' : ''}` : ''));
+    (x.dnsOk !== undefined ? ` | check: DNS ${x.dnsOk === 0 ? 'failed' : x.dnsLocal ? 'LOCAL (blocker)' : 'ok'}${x.dnsV6 ? ' v6' : ''}, direct ${x.http ? 'HTTP ' + x.http : 'error ' + x.httpErr}, proxy ${x.proxy || x.netProxy ? 'yes' : 'no'}` : ''));
 }
 
 // ---------------------------------------------------------------- relay rooms (as the relay sees them)
