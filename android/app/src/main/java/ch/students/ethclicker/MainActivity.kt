@@ -14,11 +14,17 @@ import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.Message
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.graphics.Typeface
+import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.WindowManager
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
@@ -27,7 +33,10 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
@@ -50,6 +59,8 @@ class MainActivity : ComponentActivity() {
         const val START_URL = "https://eduapp.ethz.ch/web/gw/semesters/current"
         const val LOGIN_URL = "https://eduapp.ethz.ch/oauth2/start?rd=%2Fweb%2Fgw%2Fsemesters%2Fcurrent"
         const val ORIGIN = "https://eduapp.ethz.ch"
+        const val WEBVIEW_STORE = "https://play.google.com/store/apps/details?id=com.google.android.webview"
+        const val NO_ANSWER_MS = 30_000L
     }
 
     private lateinit var root: FrameLayout
@@ -59,6 +70,16 @@ class MainActivity : ComponentActivity() {
     private var login: Dialog? = null
     private var inForeground = false
     private var destroyed = false
+    private val handler = Handler(Looper.getMainLooper())
+    private lateinit var status: LinearLayout                  // a native screen over the page: loading, no answer, start failure
+    private lateinit var statusTitle: TextView
+    private lateinit var statusText: TextView
+    private lateinit var statusRetry: Button
+    private lateinit var statusUpdate: Button
+    private val noAnswer = Runnable {
+        showStatus("EduApp doesn't answer", "Nothing arrived from eduapp.ethz.ch within 30 seconds. Check the internet connection (Wi-Fi or mobile data), then try again." +
+            (if (oldWebView()) " This phone's web component is also out of date: please update it." else ""), retry = true, update = oldWebView())
+    }
     private var nextNotificationId = (System.currentTimeMillis() / 1000 % 100_000).toInt()
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -68,6 +89,7 @@ class MainActivity : ComponentActivity() {
         root = FrameLayout(this)
         web = WebView(this)
         root.addView(web, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        buildStatus()
         setContentView(root)
         // The page starts below the status bar / camera cutout and above the navigation bar and keyboard.
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
@@ -124,7 +146,62 @@ class MainActivity : ComponentActivity() {
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
+        showStatus("Loading EduApp…", "", retry = false, update = false)
+        handler.postDelayed(noAnswer, NO_ANSWER_MS)
         if (savedInstanceState == null || !web.restoreState(savedInstanceState).let { it != null }) web.loadUrl(START_URL)
+    }
+
+    // ---------------------------------------------------------------- status screen (native, so it shows even if the page can't)
+
+    private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
+
+    private fun webViewVersion(): String = try { WebViewCompat.getCurrentWebViewPackage(this)?.versionName ?: "?" } catch (_: Exception) { "?" }
+
+    /** Android System WebView older than Chrome 100 (2022): EduApp and the clicker may not work. */
+    private fun oldWebView() = webViewVersion().substringBefore('.').toIntOrNull()?.let { it < 100 } == true
+
+    private fun buildStatus() {
+        val dark = isSystemDark()
+        val fg = if (dark) Color.rgb(236, 236, 236) else Color.rgb(26, 26, 26)
+        status = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(32), dp(32), dp(32), dp(32))
+            setBackgroundColor(if (dark) Color.rgb(18, 18, 18) else Color.WHITE)
+            isClickable = true                                   // the page below gets no taps while this shows
+        }
+        statusTitle = TextView(this).apply { textSize = 20f; setTypeface(typeface, Typeface.BOLD); setTextColor(fg); gravity = Gravity.CENTER }
+        statusText = TextView(this).apply { textSize = 15f; setTextColor(fg); gravity = Gravity.CENTER; setPadding(0, dp(12), 0, dp(12)) }
+        statusRetry = Button(this).apply { text = "Try again"; setOnClickListener { retry() } }
+        statusUpdate = Button(this).apply { text = "Update Android System WebView"; setOnClickListener { openOutside(Uri.parse(WEBVIEW_STORE)) } }
+        val versions = TextView(this).apply {
+            textSize = 12f; setTextColor(Color.GRAY); gravity = Gravity.CENTER; setPadding(0, dp(24), 0, 0)
+            val app = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (_: Exception) { "?" }
+            text = "ETH Clicker $app · Android ${Build.VERSION.RELEASE} · WebView ${webViewVersion()}"
+        }
+        for (v in listOf(statusTitle, statusText, statusRetry, statusUpdate, versions)) status.addView(v, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        root.addView(status, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+    }
+
+    private fun showStatus(title: String, text: String, retry: Boolean, update: Boolean) {
+        statusTitle.text = title
+        statusText.text = text
+        statusText.visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
+        statusRetry.visibility = if (retry) View.VISIBLE else View.GONE
+        statusUpdate.visibility = if (update) View.VISIBLE else View.GONE
+        status.visibility = View.VISIBLE
+    }
+
+    private fun hideStatus() {
+        handler.removeCallbacks(noAnswer)
+        status.visibility = View.GONE
+    }
+
+    private fun retry() {
+        showStatus("Loading EduApp…", "", retry = false, update = false)
+        handler.removeCallbacks(noAnswer)
+        handler.postDelayed(noAnswer, NO_ANSWER_MS)
+        web.loadUrl(START_URL)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -150,6 +227,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         destroyed = true
+        handler.removeCallbacksAndMessages(null)
         login?.dismiss()
         root.removeView(web)
         web.destroy()
@@ -163,8 +241,8 @@ class MainActivity : ComponentActivity() {
         val core = assets.open("fast-clicker.js").bufferedReader().use { it.readText() }
         """
         (function () {
-          if (window.top !== window || location.origin !== '$ORIGIN' || /^\/(keycloak|oauth2|mgmt)\//.test(location.pathname)) return;
-          if (window.__fastClicker) return;
+          if (window.top !== window || location.origin !== '$ORIGIN' || /^\/(keycloak|oauth2|mgmt)\//.test(location.pathname)) return 'skip';
+          if (window.__fastClicker) return 'skip';
           var nat = typeof fcNative !== 'undefined' && fcNative && typeof fcNative.postMessage === 'function';
           var post = function (o) { try { fcNative.postMessage(JSON.stringify(o)); } catch (e) {} };
           window.__FC_MODE = 'focus';
@@ -176,6 +254,7 @@ class MainActivity : ComponentActivity() {
             openUrl: function (u) { post({ type: 'open', url: String(u) }); }
           } : { noExit: true };
         $core
+          return 'ok';
         })();
         """.trimIndent()
     }
@@ -218,19 +297,26 @@ class MainActivity : ComponentActivity() {
             if (request.isForMainFrame && errorResponse.statusCode == 401) needsLogin = true
         }
 
+        override fun onPageCommitVisible(view: WebView, url: String?) {
+            hideStatus()                                         // something is on screen: ETH's page, the clicker or a notice
+        }
+
         override fun onPageFinished(view: WebView, url: String?) {
             // Not logged in: only ETH's login (the clicker would start its own silent login next to it, and two
             // logins at once break ETH's check of the login request)
             if (needsLogin) { needsLogin = false; showLogin(LOGIN_URL); return }
             val uri = url?.let(Uri::parse)
-            if (uri?.host == "eduapp.ethz.ch") view.evaluateJavascript(injected, null)
+            if (uri?.host == "eduapp.ethz.ch") view.evaluateJavascript(injected) { r ->
+                // null: the script did not run (a syntax this WebView doesn't know, or an error at start)
+                if (r == null || r == "null") showStatus("The clicker couldn't start", "This phone's web component (Android System WebView ${webViewVersion()}) may be out of date. Update it, then open ETH Clicker again.", retry = true, update = true)
+            }
             view.evaluateJavascript(loginFieldScript, null)
         }
 
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
             if (!request.isForMainFrame) return
             // No connection at launch: a small retry page instead of a blank screen.
-            showNotice(view, "No connection to EduApp", "Check the Wi-Fi, then try again.", "Try again")
+            showNotice(view, "No connection to EduApp", "Check the Wi-Fi or mobile data, then try again. (${error.description})", "Try again")
         }
 
         override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
