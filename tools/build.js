@@ -1,12 +1,13 @@
 // Builds site/ (install page, pinned script, add-on) from fast-clicker/eduapp-fast-clicker.user.js.
 // Run: node tools/build.js
 const fs = require('fs'), path = require('path'), crypto = require('crypto'), esbuild = require('esbuild');
-const { execFileSync } = require('child_process');
+const { zipDir } = require('./zip');
+const { current: currentVersion } = require('./version');
 const root = path.resolve(__dirname, '..');
 const site = path.join(root, 'site');
 const srcPath = path.join(root, 'fast-clicker/eduapp-fast-clicker.user.js');
 let src = fs.readFileSync(srcPath, 'utf8');
-const version = (src.match(/const VERSION = '([^']+)'/) || [])[1];
+const version = currentVersion();          // version.json, checked against the script and both apps
 // The hint relay's address (relay/README.md) is put into every build; without relay/relay-url.txt each client
 // simply checks for itself.
 const relayFile = path.join(root, 'relay/relay-url.txt');
@@ -29,6 +30,7 @@ const full = 'javascript:' + `(()=>{window.__FC_MODE='focus';${min.replace(/;$/,
 const sri = 'sha384-' + crypto.createHash('sha384').update(min).digest('base64');
 const shortFile = `fast-clicker.${crypto.createHash('sha256').update(min).digest('hex').slice(0, 10)}.js`;
 // pinned files that were ever published are kept by tools/publish-site.js: installed short bookmarks reference them by name + hash
+for (const f of fs.readdirSync(site)) if (/^fast-clicker.[0-9a-f]{10}.js$/.test(f) && f !== shortFile) fs.unlinkSync(path.join(site, f));   // older pins live in install/pins
 fs.writeFileSync(path.join(site, shortFile), min);
 fs.writeFileSync(path.join(site, 'fast-clicker.user.js'), src);
 // iPhone and Android apps: the same tested build, injected by the app
@@ -43,22 +45,20 @@ fs.writeFileSync(path.join(root, 'android/app/src/main/assets/report-url.txt'), 
 const tfFile = path.join(__dirname, 'testflight-url.txt');
 const testflight = fs.existsSync(tfFile) ? fs.readFileSync(tfFile, 'utf8').trim() : '';
 if (testflight && !/^https:\/\/testflight\.apple\.com\/join\/[A-Za-z0-9]+$/.test(testflight)) throw new Error('tools/testflight-url.txt must hold a https://testflight.apple.com/join/... link');
-const apkPath = path.join(root, 'app-download', 'Clicker.apk');
-const apkSize = fs.existsSync(apkPath) ? (fs.statSync(apkPath).size / 1e6).toFixed(1) + ' MB' : 'about 1 MB';
 const html = fs.readFileSync(path.join(site, 'template.html'), 'utf8')
   .replace('__FULL_JSON__', () => JSON.stringify(full).replace(/</g, '\\u003c'))
   .replace('__SHORT_FILE_JSON__', () => JSON.stringify(shortFile))
   .replace('__SHORT_SRI_JSON__', () => JSON.stringify(sri))
   .replace('__VERSION__', version)
   .replace('__TESTFLIGHT_JSON__', () => JSON.stringify(testflight))
-  .replace('__APK_SIZE__', apkSize)
-  .replace('__DATE__', new Date().toISOString().slice(0, 10));
+;   // __APK_SIZE__ and __DATE__ are filled in by tools/publish-site.js, so a rebuild is reproducible
 fs.writeFileSync(path.join(site, 'index.html'), html);
 fs.writeFileSync(path.join(site, '.nojekyll'), '');
 
 // 4) browser add-on (Manifest V3; Chrome, Edge, Brave, Firefox 128+)
 const ext = path.join(site, 'extension');
 fs.writeFileSync(path.join(ext, 'fast-clicker.js'), min);
+fs.writeFileSync(path.join(ext, 'addon.js'), "window.__FC_HOOKS = Object.assign({}, window.__FC_HOOKS, { platform: 'addon' });\n");   // diagnostics tell the add-on apart
 fs.writeFileSync(path.join(ext, 'manifest.json'), JSON.stringify({
   manifest_version: 3,
   name: 'ETH Clicker (unofficial)',
@@ -68,12 +68,12 @@ fs.writeFileSync(path.join(ext, 'manifest.json'), JSON.stringify({
   content_scripts: [{
     matches: ['https://eduapp.ethz.ch/*'],
     exclude_matches: ['https://eduapp.ethz.ch/keycloak/*', 'https://eduapp.ethz.ch/oauth2/*', 'https://eduapp.ethz.ch/mgmt/*'],
-    js: ['fast-clicker.js'], run_at: 'document_idle', world: 'MAIN',
+    js: ['addon.js', 'fast-clicker.js'], run_at: 'document_idle', world: 'MAIN',
   }],
   browser_specific_settings: { gecko: { id: 'clicker-for-eduapp@beta', strict_min_version: '128.0' } },
 }, null, 2));
 const zip = path.join(site, 'fast-clicker-extension.zip');
-execFileSync('python', ['-I', path.join(__dirname, 'zipdir.py'), zip, ext]);
+zipDir(zip, ext);
 
 console.log(`relay: ${relayUrl || '(none: every client checks for itself)'}`);
 console.log(`v${version}: script ${min.length} B, full bookmarklet ${full.length} chars, pinned ${shortFile}, add-on zip ${fs.statSync(zip).size} B`);

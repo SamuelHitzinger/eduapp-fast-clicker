@@ -1,6 +1,6 @@
 // Read-only live smoke test: real eduapp.ethz.ch GETs with the session cookie; any non-GET is refused locally.
 const fs = require('fs'), path = require('path'); const { JSDOM } = require('jsdom');
-const base = path.resolve(__dirname, '..');
+const base = path.resolve(__dirname, '..', '..');
 const script = fs.readFileSync(path.join(base, 'fast-clicker/eduapp-fast-clicker.user.js'), 'utf8');
 const ck = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')).filter((c) => (c.path || '/') === '/').map((c) => `${c.name}=${c.value}`).join('; ');
 const log = [];

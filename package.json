@@ -1,0 +1,15 @@
+{
+  "name": "eth-clicker",
+  "private": true,
+  "description": "ETH Clicker (unofficial): one clicker script for the iPhone app, the Android app, the bookmark and the browser add-on, plus the hint relay. See README.md.",
+  "scripts": {
+    "setup": "npm ci --prefix tools && npm ci --prefix relay",
+    "build": "node tools/build.js",
+    "test": "node tools/run-tests.js",
+    "test:quick": "node tools/run-tests.js --quick",
+    "check": "node tools/build.js && git diff --exit-code && node tools/run-tests.js",
+    "set-version": "node tools/version.js",
+    "monitor": "node tools/monitor.js",
+    "release": "node tools/release.js"
+  }
+}

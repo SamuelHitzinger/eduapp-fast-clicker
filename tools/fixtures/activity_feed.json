@@ -1,0 +1,422 @@
+[
+ {
+  "id": 474463,
+  "objectType": "CHANNEL",
+  "type": "CHANNEL_COMMENT_CREATE",
+  "objectId": 236376,
+  "itemId": 34342,
+  "createdAt": "2026-11-09T13:02:42.394Z",
+  "objectTitle": "Forum",
+  "message": {
+   "de": "Neuer Kommentar",
+   "en": "New comment"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474460,
+  "objectType": "CLICKER",
+  "type": "CLICKER_STOP_ROUND",
+  "objectId": 322454,
+  "itemId": 0,
+  "createdAt": "2026-11-09T12:56:40.722Z",
+  "objectTitle": "Q2",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474457,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322453,
+  "itemId": 0,
+  "createdAt": "2026-11-09T11:33:29.185Z",
+  "objectTitle": "Q1",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474454,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322458,
+  "itemId": 0,
+  "createdAt": "2026-11-06T08:40:23.026Z",
+  "objectTitle": "Q4",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474451,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322457,
+  "itemId": 0,
+  "createdAt": "2026-11-06T07:52:18.405Z",
+  "objectTitle": "Q3",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474448,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322393,
+  "itemId": 0,
+  "createdAt": "2026-11-04T08:54:43.963Z",
+  "objectTitle": "Q6",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474445,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322392,
+  "itemId": 0,
+  "createdAt": "2026-11-04T07:40:27.888Z",
+  "objectTitle": "Q5",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474442,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 321665,
+  "itemId": 0,
+  "createdAt": "2026-11-02T14:40:31.868Z",
+  "objectTitle": "Q8",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Beispielkurs"
+  }
+ },
+ {
+  "id": 474439,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 321664,
+  "itemId": 0,
+  "createdAt": "2026-11-02T14:26:36.386Z",
+  "objectTitle": "Q7",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Beispielkurs"
+  }
+ },
+ {
+  "id": 474436,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322482,
+  "itemId": 0,
+  "createdAt": "2026-10-30T08:45:40.812Z",
+  "objectTitle": "Q9",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474433,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322412,
+  "itemId": 0,
+  "createdAt": "2026-10-30T06:43:12.267Z",
+  "objectTitle": "Q10",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474430,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322404,
+  "itemId": 0,
+  "createdAt": "2026-10-28T08:46:20.439Z",
+  "objectTitle": "Q11",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474427,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 321636,
+  "itemId": 0,
+  "createdAt": "2026-10-26T14:53:51.004Z",
+  "objectTitle": "Q21",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Beispielkurs"
+  }
+ },
+ {
+  "id": 474424,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 321635,
+  "itemId": 0,
+  "createdAt": "2026-10-26T14:48:31.218Z",
+  "objectTitle": "Q20",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Beispielkurs"
+  }
+ },
+ {
+  "id": 474421,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 321634,
+  "itemId": 0,
+  "createdAt": "2026-10-26T14:32:55.123Z",
+  "objectTitle": "Q19",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Beispielkurs"
+  }
+ },
+ {
+  "id": 474418,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322447,
+  "itemId": 0,
+  "createdAt": "2026-10-26T13:39:55.985Z",
+  "objectTitle": "Q18",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474415,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322494,
+  "itemId": 0,
+  "createdAt": "2026-10-26T13:39:55.978Z",
+  "objectTitle": "Q33",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474412,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322493,
+  "itemId": 0,
+  "createdAt": "2026-10-26T13:39:55.971Z",
+  "objectTitle": "Q32",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474409,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322492,
+  "itemId": 0,
+  "createdAt": "2026-10-26T13:39:55.964Z",
+  "objectTitle": "Q31",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474406,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322432,
+  "itemId": 0,
+  "createdAt": "2026-10-26T13:39:55.957Z",
+  "objectTitle": "Q45",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474403,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322430,
+  "itemId": 0,
+  "createdAt": "2026-10-26T13:39:55.950Z",
+  "objectTitle": "Q44",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474400,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322429,
+  "itemId": 0,
+  "createdAt": "2026-10-26T13:39:55.943Z",
+  "objectTitle": "Q43",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474397,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322428,
+  "itemId": 0,
+  "createdAt": "2026-10-26T13:39:55.936Z",
+  "objectTitle": "Q42",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474394,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322427,
+  "itemId": 0,
+  "createdAt": "2026-10-26T13:39:55.929Z",
+  "objectTitle": "Q41",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ },
+ {
+  "id": 474391,
+  "objectType": "CLICKER",
+  "type": "CLICKER_CLOSE",
+  "objectId": 322445,
+  "itemId": 0,
+  "createdAt": "2026-10-26T12:57:02.921Z",
+  "objectTitle": "Q17",
+  "message": {
+   "de": "Eine Umfrage wurde aktualisiert",
+   "en": "A poll was updated"
+  },
+  "courseTitle": {
+   "de": "Analysis I",
+   "en": "Analysis I"
+  }
+ }
+]

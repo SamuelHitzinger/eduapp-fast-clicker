@@ -32,13 +32,17 @@ if (!fs.existsSync(apk)) throw new Error('app-download/Clicker.apk missing: run 
   }
   fs.writeFileSync(PINS, [...pins].sort().join('\n') + '\n');
   fs.copyFileSync(apk, path.join(out, 'Clicker.apk'));
+  // what changes with every publish (not with a build): the APK's size and the date
+  const today = new Date().toISOString().slice(0, 10);
+  fs.writeFileSync(path.join(out, 'index.html'), fs.readFileSync(path.join(out, 'index.html'), 'utf8')
+    .replace('__APK_SIZE__', (fs.statSync(apk).size / 1e6).toFixed(1) + ' MB').replace('__DATE__', today));
   // privacy page, with the beta's contact (install/contact.txt) and today's date
   const contactFile = path.join(root, 'install', 'contact.txt');
   const contact = fs.existsSync(contactFile) ? fs.readFileSync(contactFile, 'utf8').trim() : '';
   const esc = (t) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   fs.writeFileSync(path.join(out, 'privacy.html'), fs.readFileSync(path.join(site, 'privacy.html'), 'utf8')
     .replace('__CONTACT__', contact ? `<a href="mailto:${esc(contact)}">${esc(contact)}</a>` : 'the person who gave you the link to this beta')
-    .replace('__DATE__', new Date().toISOString().slice(0, 10)));
+    .replace('__DATE__', today));
   fs.writeFileSync(path.join(out, 'qr.svg'), await QRCode.toString(pageUrl, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }));
   fs.writeFileSync(path.join(out, '404.html'), '<!doctype html><meta charset="utf-8"><title>Not found</title><p>Not found. <a href="/">Clicker beta</a></p>');
   fs.writeFileSync(path.join(out, '_headers'), [

@@ -1,0 +1,37 @@
+{
+ "id": 322454,
+ "type": "MCMA",
+ "state": "OPEN",
+ "title": "Q2",
+ "question": "<p>Example: which of these functions are continuous on [0, 1]?</p><p><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"60\" height=\"14\"><text x=\"0\" y=\"11\">f(x)</text></svg></p>",
+ "answerState": "UNANSWERED",
+ "entries": [
+  {
+   "id": 633799,
+   "answer": "<p>x²</p>",
+   "selected": false
+  },
+  {
+   "id": 633800,
+   "answer": "<p>1/x</p>",
+   "selected": false
+  },
+  {
+   "id": 633801,
+   "answer": "<p>|x|</p>",
+   "selected": false
+  },
+  {
+   "id": 633802,
+   "answer": "<p>sin x</p>",
+   "selected": false
+  },
+  {
+   "id": 633803,
+   "answer": "<p>⌊x⌋</p>",
+   "selected": false
+  }
+ ],
+ "showResults": true,
+ "preview": false
+}

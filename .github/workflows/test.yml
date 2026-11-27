@@ -1,0 +1,45 @@
+name: Tests
+
+# Every push and pull request: the build must be up to date and every test must pass. Linux minutes are free for
+# this public repository. The tests use synthetic EduApp data (tools/fixtures/) and never contact ETH or Cloudflare.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install dependencies (lockfiles)
+        run: npm ci --prefix tools && npm ci --prefix relay
+
+      - name: The committed build is what the sources produce
+        run: |
+          node tools/build.js
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --porcelain
+            echo "::error::the generated files are out of date: run node tools/build.js and commit"
+            exit 1
+          fi
+
+      - name: Fixtures are what tools/fixtures/make.js produces
+        run: node tools/fixtures/make.js && git diff --exit-code tools/fixtures
+
+      - name: All tests
+        run: node tools/run-tests.js
+
+      - name: The Cloudflare relay (local Worker, Durable Objects and D1) against the integration tests
+        working-directory: relay
+        run: |
+          npx wrangler d1 migrations apply clicker-metrics --local > /dev/null
+          npx wrangler dev --port 8799 > wrangler.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8799/health > /dev/null && break; sleep 1; done
+          RELAY_URL=http://127.0.0.1:8799 node test/integration-only.js || { tail -50 wrangler.log; exit 1; }

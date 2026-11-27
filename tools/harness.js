@@ -4,9 +4,12 @@ const path = require('path');
 const { JSDOM } = require('jsdom');
 const base = path.resolve(__dirname, '..');
 const script = fs.readFileSync(path.join(base, 'fast-clicker/eduapp-fast-clicker.user.js'), 'utf8');
-const detail = JSON.parse(fs.readFileSync(path.join(base, 'data/clicker_322454.json'), 'utf8'));
-const feed0 = JSON.parse(fs.readFileSync(path.join(base, 'data/activity_feed.json'), 'utf8'));
-const list = JSON.parse(fs.readFileSync(path.join(base, 'data/clickers_list.json'), 'utf8'));
+// Synthetic EduApp data (tools/fixtures/make.js); FC_DATA=data runs the same tests against a local capture instead.
+const dataDir = process.env.FC_DATA ? path.resolve(base, process.env.FC_DATA) : path.join(__dirname, 'fixtures');
+const load = (f) => JSON.parse(fs.readFileSync(path.join(dataDir, f), 'utf8'));
+const detail = load('clicker_322454.json');
+const feed0 = load('activity_feed.json');
+const list = load('clickers_list.json');
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function until(fn, ms = 4000) { const t = Date.now(); while (Date.now() - t < ms) { if (fn()) return true; await wait(15); } return !!fn(); }

@@ -36,7 +36,7 @@
 //     The relay never sees logins, questions or answers (relay/README.md).
 (() => {
   'use strict';
-  const VERSION = '3.5.0';
+  const VERSION = '3.6.0';
   const RELAY_URL = '';     // wss://… of the hint relay; empty = every client checks the feed itself (set by tools/build.js)
   const MODE = window.__FC_MODE === 'focus' ? 'focus' : 'panel';
   if (window.__fastClicker) { window.__fastClicker.show(MODE); return; }
