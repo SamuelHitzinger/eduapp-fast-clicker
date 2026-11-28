@@ -1034,6 +1034,19 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     stop();
   }
 
+  {
+    // another tab fetched a pause: this tab (maybe the next leader) applies it at once, through localStorage's event
+    const S = makeServer();
+    const { root, w, fc, stop } = boot(S, { hooks: { controlUrl: 'https://site.test/control.json', timeScale: 0.05 } });
+    await until(() => root.querySelector('.card[data-id="322454"]'));
+    w.dispatchEvent(new w.StorageEvent('storage', { key: 'fast-clicker-control', newValue: JSON.stringify({ c: { pause: true }, at: Date.now() }) }));
+    const n0 = S.log.filter((l) => l.includes('activity-feed')).length;
+    await wait(800);
+    const during = S.log.filter((l) => l.includes('activity-feed')).length - n0;
+    check('C10 a pause another tab fetched applies here at once', fc.control.pause && during === 0 && /paused/.test(root.querySelector('#banner').textContent), `${during} checks`);
+    stop();
+  }
+
   console.log(results.join('\n'));
   const fails = results.filter((r) => r.startsWith('FAIL')).length;
   console.log(`\n${results.length - fails}/${results.length} passed`);

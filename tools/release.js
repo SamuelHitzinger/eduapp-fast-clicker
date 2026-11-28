@@ -58,11 +58,17 @@ function apk() {
   console.log(`app-download/Clicker.apk from run ${run.databaseId} (commit ${sha.slice(0, 7)}, version ${current()}), smoke test: ${smoke ? smoke.conclusion : 'not run'}`);
 }
 
+/** App builds are made from main as it is on GitHub: this checkout must be exactly that commit. */
+function onMain() {
+  try { sh('git', ['fetch', '-q', 'origin']); } catch {}
+  if (sh('git', ['rev-parse', 'origin/main']) !== head()) throw new Error('this checkout is not origin/main: push (or pull) first, so the build is of this commit');
+}
+
 const cmd = process.argv[2];
 try {
   if (cmd === 'check') check();
-  else if (cmd === 'android') { gh('workflow', 'run', 'android.yml', '-f', 'smoke=true'); console.log('Android build started: gh run list --workflow android.yml'); }
+  else if (cmd === 'android') { onMain(); gh('workflow', 'run', 'android.yml', '--ref', 'main', '-f', 'smoke=true'); console.log('Android build started: gh run list --workflow android.yml'); }
   else if (cmd === 'apk') apk();
-  else if (cmd === 'ios') { gh('workflow', 'run', 'ios-testflight.yml'); console.log('TestFlight upload started: gh run list --workflow ios-testflight.yml'); }
+  else if (cmd === 'ios') { onMain(); gh('workflow', 'run', 'ios-testflight.yml', '--ref', 'main'); console.log('TestFlight upload started: gh run list --workflow ios-testflight.yml'); }
   else { console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(0, 7).join('\n')); process.exit(cmd ? 1 : 0); }
 } catch (e) { console.error(e.message); process.exit(1); }

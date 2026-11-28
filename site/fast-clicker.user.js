@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ETH Clicker (unofficial)
 // @namespace    https://eduapp.ethz.ch/
-// @version      3.5.0
+// @version      3.6.0
 // @description  Shows opened ETH EduApp clicker questions within seconds and gets your answer through even on bad Wi-Fi.
 // @match        https://eduapp.ethz.ch/*
 // @run-at       document-idle
@@ -850,6 +850,15 @@
     } catch {} finally { clearTimeout(t); }
     // again in 6 hours, or every 10 minutes while paused (so the pause ends soon after it is lifted)
     control.timer = setTimeout(fetchControl, TS * (halted() ? 10 * 60e3 : 6 * 3600e3));
+    controlChanged(before);
+  }
+  // another tab of this browser fetched a new control file: apply it here too, right away
+  window.addEventListener('storage', (e) => {
+    if (e.key !== CONTROL_KEY || !e.newValue) return;
+    const before = halted();
+    try { const saved = JSON.parse(e.newValue); if (saved && applyControl(saved.c, saved.at)) controlChanged(before); } catch {}
+  });
+  function controlChanged(before) {
     if (before !== halted()) {
       if (halted()) relay.queue.length = 0;                     // hints accepted before the pause are not read
       relaySync();

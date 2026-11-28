@@ -36,7 +36,7 @@ const qs = q(`SELECT ${J('delay')} AS delay, ${J('hint')} AS hint, ${J('hidden')
 console.log(`\n== Questions on screen (${qs.length} reports; in rooms over 20 students only a sample reports)`);
 for (const [label, sel] of [['all', qs], ['via relay hint', qs.filter((x) => x.hint)], ['via own feed check', qs.filter((x) => !x.hint)], ['app in background', qs.filter((x) => x.hidden)]]) {
   const d = sel.map((x) => x.delay);
-  if (d.length) console.log(`  ${label.padEnd(20)} n=${String(d.length).padStart(5)}  median ${s(pct(d, 0.5))}  90% ${s(pct(d, 0.9))}  worst ${s(Math.max(...d))}`);
+  if (d.length) console.log(`  ${label.padEnd(20)} n=${String(d.length).padStart(5)}  median ${s(pct(d, 0.5))}  90% ${s(pct(d, 0.9))}  worst ${s(d.reduce((a, x) => Math.max(a, x), 0))}`);
 }
 
 // ---------------------------------------------------------------- periods: answers, ETH load, errors by platform
@@ -67,7 +67,7 @@ for (const r of byVer) {
 console.log(`\n== Relay (as the apps see it)`);
 console.log(`  connected ${(n0(t.ropen) * 100).toFixed(0)}% of the time; hints received ${n0(t.rhints)}, question reads because of hints ${n0(t.rreads)}`);
 console.log(`\n== Remote control (install/control.json) as the apps applied it`);
-console.log(`  period reports under pause ${n0(t.cpause)}, too old (below "min") ${n0(t.cold)}, slowed ${n0(t.cslow)} (of ${n0(t.reports)})`);
+console.log(`  period reports under pause ${n0(t.cpause)}, too old (below "min") ${n0(t.cold)}, slowed ${n0(t.cslow)} (of ${n0(t.reports)}; a client halted for a whole period sends none)`);
 
 // ---------------------------------------------------------------- app starts (Android: did EduApp open at all?)
 const OUTCOME = { 1: 'ok', 2: 'login shown', 3: 'load error', 4: 'no answer 30 s', 5: 'clicker failed to start', 6: 'page process died' };
@@ -81,9 +81,8 @@ console.log(`\n== App starts (Android)`);
 console.log('  ' + (outcomes.map((r) => `${OUTCOME[r.o] || r.o}: ${r.n} (${r.phones} phones)`).join(', ') || 'none yet'));
 if (okMs.length) console.log(`  time to EduApp: median ${s(pct(okMs, 0.5))}, 90% ${s(pct(okMs, 0.9))}`);
 // phones whose latest start failed: what is known about the phone and connection
-const bad = q(`SELECT r.ts, r.install, r.version, r.data FROM reports r WHERE r.kind = 'start' AND r.ts >= ${since}
-  AND r.ts = (SELECT MAX(ts) FROM reports WHERE kind = 'start' AND install = r.install AND ts >= ${since})
-  AND json_extract(r.data, '$.outcome') >= 3 ORDER BY r.ts DESC LIMIT 15`).map((r) => ({ ts: r.ts, install: r.install, version: r.version, ...JSON.parse(r.data) }));
+const bad = q(`SELECT ts, install, version, data FROM (SELECT ts, install, version, data, ROW_NUMBER() OVER (PARTITION BY install ORDER BY ts DESC) AS k
+  FROM reports WHERE kind = 'start' AND ts >= ${since}) WHERE k = 1 AND json_extract(data, '$.outcome') >= 3 ORDER BY ts DESC LIMIT 15`).map((r) => ({ ts: r.ts, install: r.install, version: r.version, ...JSON.parse(r.data) }));
 for (const x of bad) {
   const conn = [x.online === 0 ? 'offline' : null, x.wifi ? 'Wi-Fi' : null, x.cell ? 'mobile' : null, x.vpn ? 'VPN' : null, x.privDns ? 'private DNS' : null, x.saver ? 'data saver' : null, x.validated === 0 ? 'not validated' : null].filter(Boolean).join('+') || '?';
   console.log(`  ${new Date(x.ts).toISOString().slice(0, 16)}Z ${x.install.slice(0, 6)} v${x.version} Android sdk ${x.sdk} WebView ${x.wv}: ${OUTCOME[x.outcome] || x.outcome}` +
@@ -94,8 +93,8 @@ for (const x of bad) {
 // ---------------------------------------------------------------- relay rooms (as the relay sees them)
 const rooms = q(`SELECT room, MAX(members) AS peak, MAX(scouts) AS scouts, SUM(hints) AS hints, COUNT(*) AS snaps FROM rooms WHERE ts >= ${since} GROUP BY room ORDER BY peak DESC`);
 // right now: the latest snapshot of each room from the last 6 minutes (rooms write one every 5 minutes while in use)
-const live = q(`SELECT COUNT(*) AS rooms, SUM(members) AS members FROM rooms r WHERE r.ts >= ${now - 6 * 60e3}
-  AND r.ts = (SELECT MAX(ts) FROM rooms WHERE room = r.room AND ts >= ${now - 6 * 60e3})`)[0] || {};
+const live = q(`SELECT COUNT(*) AS rooms, SUM(members) AS members FROM (SELECT members, ROW_NUMBER() OVER (PARTITION BY room ORDER BY ts DESC) AS k
+  FROM rooms WHERE ts >= ${now - 6 * 60e3}) WHERE k = 1`)[0] || {};
 console.log(`\n== Relay rooms (lectures)`);
 console.log(`  in the last 6 min: ${n0(live.rooms)} rooms in use, ${n0(live.members)} phones at their latest snapshot (a room that just emptied may still count)`);
 console.log(`  last ${hours} h: ${rooms.length} rooms; biggest: ` + (rooms.slice(0, 5).map((r) => `${r.room} peak ${r.peak} (scouts ${r.scouts}, hints ${r.hints})`).join('; ') || 'none'));

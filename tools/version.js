@@ -8,6 +8,7 @@ const root = path.resolve(__dirname, '..');
 const PLACES = [
   { file: 'version.json', re: /("version":\s*")(\d+\.\d+\.\d+)(")/ },
   { file: 'fast-clicker/eduapp-fast-clicker.user.js', re: /(const VERSION = ')(\d+\.\d+\.\d+)(')/ },
+  { file: 'fast-clicker/eduapp-fast-clicker.user.js', re: /(\/\/ @version +)(\d+\.\d+\.\d+)()/ },
   { file: 'ios/project.yml', re: /(MARKETING_VERSION: ")(\d+\.\d+\.\d+)(")/ },
   { file: 'android/app/build.gradle.kts', re: /(versionName = ")(\d+\.\d+\.\d+)(")/ },
 ];

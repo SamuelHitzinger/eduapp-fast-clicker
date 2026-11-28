@@ -117,7 +117,7 @@ export class RelayRoom extends DurableObject {
   }
 
   /** The hub for this room, rebuilt silently from the sockets' attachments after a wake-up. */
-  ensureHub(room, { quiet = true } = {}) {
+  ensureHub(room, { quiet = true, include = null } = {}) {
     if (this.hub) return this.hub;
     // A roster broadcast still pending when the room went to sleep: tell everyone their slot. Roster alarms are set
     // at most ~300 ms ahead; the metrics snapshot alarm (minutes ahead, always set in an occupied room) doesn't count.
@@ -136,7 +136,9 @@ export class RelayRoom extends DurableObject {
       loadRoomMemory: () => this.memory,
     });
     const entries = [];
-    for (const ws of this.ctx.getWebSockets()) {
+    const sockets = this.ctx.getWebSockets();
+    if (include && !sockets.includes(include)) sockets.push(include);   // a departing socket the platform no longer lists
+    for (const ws of sockets) {
       const att = safeAttachment(ws);
       if (!att || att.room !== room || att.dead) continue;
       entries.push({ conn: this.connFor(ws, att), rooms: att.rooms, scout: att.scout, seq: att.seq, joined: att.joined });
@@ -204,10 +206,10 @@ export class RelayRoom extends DurableObject {
 
   gone(ws) {
     const att = safeAttachment(ws);
-    // Woken by this departure. A scout leaving moves the scouts after it, and it may already be missing from the
-    // restore, so everyone is told their slot. A standby leaving changes no slot: restore quietly (in a big room
-    // most departures are standbys, and each would otherwise send a roster to every member).
-    if (!this.hub && att) this.ensureHub(att.room, { quiet: !att.scout });
+    // Woken by this departure: rebuild the room quietly with the departing socket still in it, then remove it the
+    // normal way, so only the members whose slot actually changes are told (in a big room most departures are
+    // standbys, and a full broadcast to every member each time would be wasted).
+    if (!this.hub && att) this.ensureHub(att.room, { include: ws });
     const conn = this.conns.get(ws);
     if (conn && this.hub) this.hub.disconnect(conn);
     this.conns.delete(ws);

@@ -34,7 +34,7 @@ const apk = newApk ? path.join(root, 'app-download', 'Clicker.apk') : path.join(
   // the remote control (see docs/OPERATIONS.md): checked here, so a typo can't switch it off by accident
   const control = JSON.parse(fs.readFileSync(path.join(root, 'install', 'control.json'), 'utf8'));
   const ver = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/;
-  if (typeof control.pause !== 'boolean' || !(control.slow >= 1 && control.slow <= 10) || !ver.test(control.min) ||
+  if (typeof control.pause !== 'boolean' || !(typeof control.slow === 'number' && control.slow >= 1 && control.slow <= 10) || !ver.test(control.min) ||
       !['web', 'addon', 'ios', 'android'].every((p) => ver.test(control.latest && control.latest[p]))) throw new Error('install/control.json is malformed');
   fs.writeFileSync(path.join(out, 'control.json'), JSON.stringify(control) + '\n');
   console.log('control:', JSON.stringify(control));
