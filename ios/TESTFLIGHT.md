@@ -20,12 +20,15 @@ expiry. It needs the paid Apple Developer Program (99 USD/year), which an App St
 
 ## Each beta build
 
-1. GitHub → Actions → **iPhone app to TestFlight** → Run workflow (on `main`). It picks the newest Xcode (Apple requires the iOS 26 SDK or later), archives, signs and uploads (about 5 minutes).
-2. App Store Connect → TestFlight: the build appears after Apple's processing (10–30 min).
-   - **Internal testers** (up to 100 people you add to your team) can install right away.
-   - **External testers**: create a group, add the build, fill in "What to test", and submit it for **Beta App Review** (usually within a day).
-     Then switch on the **public link** and put it into `tools/testflight-url.txt`; `node tools/build.js` and `node tools/publish-site.js`
-     show it on the install page.
+1. `node tools/release.js ios` (or GitHub → Actions → **iPhone app to TestFlight** → Run workflow, on `main`). It picks the newest Xcode (Apple requires the iOS 26 SDK or later), archives, signs and uploads, then waits for Apple's processing and runs `node tools/testflight.js distribute`: the build goes into the external group with a "What to test" note and is submitted for beta review. `node tools/testflight.js status` shows every build's state.
+2. Who gets it when:
+   - **Internal testers**: the group "Clicker Tests", up to 100 people who are members of your App Store Connect team (Users and Access).
+     They get every build as soon as Apple has processed it, with no review.
+   - **External testers**: the group "Beta testers", joined through its public link https://testflight.apple.com/join/YKwXYAN5.
+     They get a build once Apple's **Beta App Review** has approved its version. The first version usually takes a day or more;
+     later builds of an approved version usually pass by themselves.
+3. Once the first build is approved, put the public link into `tools/testflight-url.txt`. `node tools/build.js` and
+   `node tools/publish-site.js` then show "Get it on TestFlight" on the install page.
 
 ## Before an App Store release
 

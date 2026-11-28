@@ -17,7 +17,7 @@ jobs:
   testflight:
     if: github.ref == 'refs/heads/main'
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -78,6 +78,15 @@ jobs:
           xcodebuild -exportArchive -archivePath build/Clicker.xcarchive -exportOptionsPlist build/ExportOptions.plist \
             -exportPath build/export -allowProvisioningUpdates -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" \
             -authenticationKeyID "$KID" -authenticationKeyIssuerID "$ISS" 2>&1 | tail -n 30
+
+      # Internal testers get the build by themselves. This adds it to the external group and submits it for Apple's
+      # beta review (once per version; the public link serves it as soon as Apple approves). Waits for processing.
+      - name: Hand the build to the external testers
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
+        run: node tools/testflight.js distribute $((1000 + GITHUB_RUN_NUMBER))
 
       - name: Remove the key
         if: always()

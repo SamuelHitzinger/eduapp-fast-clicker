@@ -69,6 +69,6 @@ try {
   if (cmd === 'check') check();
   else if (cmd === 'android') { onMain(); gh('workflow', 'run', 'android.yml', '--ref', 'main', '-f', 'smoke=true'); console.log('Android build started: gh run list --workflow android.yml'); }
   else if (cmd === 'apk') apk();
-  else if (cmd === 'ios') { onMain(); gh('workflow', 'run', 'ios-testflight.yml', '--ref', 'main'); console.log('TestFlight upload started: gh run list --workflow ios-testflight.yml'); }
+  else if (cmd === 'ios') { onMain(); gh('workflow', 'run', 'ios-testflight.yml', '--ref', 'main'); console.log('TestFlight upload started (internal testers get it by itself; it is then added to the external group and submitted for beta review). Follow it: node tools/testflight.js status'); }
   else { console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(0, 7).join('\n')); process.exit(cmd ? 1 : 0); }
 } catch (e) { console.error(e.message); process.exit(1); }

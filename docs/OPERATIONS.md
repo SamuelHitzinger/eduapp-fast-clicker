@@ -12,7 +12,7 @@ design is in `../fast-clicker/README.md` (client) and `../relay/README.md` (rela
 | Relay (one Durable Object per lecture room) and `POST /v1/report` | Cloudflare Worker `fast-clicker-relay` | `cd relay && npx wrangler deploy` |
 | Metrics | Cloudflare D1 `clicker-metrics` (90 days, daily cleanup by cron) | `cd relay && npx wrangler d1 migrations apply clicker-metrics --remote` |
 | Android app | APK on the install page (sideloaded) | `node tools/release.js android` then `apk`, then publish |
-| iPhone app | TestFlight, public link | `node tools/release.js ios` |
+| iPhone app | TestFlight, public link | `node tools/release.js ios` (then `node tools/testflight.js status`) |
 | Tests | GitHub Actions `test.yml` on every push | automatic |
 
 Secrets: the Android release key is in GitHub secrets and `android/keystore/` (never commit it). The App Store
@@ -31,8 +31,10 @@ on the owner's PC.
    - **Android:** `node tools/release.js android` (build and emulator test, about 15 min). Then `node tools/release.js apk` fetches the
      APK built from exactly this commit. A failed *smoke* job can be the emulator's own Google services crashing:
      look at `smoke.png` and the log in the run's `android-smoke` artifact before ignoring it. The *build* job must pass.
-   - **iPhone:** `node tools/release.js ios` uploads to TestFlight. External testers get it after Apple's beta review (usually under a day).
-     TestFlight builds expire after **90 days**: upload one at least every two months.
+   - **iPhone:** `node tools/release.js ios` uploads to TestFlight. Internal testers ("Clicker Tests") get it once Apple has processed it
+     (10–30 min). The workflow then adds it to the external group "Beta testers" (public link) and submits it for Apple's beta review,
+     needed once per version. `node tools/testflight.js status` shows where each build is. TestFlight builds expire after **90 days**:
+     upload one at least every two months.
 6. `node tools/publish-site.js --new-apk` publishes the page, every pinned script ever published, the new APK and `control.json`.
    Without `--new-apk` the APK that is online stays as it is: use that for page or `control.json` changes.
 7. **Tell old clients.** Raise `latest` in `install/control.json` for each channel once its new build is out there, then publish again.
