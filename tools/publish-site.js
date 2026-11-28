@@ -1,5 +1,6 @@
 // Publishes the beta install page (site/ + the latest Android app + a QR code) to Cloudflare as static files.
-//   node tools/build.js && node tools/release.js apk && node tools/publish-site.js   (docs/OPERATIONS.md)
+//   node tools/publish-site.js              the page, pins and control.json; the APK that is online stays as it is
+//   node tools/publish-site.js --new-apk    the same with app-download/Clicker.apk (from node tools/release.js apk)
 // Every pinned script that was ever published stays online (installed short bookmarks load it by name and hash).
 const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
 const QRCode = require('qrcode');
@@ -9,14 +10,17 @@ const out = path.join(root, 'install', 'public');
 const URL_FILE = path.join(root, 'install', 'site-url.txt');
 const PINS = path.join(root, 'install', 'published-pins.txt');
 const pageUrl = fs.readFileSync(URL_FILE, 'utf8').trim();
-const apk = path.join(root, 'app-download', 'Clicker.apk');
+const newApk = process.argv.includes('--new-apk');
+const apk = newApk ? path.join(root, 'app-download', 'Clicker.apk') : path.join(out, '..', 'live-Clicker.apk');
 
 (async () => {
-  // No APK here (another PC, or only control.json changes in an emergency): keep the one that is online now.
-  if (!fs.existsSync(apk)) {
-    const r = await fetch(new URL('Clicker.apk', pageUrl));
-    if (!r.ok) throw new Error('app-download/Clicker.apk missing and the live one could not be fetched: see docs/OPERATIONS.md (Release)');
-    fs.mkdirSync(path.dirname(apk), { recursive: true });
+  if (newApk) {
+    if (!fs.existsSync(apk)) throw new Error('app-download/Clicker.apk missing: node tools/release.js apk');
+    console.log('APK: the new one from app-download/');
+  } else {
+    // keep the one that is online now (so publishing a page or control.json change never swaps the app by accident)
+    const r = await fetch(new URL('Clicker.apk', pageUrl), { cache: 'no-store' });
+    if (!r.ok) throw new Error('could not fetch the published APK to keep it: use --new-apk with app-download/Clicker.apk');
     fs.writeFileSync(apk, Buffer.from(await r.arrayBuffer()));
     console.log('APK: kept the published one');
   }

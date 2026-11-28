@@ -119,7 +119,9 @@ export class RelayRoom extends DurableObject {
   /** The hub for this room, rebuilt silently from the sockets' attachments after a wake-up. */
   ensureHub(room, { quiet = true } = {}) {
     if (this.hub) return this.hub;
-    if (this.alarmAt != null) quiet = false;               // something was still to be told: tell everyone their slot
+    // A roster broadcast still pending when the room went to sleep: tell everyone their slot. Roster alarms are set
+    // at most ~300 ms ahead; the metrics snapshot alarm (minutes ahead, always set in an occupied room) doesn't count.
+    if (this.alarmAt != null && this.alarmAt - Date.now() < 2000) quiet = false;
     this.room = room;
     this.hub = new Hub({
       limits: ROOM_LIMITS,

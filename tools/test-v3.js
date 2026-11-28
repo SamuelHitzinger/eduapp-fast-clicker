@@ -1004,7 +1004,34 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     const b = boot(S2, { hooks: { controlUrl: 'https://site.test/control.json', timeScale: 0.05 }, preset: { 'fast-clicker-control': JSON.stringify({ c: { pause: true }, at: Date.now() }) } });
     await wait(1200);
     check('C7 a remembered pause holds at the next start, also without the site', feedCount(S2) === 0 && b.fc.control.pause, `${feedCount(S2)} checks`);
+    // a malformed file while paused changes nothing: it can't lift the pause by accident
+    for (const junk of [{ pause: 'false' }, { pause: false, slow: 0 }, { pause: false, min: 'x' }, { pause: false, latest: { web: 3 } }]) { S2.control = junk; await b.fc.fetchControl(); }
+    const n5 = feedCount(S2); await wait(800);
+    check('C8 a malformed file never lifts a pause', b.fc.control.pause && feedCount(S2) - n5 === 0, `${JSON.stringify(b.fc.control)}`);
     b.stop();
+  }
+  {
+    // a pause while an answer is being retried: no automatic re-send (nothing would notice a new round); one tap sends
+    const S = makeServer();
+    const { root, fc, stop } = boot(S, { hooks: { controlUrl: 'https://site.test/control.json', timeScale: 0.05 } });
+    await until(() => root.querySelector('.card[data-id="322454"]'));
+    S.addClicker(mcsa(990101, 'Retry then pause'));
+    S.push({ objectType: 'CLICKER', type: 'CLICKER_OPEN', objectId: 990101, courseTitle: { de: 'Analysis I' } });
+    await until(() => root.querySelector('.opt[data-id="990101"]'));
+    S.failVotes = 2;
+    root.querySelector('.opt[data-id="990101"][data-e="2"]').click();
+    root.querySelector('.send[data-id="990101"]').click();
+    await until(() => /trying|Weak/.test(st(root, 990101)), 2000);
+    S.control = { pause: true }; await fc.fetchControl();
+    S.failVotes = 0;
+    await wait(1500);
+    const auto = S.votes.filter((v) => v.id === 990101).length;
+    const status = st(root, 990101);
+    root.querySelector('.send[data-id="990101"]').click();
+    const tapped = await until(() => S.votes.some((v) => v.id === 990101), 3000);
+    check('C9 paused during a retry: the answer is not re-sent by itself, the student is told, and one tap sends it',
+      auto === 0 && /paused/.test(status) && tapped, `${auto} automatic sends, status "${status}", tapped ${tapped}`);
+    stop();
   }
 
   console.log(results.join('\n'));

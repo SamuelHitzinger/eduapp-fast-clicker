@@ -19,4 +19,5 @@ android/local.properties
 android/keystore/
 # install page build output (published by tools/publish-site.js)
 install/public/
+install/live-Clicker.apk
 .wrangler/

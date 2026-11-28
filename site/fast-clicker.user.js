@@ -268,7 +268,7 @@
   function electLeader() {
     if (navigator.locks && navigator.locks.request) {
       navigator.locks.request('fast-clicker-poller', () => new Promise((release) => {
-        if (!state.running) { release(); return; }       // paused while queued: pass leadership on
+        if (!state.running || control.old) { release(); return; }   // stopped (or too old) while queued: pass leadership on
         releaseLeader = release;
         becomeLeader();
       })).catch(() => becomeLeader());
@@ -816,14 +816,22 @@
   const verNum = (v) => (typeof v === 'string' && /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v) ? v.split('.').reduce((a, x) => a * 1000 + Number(x), 0) : null);
   const control = { pause: false, old: false, slow: 1, update: false, at: 0, timer: null };
   const halted = () => control.pause || control.old;
-  function applyControl(c, at) {
+  // The whole document must be well-formed, or nothing changes (a typo must never lift a pause).
+  function validControl(c) {
     if (!c || typeof c !== 'object' || Array.isArray(c)) return false;
-    const me = verNum(VERSION), min = verNum(c.min);
-    const latest = c.latest && typeof c.latest === 'object' ? verNum(c.latest[platform]) : null;
+    if ('pause' in c && typeof c.pause !== 'boolean') return false;
+    if ('slow' in c && !(typeof c.slow === 'number' && c.slow >= 1 && c.slow <= 10)) return false;
+    if ('min' in c && verNum(c.min) === null) return false;
+    if ('latest' in c && (!c.latest || typeof c.latest !== 'object' || Array.isArray(c.latest) || Object.values(c.latest).some((v) => verNum(v) === null))) return false;
+    return true;
+  }
+  function applyControl(c, at) {
+    if (!validControl(c)) return false;
+    const me = verNum(VERSION);
     control.pause = c.pause === true;
-    control.old = min !== null && me < min;
-    control.slow = typeof c.slow === 'number' && c.slow > 1 ? Math.min(c.slow, 10) : 1;
-    control.update = latest !== null && me < latest;
+    control.old = 'min' in c && me < verNum(c.min);
+    control.slow = c.slow > 1 ? c.slow : 1;
+    control.update = !!c.latest && platform in c.latest && me < verNum(c.latest[platform]);
     control.at = at;
     return true;
   }
@@ -842,7 +850,13 @@
     } catch {} finally { clearTimeout(t); }
     // again in 6 hours, or every 10 minutes while paused (so the pause ends soon after it is lifted)
     control.timer = setTimeout(fetchControl, TS * (halted() ? 10 * 60e3 : 6 * 3600e3));
-    if (before !== halted()) { relaySync(); if (!halted()) pokeNow(); }
+    if (before !== halted()) {
+      if (halted()) relay.queue.length = 0;                     // hints accepted before the pause are not read
+      relaySync();
+      if (!halted()) pokeNow();
+    }
+    if (control.old && state.leader) resignLeader();             // an up-to-date tab may take over the checking
+    else if (!control.old && !state.leader && state.running && !releaseLeader) electLeader();
     render();
   }
 
@@ -880,6 +894,7 @@
         if (h.at > Date.now()) await sleep(h.at - Date.now());
         for (let attempt = 0; attempt < 1; attempt++) {       // one read per hint: if it fails, the own feed check finds it
           if (!state.leader || !state.running || state.authLost) break;
+          if (halted()) { relay.queue.length = 0; break; }      // remote control: no hint reads
           const now = Date.now();
           if (now < Math.max(relay.quietUntil, state.notBefore)) { relay.queue.length = 0; break; }
           relay.hints = relay.hints.filter((t) => now - t < 60000);
@@ -1024,7 +1039,7 @@
       if (sp) {
         // Shared discovery: the relay gave every checking client of this lecture a slot; together they ask the feed
         // about once per `every` ms, each one only every n-th time. Hints from the others arrive through the relay.
-        const period = Math.min(Math.max(CFG.shareMaxMs, CFG.cadenceMs), Math.max(CFG.cadenceMs, sp.n * sp.every));
+        const period = control.slow * Math.min(Math.max(CFG.shareMaxMs, CFG.cadenceMs), Math.max(CFG.cadenceMs, sp.n * sp.every));   // slow: every slot further apart
         if (sp.slot >= 0 && !document.hidden) {
           const now = Date.now() + relay.offset;
           let wait = (Math.round(sp.slot * period / sp.n) - (now % period) + 2 * period) % period;
@@ -1037,11 +1052,11 @@
           // the room, the rarer, so all of them together stay at about 3 feed requests a second (once a minute in a
           // room of 200, every 5 minutes from 1,000 students on)
           const safety = Math.min(CFG.standbyMaxMs, Math.max(CFG.standbyMinMs, (sp.m || 0) * CFG.standbyPerMemberMs));
-          ms = jitter(Math.max(CFG.hiddenCadenceMs, safety));
+          ms = jitter(control.slow * Math.max(CFG.hiddenCadenceMs, safety));
         }
         if (state.errorStreak) ms = Math.max(ms, Math.min(CFG.maxBackoffMs, CFG.lectureBackoffMs, 2000 * 2 ** (state.errorStreak - 1)), state.retryAfterMs);
       } else {
-        let cadence = !fast ? CFG.idleCadenceMs : document.hidden ? CFG.hiddenCadenceMs : CFG.cadenceMs;
+        let cadence = control.slow * (!fast ? CFG.idleCadenceMs : document.hidden ? CFG.hiddenCadenceMs : CFG.cadenceMs);
         // relay configured but unreachable: check alone, but the more students were sharing, the slower (ETH load)
         const solo = fast && relayUrl && relay.want.size && !sharedPlan() ? Math.min(CFG.soloMaxMs, Math.max(CFG.soloMinMs, relay.lastN * CFG.soloStepMs, relay.lastM * CFG.soloPerMemberMs)) : 0;
         cadence = Math.max(cadence, solo);                         // (also while ETH answers with errors: never faster than this)
@@ -1052,7 +1067,6 @@
         else if (state.errorStreak) cadence = Math.max(state.retryAfterMs, Math.min(maxBackoff, 2000 * 2 ** (state.errorStreak - 1)), Math.min(cadence, 8000), solo);
         ms = Math.max(0, jitter(cadence) - (Date.now() - startedAt));
       }
-      if (control.slow > 1) ms = Math.round(ms * control.slow);   // remote control: ETH is overloaded, check less
       const now = Date.now();
       if (state.dueAt) ms = Math.min(ms, state.dueAt - now);       // messages from the relay can bring a check forward, never push it back
       if (relay.confirmDue) ms = Math.min(ms, relay.confirmDue - now);   // a hint asked for the feed's word on a round change
@@ -1180,6 +1194,9 @@
             if (!await waitForSession(deadline)) return;
             continue;
           }
+          // Checking is halted (remote control): nothing would notice a new round, so no automatic re-send. The choice
+          // stays; one tap sends it again.
+          if ((attempt > 0 || repair > 0) && halted()) { setStatus(id, 'warn', 'Not sent yet: checking is paused, so a new round can\'t be ruled out. Tap Send to try again.'); attempt = -1; return; }
           // An automatic send (a retry, or a repair after verification) waits while a hint has raised the possibility of a
           // new round, until a feed check has actually succeeded. Only the student's own tap sends without waiting.
           if ((attempt > 0 || repair > 0) && state.hold.has(id)) {
@@ -1258,7 +1275,7 @@
     }
     const cur = state.draft.get(id);
     const newer = cur && cur.ver !== u.ver;
-    if (c.state === 'OPEN' && !newer && u.repair < 2) {         // e.g. an older request landed late
+    if (c.state === 'OPEN' && !newer && u.repair < 2 && !halted()) {   // e.g. an older request landed late
       setStatus(id, 'pending', 'The server shows a different answer. Re-sending yours…');
       if (!cur) setDraft(c, typeof u.ans === 'string' ? u.ans : [...u.ans]);
       setTimeout(() => sendVote(id, { repair: u.repair + 1 }), 0);

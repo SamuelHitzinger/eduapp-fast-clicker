@@ -27,13 +27,14 @@ on the owner's PC.
 3. **Commit and push.** CI checks that the committed build matches the sources and runs every test.
 4. **Pre-flight.** `node tools/release.js check` must say `ready`.
 5. **Channels:**
-   - **Web bookmark and add-on:** `node tools/publish-site.js` (after step 6, so the APK is the same version).
+   - **Web bookmark and add-on:** published with the page in step 6.
    - **Android:** `node tools/release.js android` (build and emulator test, about 15 min). Then `node tools/release.js apk` fetches the
      APK built from exactly this commit. A failed *smoke* job can be the emulator's own Google services crashing:
      look at `smoke.png` and the log in the run's `android-smoke` artifact before ignoring it. The *build* job must pass.
    - **iPhone:** `node tools/release.js ios` uploads to TestFlight. External testers get it after Apple's beta review (usually under a day).
      TestFlight builds expire after **90 days**: upload one at least every two months.
-6. `node tools/publish-site.js` publishes the page, every pinned script ever published, the APK and `control.json`.
+6. `node tools/publish-site.js --new-apk` publishes the page, every pinned script ever published, the new APK and `control.json`.
+   Without `--new-apk` the APK that is online stays as it is: use that for page or `control.json` changes.
 7. **Tell old clients.** Raise `latest` in `install/control.json` for each channel once its new build is out there, then publish again.
    Clients older than that show a small "update available" note.
 

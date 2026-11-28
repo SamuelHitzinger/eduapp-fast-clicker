@@ -2,7 +2,7 @@
 // The steps themselves stay deliberate (docs/OPERATIONS.md, "Release"); nothing here publishes anything.
 //   node tools/release.js check      is this commit ready? (version, clean and pushed, CI green, control.json)
 //   node tools/release.js android    start the Android build (+ emulator smoke test) for this commit
-//   node tools/release.js apk        download the APK built from this commit into app-download/ (for publish-site)
+//   node tools/release.js apk        download the APK built from this commit into app-download/ (then publish-site --new-apk)
 //   node tools/release.js ios        start the TestFlight upload for this commit
 const { execFileSync } = require('child_process');
 const fs = require('fs'), path = require('path');
@@ -14,7 +14,8 @@ const head = () => sh('git', ['rev-parse', 'HEAD']);
 
 /** The newest run of a workflow for this commit: { databaseId, status, conclusion } or null. */
 function runFor(workflow, sha) {
-  const runs = JSON.parse(gh('run', 'list', '--workflow', workflow, '--commit', sha, '--limit', '5', '--json', 'databaseId,status,conclusion,createdAt'));
+  // only builds of main: other branches are signed with a throwaway key and would not install over the testers' app
+  const runs = JSON.parse(gh('run', 'list', '--workflow', workflow, '--branch', 'main', '--commit', sha, '--limit', '5', '--json', 'databaseId,status,conclusion,createdAt'));
   return runs[0] || null;
 }
 

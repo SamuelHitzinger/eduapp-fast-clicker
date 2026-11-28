@@ -97,7 +97,7 @@ const rooms = q(`SELECT room, MAX(members) AS peak, MAX(scouts) AS scouts, SUM(h
 const live = q(`SELECT COUNT(*) AS rooms, SUM(members) AS members FROM rooms r WHERE r.ts >= ${now - 6 * 60e3}
   AND r.ts = (SELECT MAX(ts) FROM rooms WHERE room = r.room AND ts >= ${now - 6 * 60e3})`)[0] || {};
 console.log(`\n== Relay rooms (lectures)`);
-console.log(`  right now: ${n0(live.rooms)} rooms, ${n0(live.members)} phones connected`);
+console.log(`  in the last 6 min: ${n0(live.rooms)} rooms in use, ${n0(live.members)} phones at their latest snapshot (a room that just emptied may still count)`);
 console.log(`  last ${hours} h: ${rooms.length} rooms; biggest: ` + (rooms.slice(0, 5).map((r) => `${r.room} peak ${r.peak} (scouts ${r.scouts}, hints ${r.hints})`).join('; ') || 'none'));
 // several phones for a long time and never a hint: no question in that lecture, or the course's hints don't reach its room
 const quiet = rooms.filter((r) => r.peak >= 3 && r.snaps >= 6 && !n0(r.hints));
