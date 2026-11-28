@@ -1,5 +1,6 @@
 // TestFlight through the App Store Connect API: see where builds are, and hand a new build to the external testers.
 //   node tools/testflight.js status                 builds (internal / external / Apple's beta review), groups, public link
+//   node tools/testflight.js golive                 once Apple approved: TestFlight button on the install page, publish
 //   node tools/testflight.js distribute [build]     wait until the build (default: newest) is processed, set "What to
 //                                                   test", add it to the external group and submit it for beta review
 // Internal testers (the "Clicker Tests" group) get every build by themselves once Apple has processed it.
@@ -92,7 +93,39 @@ async function distribute(number, whatsNew) {
   if (r.status >= 300) process.exitCode = 1;
 }
 
+// Once Apple has approved a build for external testing: the install page's iPhone tab gets the TestFlight button
+// (tools/testflight-url.txt), and the page is rebuilt, checked, published and committed. Safe to run repeatedly
+// (e.g. on a schedule): it does nothing before the approval or after the button is live. Exit 0: live / nothing to
+// do yet; 2: Apple rejected a build (see App Store Connect → TestFlight); 1: an error.
+async function golive() {
+  const { execFileSync } = require('child_process');
+  const root = path.resolve(__dirname, '..');
+  const urlFile = path.join(root, 'tools', 'testflight-url.txt');
+  if (fs.existsSync(urlFile) && fs.readFileSync(urlFile, 'utf8').trim()) { console.log('already live:', fs.readFileSync(urlFile, 'utf8').trim()); return; }
+  const list = await builds(10);
+  const ok = list.find((b) => b.review === 'APPROVED' || ['BETA_APPROVED', 'IN_BETA_TESTING', 'READY_FOR_BETA_TESTING'].includes(b.external));
+  const rejected = list.find((b) => b.review === 'REJECTED' || b.external === 'BETA_REJECTED');
+  if (!ok) {
+    console.log('not approved yet: ' + list.map((b) => `${b.version} (${b.number}) ${b.review || b.external}`).join(', '));
+    if (rejected) { console.log(`REJECTED: ${rejected.version} (${rejected.number})`); process.exitCode = 2; }
+    return;
+  }
+  const g = (await groups()).find((x) => !x.internal && x.link);
+  if (!g) throw new Error('approved, but the external group has no public link (App Store Connect → TestFlight → the group → Public Link)');
+  console.log(`approved: ${ok.version} (${ok.number}); public link ${g.link}`);
+  const run = (cmd, args) => execFileSync(cmd, args, { cwd: root, stdio: 'inherit', shell: process.platform === 'win32' && cmd !== process.execPath });
+  if (execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }).trim()) throw new Error('the checkout has uncommitted changes: not publishing from it');
+  fs.writeFileSync(urlFile, g.link + '\n');
+  run(process.execPath, ['tools/build.js']);
+  run(process.execPath, ['tools/verify-site.js']);
+  run(process.execPath, ['tools/publish-site.js']);                 // keeps the published APK
+  run('git', ['add', '-A']);
+  run('git', ['commit', '-q', '-m', `Install page: iPhone app on TestFlight (${ok.version} approved by Apple)`]);
+  run('git', ['push', '-q']);
+  console.log('LIVE: the install page now offers the iPhone app through TestFlight');
+}
+
 const [cmd, arg, ...rest] = process.argv.slice(2);
-(cmd === 'status' ? status() : cmd === 'distribute' ? distribute(arg && /^\d+$/.test(arg) ? arg : undefined, rest.join(' ') || undefined)
+(cmd === 'status' ? status() : cmd === 'golive' ? golive() : cmd === 'distribute' ? distribute(arg && /^\d+$/.test(arg) ? arg : undefined, rest.join(' ') || undefined)
   : Promise.resolve(console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(0, 7).join('\n'))))
   .catch((e) => { console.error(e.message); process.exit(1); });

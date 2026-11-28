@@ -27,7 +27,8 @@
   ol{padding-left:22px;margin:0}
   li{margin:0 0 10px}
   .note{background:var(--chip);border-radius:8px;padding:14px 16px;margin:18px 0 0;font-size:15px}
-  .bm{display:inline-block;padding:12px 22px;border-radius:8px;background:var(--blue);color:#fff;font-weight:700;text-decoration:none;border:2px dashed rgba(255,255,255,.6);cursor:grab}
+  .bm{display:inline-flex;align-items:center;gap:10px;padding:8px 18px 8px 8px;border-radius:12px;background:var(--bar);color:var(--text);font-weight:700;font-size:18px;text-decoration:none;border:2px dashed var(--line);cursor:grab}
+  .bm::before{content:"";width:36px;height:36px;border-radius:9px;border:1px solid var(--line);background:#fff url(icon-192.png) center/cover;flex:none}
   .small{color:var(--muted);font-size:14px}
   .qr{display:flex;gap:16px;align-items:center;margin:0 0 22px}
   .qr img{width:110px;height:110px;background:#fff;padding:5px;border-radius:6px;flex:none}
@@ -71,23 +72,15 @@
       </ol>
     </div>
     <div id="tf-no">
-      <p class="note" style="margin:0 0 22px">The iPhone app is waiting for Apple's beta review. Until then, use it in Safari:</p>
-      <button class="btn" data-copy="full">Copy the Clicker code</button>
-      <p class="sub" data-done style="margin-bottom:12px">&nbsp;</p>
-      <ol>
-        <li>In Safari, bookmark this page (<b>Share → Add Bookmark</b>).</li>
-        <li>Open <b>Bookmarks → Edit</b>, tap the new bookmark, name it <b>Clicker</b> and replace its address with the copied code.</li>
-        <li>In the lecture, open <a href="https://eduapp.ethz.ch/" rel="noopener">EduApp</a> in Safari, log in, then tap <b>Bookmarks → Clicker</b>.</li>
-      </ol>
-      <p class="small hide" id="short-hint">Pasting fails? <a href="#" data-copy="short">Copy the short code</a> instead.</p>
+      <p class="note" style="margin:0">The iPhone app is in Apple's beta review. As soon as Apple approves it, the download button appears here (through Apple's TestFlight app).</p>
     </div>
   </div>
 
   <div data-panel="desktop">
     <ol>
       <li>Show the bookmarks bar: <b>Ctrl+Shift+B</b> (Mac: <b>⌘+Shift+B</b>).</li>
-      <li>Drag this button onto it:<br><br><a class="bm" id="bm-link" href="#" title="Drag me to your bookmarks bar">⚡ Clicker</a><br><br></li>
-      <li>In the lecture, open <a href="https://eduapp.ethz.ch/" rel="noopener">EduApp</a>, log in, then click <b>⚡ Clicker</b>.</li>
+      <li>Drag this button onto it:<br><br><a class="bm" id="bm-link" href="#" title="Drag me to your bookmarks bar">ETH Clicker</a><br><br></li>
+      <li>In the lecture, open <a href="https://eduapp.ethz.ch/" rel="noopener">EduApp</a>, log in, then click <b>ETH Clicker</b> in the bookmarks bar.</li>
     </ol>
     <p class="small">Can't drag? <a href="#" data-copy="full">Copy the code</a> and save it as a bookmark. Or use the <a href="fast-clicker-extension.zip" download>browser add-on</a> (Chrome: <b>chrome://extensions</b> → Developer mode → Load unpacked).</p>
   </div>
@@ -100,7 +93,6 @@
   const hosted = location.protocol === 'https:';
   const shortCode = () => "javascript:(()=>{if(location.hostname!=='eduapp.ethz.ch'){if(confirm('Open EduApp now? Then tap this bookmark again.'))location.href='https://eduapp.ethz.ch/';return}if(window.__fastClicker)return void window.__fastClicker.show('focus');window.__FC_MODE='focus';var s=document.createElement('script');s.src=" + JSON.stringify(new URL(SHORT_FILE, location.href).href).replace(/"/g, "'") + ";s.integrity='" + SHORT_SRI + "';s.crossOrigin='anonymous';s.onerror=function(){alert('Clicker could not load. Check your connection and tap again.')};document.head.appendChild(s)})()";
   document.getElementById('bm-link').href = FULL;
-  document.getElementById('short-hint').classList.toggle('hide', !hosted);
   async function copy(text) {
     try { await navigator.clipboard.writeText(text); }
     catch { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
