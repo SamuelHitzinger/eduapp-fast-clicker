@@ -1,0 +1,6 @@
+{
+  "pause": false,
+  "slow": 1,
+  "min": "0.0.0",
+  "latest": { "web": "3.6.0", "addon": "3.6.0", "ios": "3.6.0", "android": "3.6.0" }
+}

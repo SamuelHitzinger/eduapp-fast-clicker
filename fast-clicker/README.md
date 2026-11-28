@@ -1,4 +1,4 @@
-# Clicker for EduApp v3.4.0 (beta)
+# ETH Clicker: the core script (beta; version in `../version.json`)
 
 A replacement for the clicker section of ETH EduApp. It looks like EduApp's own clicker pages, but a new question appears by itself within seconds, your answer gets through on bad lecture-hall Wi-Fi, and you see when it really arrived.
 
@@ -10,8 +10,8 @@ A replacement for the clicker section of ETH EduApp. It looks like EduApp's own 
 
 | Way | Install | Starts | Notes |
 |---|---|---|---|
-| **Android app** (Samsung etc.) | Install `ETHClicker.apk` (allow "install unknown apps" once); no expiry | Open the app | Same as the iPhone app: ETH login in the app, notification, vibration, back button goes from a question to the list. |
-| **iPhone app** | Sideload `FastClicker.ipa` (see `../AGENTS.md`) | Open the app | A web view on eduapp.ethz.ch that shows only this clicker. Native sound, vibration and notification. |
+| **Android app** (Samsung etc.) | `Clicker.apk` from the install page (allow "install unknown apps" once); no expiry | Open the app | Same as the iPhone app: ETH login in the app, notification, vibration, back button goes from a question to the list. |
+| **iPhone app** | TestFlight public link on the install page (`../ios/TESTFLIGHT.md`) | Open the app | A web view on eduapp.ethz.ch that shows only this clicker. Native sound, vibration and notification. |
 | **Bookmark** | Drag a button (laptop), or copy-paste into a bookmark (phone) | Tap it on EduApp | All code is inside the bookmark (about 70 KB since v3; not yet tried on real phones at that size). |
 | Short bookmark (only when the install page is hosted) | Same | Same | ~500 characters; loads a pinned, integrity-checked (SRI) copy from the install site. |
 | Browser add-on (laptops) | Developer mode → Load unpacked | Automatically, as a small panel | Same code; a "Focus mode" button. |
@@ -76,7 +76,7 @@ The address goes into `relay/relay-url.txt`; `node tools/build.js` puts it into 
 
 - `tools/test-mock.js`: 48 functional and regression checks: detection, vote format, retries, round changes, out-of-order and stale responses, login expiry and silent renewal, offline queueing, focus mode, verification with repair, question content.
 - `tools/test-tabs.js`: 9 checks: one poller across tabs, failover, serialized answers across tabs, login in every tab.
-- `tools/test-v3.js`: 77 checks: the list and question pages, questions missed while the app was closed, auto-opening without interrupting an answer, shared detection against a fake relay (slots, hints both ways, de-duplication, junk and foreign hints, relay down, reconnect), what a hostile relay cannot do (hide or fake a round change, push an old answer into a new round, flood ETH, override spacing or ETH's Retry-After), an overloaded EduApp (answers slower than the time limit, many failures in a row, no cached answers), keyboard shortcuts, list freshness, the simple v3.2 screen (no drawer, settings migration, fast pace while on screen), the fast start (remembered semester), "vote again" after a restarted round, "check now".
+- `tools/test-v3.js`: 100 checks, including the remote control (pause, slow, minimum version, update note, malformed or missing file, remembered pause): the list and question pages, questions missed while the app was closed, auto-opening without interrupting an answer, shared detection against a fake relay (slots, hints both ways, de-duplication, junk and foreign hints, relay down, reconnect), what a hostile relay cannot do (hide or fake a round change, push an old answer into a new round, flood ETH, override spacing or ETH's Retry-After), an overloaded EduApp (answers slower than the time limit, many failures in a row, no cached answers), keyboard shortcuts, list freshness, the simple v3.2 screen (no drawer, settings migration, fast pace while on screen), the fast start (remembered semester), "vote again" after a restarted round, "check now".
 - `tools/test-relay-e2e.js`: real clients against the real relay on a local port: two and three phones sharing, a question found by one reaching the others, joining late, the relay going away.
 - `tools/test-chaos.js`: simulated terrible Wi-Fi (12% of requests hang, 8% fail, 10% get 503, 25% of vote replies lost after the server applied them), plus a login expiry, a changed mind mid-send and a round restart. Pass criterion: the server ends with exactly the student's latest answer, confirmed, with no overlapping polls and no parallel votes.
 - `tools/test-bookmarklet.js`, `tools/verify-site.js`: the built bookmark and the pinned file.
@@ -86,7 +86,13 @@ The address goes into `relay/relay-url.txt`; `node tools/build.js` puts it into 
 
 ## Build
 
-`node tools/build.js` builds `site/` (`index.html`, the pinned `fast-clicker.<hash>.js`, the add-on folder and zip) and `ios/FastClicker/Resources/fast-clicker.js`.
+`node tools/build.js` builds `site/` (`index.html`, the pinned `fast-clicker.<hash>.js`, the add-on folder and zip) and the copies the iPhone and Android apps inject. It puts the relay address (`relay/relay-url.txt`) and the remote control address (`install/site-url.txt` + `control.json`) into every build, and refuses to build when the version disagrees across `version.json`, this script and the two apps. Tests: `npm test` (synthetic data in `tools/fixtures/`).
+
+## Remote control (from 3.6.0)
+
+Every client reads `control.json` from the install site at start and every 6 hours. The file can only make clients do less: `pause` (no automatic checks, no relay), `slow` (checks further apart), `min` (older versions stop and ask to be updated) and `latest` (an "update available" note). It carries no text, links or code. If it is unreachable or malformed it is ignored, and the last good copy counts for a day. The student's own actions (opening a question, sending an answer) always work. How and when to use it: `../docs/OPERATIONS.md`.
+
+Diagnostics at scale: question reports are sampled in big rooms (about 20 per question) and spread over 30 s. Leaving the app sends the period report early, but at most every 2 minutes.
 
 ## Security (v3.4, after two independent audits)
 

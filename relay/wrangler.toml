@@ -13,6 +13,14 @@ class_name = "RelayRoom"
 tag = "v1"
 new_sqlite_classes = ["RelayRoom"]
 
+# Daily cleanup of metrics older than 90 days (src/worker.js cleanup()).
+[triggers]
+crons = ["17 3 * * *"]
+
+# Workers Logs: errors (a failed metrics write, the cleanup) are kept for a few days in the dashboard.
+[observability]
+enabled = true
+
 # Anonymous beta diagnostics (POST /v1/report from the apps, room snapshots from the rooms). Query: node tools/monitor.js
 [[d1_databases]]
 binding = "METRICS"

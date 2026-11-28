@@ -41,6 +41,11 @@ function makeServer({ lectureNow = true, chaos = null } = {}) {
     S.urls.push(u.pathname + u.search);
     (S.reqs = S.reqs || []).push({ t: Date.now(), p: u.pathname });
     u.searchParams.delete('_fc');
+    if (u.hostname === 'site.test') {                          // the install site: control.json (remote control)
+      S.log.push('GET site ' + u.pathname);
+      if (S.control === undefined) return respond(404, {});
+      return typeof S.control === 'string' ? { ok: true, status: 200, type: 'basic', headers: { get: () => null }, text: async () => S.control } : respond(200, S.control);
+    }
     const p = u.pathname.replace('/web/gw/', '') + (u.search || '');
     const method = opts.method || 'GET';
     S.log.push(`${method} ${p}`);
@@ -112,7 +117,7 @@ function boot(S, { settings = {}, hooks = {}, mode, url = 'https://eduapp.ethz.c
   if (locks) Object.defineProperty(w.navigator, 'locks', { value: locks, configurable: true });
   if (BroadcastChannel) w.BroadcastChannel = BroadcastChannel;
   if (caches) { w.caches = caches; w.Response = Response; }
-  w.localStorage.setItem('fast-clicker-settings', JSON.stringify({ cadenceMs: 120, hiddenCadenceMs: 120, idleCadenceMs: 120, maxBackoffMs: 300, authCadenceMs: 150, loginCadenceMs: 150, silentEveryMs: 300, soloMinMs: 120, ...settings }));
+  w.localStorage.setItem('fast-clicker-settings', JSON.stringify({ cadenceMs: 120, hiddenCadenceMs: 120, idleCadenceMs: 120, maxBackoffMs: 300, authCadenceMs: 150, loginCadenceMs: 150, silentEveryMs: 300, soloMinMs: 120, diagJitterMs: 0, diagHideMinMs: 0, ...settings }));
   for (const [k, v] of Object.entries(preset)) w.localStorage.setItem(k, v);
   w.__FC_HOOKS = hooks;
   if (mode) w.__FC_MODE = mode;

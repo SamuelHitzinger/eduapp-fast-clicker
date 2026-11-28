@@ -1,5 +1,5 @@
 // Publishes the beta install page (site/ + the latest Android app + a QR code) to Cloudflare as static files.
-//   node tools/build.js && powershell tools/get-apk.ps1 && node tools/publish-site.js
+//   node tools/build.js && node tools/release.js apk && node tools/publish-site.js   (docs/OPERATIONS.md)
 // Every pinned script that was ever published stays online (installed short bookmarks load it by name and hash).
 const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
 const QRCode = require('qrcode');
@@ -10,9 +10,16 @@ const URL_FILE = path.join(root, 'install', 'site-url.txt');
 const PINS = path.join(root, 'install', 'published-pins.txt');
 const pageUrl = fs.readFileSync(URL_FILE, 'utf8').trim();
 const apk = path.join(root, 'app-download', 'Clicker.apk');
-if (!fs.existsSync(apk)) throw new Error('app-download/Clicker.apk missing: run tools/get-apk.ps1 first');
 
 (async () => {
+  // No APK here (another PC, or only control.json changes in an emergency): keep the one that is online now.
+  if (!fs.existsSync(apk)) {
+    const r = await fetch(new URL('Clicker.apk', pageUrl));
+    if (!r.ok) throw new Error('app-download/Clicker.apk missing and the live one could not be fetched: see docs/OPERATIONS.md (Release)');
+    fs.mkdirSync(path.dirname(apk), { recursive: true });
+    fs.writeFileSync(apk, Buffer.from(await r.arrayBuffer()));
+    console.log('APK: kept the published one');
+  }
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   const html = fs.readFileSync(path.join(site, 'index.html'), 'utf8');
@@ -20,6 +27,13 @@ if (!fs.existsSync(apk)) throw new Error('app-download/Clicker.apk missing: run 
   if (!current) throw new Error('index.html has no pinned script: run tools/build.js');
   const pins = new Set((fs.existsSync(PINS) ? fs.readFileSync(PINS, 'utf8') : '').split(/\s+/).filter(Boolean));
   pins.add(current);
+  // the remote control (see docs/OPERATIONS.md): checked here, so a typo can't switch it off by accident
+  const control = JSON.parse(fs.readFileSync(path.join(root, 'install', 'control.json'), 'utf8'));
+  const ver = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+  if (typeof control.pause !== 'boolean' || !(control.slow >= 1 && control.slow <= 10) || !ver.test(control.min) ||
+      !['web', 'addon', 'ios', 'android'].every((p) => ver.test(control.latest && control.latest[p]))) throw new Error('install/control.json is malformed');
+  fs.writeFileSync(path.join(out, 'control.json'), JSON.stringify(control) + '\n');
+  console.log('control:', JSON.stringify(control));
   for (const f of ['index.html', 'fast-clicker.user.js', 'fast-clicker-extension.zip', 'icon-180.png', 'icon-192.png', 'icon-512.png', current]) {
     fs.copyFileSync(path.join(site, f), path.join(out, f));
   }
@@ -57,6 +71,9 @@ if (!fs.existsSync(apk)) throw new Error('app-download/Clicker.apk missing: run 
     '/fast-clicker.*.js',
     '  Access-Control-Allow-Origin: *',
     '  Cache-Control: public, max-age=31536000, immutable',
+    '/control.json',
+    '  Access-Control-Allow-Origin: *',
+    '  Cache-Control: public, max-age=60',
     '/Clicker.apk',
     '  Content-Type: application/vnd.android.package-archive',
     '  Content-Disposition: attachment; filename="Clicker.apk"',

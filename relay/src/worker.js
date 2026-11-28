@@ -22,6 +22,10 @@ const SNAPSHOT_MS = 5 * 60_000; // a busy room writes one line of numbers to the
 const REPORT_MAX_BYTES = 4096;
 const PLATFORMS = new Set(['ios', 'android', 'web', 'addon']);
 const KINDS = new Set(['period', 'question', 'start']);   // start: how an app's attempt to open EduApp ended
+// A lecture hall on campus Wi-Fi can be hundreds of phones behind one address, each sending a report every ~10 min,
+// one when a question opens (sampled in big rooms) and one per app start: the cap only stops a runaway sender.
+const REPORTS_PER_IP_MIN = 600;
+const KEEP_DAYS = 90;
 const recent = new Map(); // ip -> [window start, count] (best effort, per Worker instance)
 function cleanData(o, depth = 0) {
   if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
@@ -44,7 +48,7 @@ async function report(request, env) {
   const ip = request.headers.get('CF-Connecting-IP') || '?';
   const now = Date.now();
   const r = recent.get(ip);
-  if (r && now - r[0] < 60_000) { if (++r[1] > 30) return new Response(null, { status: 429, headers: cors }); } else recent.set(ip, [now, 1]);
+  if (r && now - r[0] < 60_000) { if (++r[1] > REPORTS_PER_IP_MIN) return new Response(null, { status: 429, headers: cors }); } else recent.set(ip, [now, 1]);
   if (recent.size > 5000) recent.clear();
   const text = await request.text();
   if (!env.METRICS || text.length > REPORT_MAX_BYTES) return new Response(null, { status: 413, headers: cors });
@@ -54,16 +58,31 @@ async function report(request, env) {
   if (!data || !/^[0-9a-f]{16}$/.test(m.install) || !PLATFORMS.has(m.platform) || !KINDS.has(m.kind) || !/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(m.version)) {
     return new Response(null, { status: 400, headers: cors });
   }
-  await env.METRICS.prepare('INSERT INTO reports (ts, day, install, platform, version, kind, data) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .bind(now, new Date(now).toISOString().slice(0, 10), m.install, m.platform, m.version, m.kind, JSON.stringify(data)).run().catch(() => {});
-  if (Math.random() < 0.01) {                                  // kept 90 days, then deleted
-    const old = now - 90 * 86400e3;
-    await env.METRICS.batch([env.METRICS.prepare('DELETE FROM reports WHERE ts < ?').bind(old), env.METRICS.prepare('DELETE FROM rooms WHERE ts < ?').bind(old)]).catch(() => {});
+  try {
+    await env.METRICS.prepare('INSERT INTO reports (ts, day, install, platform, version, kind, data) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(now, new Date(now).toISOString().slice(0, 10), m.install, m.platform, m.version, m.kind, JSON.stringify(data)).run();
+  } catch (e) {
+    console.error('report insert failed:', e && e.message);   // Workers Logs; the Android app keeps the report and retries
+    return new Response(null, { status: 503, headers: cors });
   }
   return new Response(null, { status: 204, headers: cors });
 }
 
+/** Daily (cron in wrangler.toml): metrics older than KEEP_DAYS are deleted, through the time indexes. */
+async function cleanup(env) {
+  if (!env.METRICS) return;
+  const old = Date.now() - KEEP_DAYS * 86400e3;
+  const r = await env.METRICS.batch([
+    env.METRICS.prepare(`DELETE FROM reports WHERE kind IN ('${[...KINDS].join("','")}') AND ts < ?`).bind(old),
+    env.METRICS.prepare('DELETE FROM rooms WHERE ts < ?').bind(old),
+  ]);
+  console.log('cleanup: deleted', r.map((x) => x.meta && x.meta.changes));
+}
+
 export default {
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(cleanup(env).catch((e) => console.error('cleanup failed:', e && e.message)));
+  },
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/health' && request.method === 'GET') {
@@ -183,8 +202,10 @@ export class RelayRoom extends DurableObject {
 
   gone(ws) {
     const att = safeAttachment(ws);
-    // woken by this departure: the socket may already be missing from the restore, so tell everyone their slot
-    if (!this.hub && att) this.ensureHub(att.room, { quiet: false });
+    // Woken by this departure. A scout leaving moves the scouts after it, and it may already be missing from the
+    // restore, so everyone is told their slot. A standby leaving changes no slot: restore quietly (in a big room
+    // most departures are standbys, and each would otherwise send a roster to every member).
+    if (!this.hub && att) this.ensureHub(att.room, { quiet: !att.scout });
     const conn = this.conns.get(ws);
     if (conn && this.hub) this.hub.disconnect(conn);
     this.conns.delete(ws);

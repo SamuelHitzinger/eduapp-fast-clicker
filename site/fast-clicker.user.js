@@ -38,6 +38,7 @@
   'use strict';
   const VERSION = '3.6.0';
   const RELAY_URL = "wss://fast-clicker-relay.fast-clicker-relay.workers.dev/v1";     // wss://… of the hint relay; empty = every client checks the feed itself (set by tools/build.js)
+  const CONTROL_URL = "https://clicker.fast-clicker-relay.workers.dev/control.json";   // https://…/control.json on the install site; empty = no remote control (set by tools/build.js)
   const MODE = window.__FC_MODE === 'focus' ? 'focus' : 'panel';
   if (window.__fastClicker) { window.__fastClicker.show(MODE); return; }
   if (location.hostname !== 'eduapp.ethz.ch') {
@@ -80,6 +81,9 @@
     catchUpMax: 25,           // at start, read at most this many questions that closed while the app was off
     onScreenFastMs: 20 * 60e3, // open on screen outside lectures: fast checks for 20 min after the last touch
     diag: true, diagEveryMin: 10, // anonymous beta diagnostics (see "anonymous beta diagnostics"); only with a relay configured
+    diagHideMinMs: 120000,    // leaving the app sends the period report early, but not more often than this
+    diagJitterMs: 30000,      // a question report waits up to this long, so a hall's reports don't arrive at once
+    diagRoomSample: 20,       // in a room of more students, only about this many report each question (D1 write budget)
     catchUpRecentH: 12,       // …and with no saved list yet, only those of the last 12 hours
     scanIfFeedSpanH: 6,       // skip the 1.1 MB list at start-up if the 25 newest events reach back this far
     oneTap: false, turbo: false, sound: true, keepAwake: true,
@@ -677,7 +681,7 @@
   }
   function relaySync() {
     if (!relayUrl || !WS) return;
-    relay.want = state.leader && state.running && !state.authLost && fastMode() ? wantedRooms() : new Map();
+    relay.want = state.leader && state.running && !state.authLost && !halted() && fastMode() ? wantedRooms() : new Map();
     for (const conn of [...relay.conns.values()]) if (!relay.want.has(conn.room)) relayClose(conn);
     for (const room of relay.want.keys()) {
       let conn = relay.conns.get(room);
@@ -766,11 +770,15 @@
   function diagQuestion(c) {
     if (!c.openedAtSrv) return;
     const sp = sharedPlan();
-    sendReport('question', {
+    const p = sp && sp.m > CFG.diagRoomSample ? CFG.diagRoomSample / sp.m : 1;   // a full hall: ~20 reports per question, not hundreds
+    if (Math.random() >= p) return;
+    const data = {
       delay: Math.max(0, Math.min(3600e3, serverNow() - c.openedAtSrv)),   // from "question opened" (ETH's clock) to on screen here
       hint: c.openedVia === 'hint', round: (c.gen || 0) > 0, hidden: !!document.hidden,
       relay: relay.open, n: sp ? sp.n : 0, m: sp ? sp.m : 0, scout: !!(sp && sp.slot >= 0), feedMs: Math.round(latOk.feed),
-    });
+      p: Math.round(p * 1000) / 1000,
+    };
+    setTimeout(() => sendReport('question', data), Math.random() * CFG.diagJitterMs);
   }
   function diagFlush(force) {
     const mins = (Date.now() - diag.since) / 60e3;
@@ -784,12 +792,59 @@
       vote: { ...diag.vote, ms: diag.vote.ok ? Math.round(diag.vote.ms / diag.vote.ok) : 0 },
       relay: { open: diag.samples ? diag.open / diag.samples : 0, n: sp ? sp.n : 0, m: sp ? sp.m : 0, scout: !!(sp && sp.slot >= 0), hints: diag.hints, reads: diag.hintReads },
       share: { fast: diag.samples ? diag.fast / diag.samples : 0, screen: diag.samples ? diag.screen / diag.samples : 0 },
+      ctl: { pause: control.pause, old: control.old, slow: control.slow, update: control.update },
     });
     diag.since = Date.now(); diag.req = {}; diag.vote = { n: 0, ok: 0, fail: 0, att: 0, ms: 0 };
     diag.hints = 0; diag.hintReads = 0; diag.samples = 0; diag.open = 0; diag.fast = 0; diag.screen = 0;
   }
-  document.addEventListener('visibilitychange', () => { if (document.hidden) diagFlush(true); });
+  // leaving the app (switching away): send early, but at most every 2 min, so flipping between apps isn't a report each time
+  document.addEventListener('visibilitychange', () => { if (document.hidden && Date.now() - diag.since >= CFG.diagHideMinMs) diagFlush(true); });
   window.addEventListener('pagehide', () => diagFlush(true));
+
+  // ---------------------------------------------------------------- remote control (safety with many users)
+  // A small file on the install site (control.json, see docs/OPERATIONS.md) can only make clients do less:
+  //   pause: true      no automatic checks of ETH, no relay, no hint reads (an incident, or ETH asks us to stop)
+  //   min: "x.y.z"     versions below it stop checking and ask to be updated (a bug in an old version)
+  //   slow: 1…10       every automatic check is that many times further apart (ETH overloaded)
+  //   latest: {platform: "x.y.z"}   newer than this: a small "update available" note
+  // It carries no text, links or code, and nothing in it can make a client send more. The student's own actions
+  // (opening a question, sending an answer) always work. Unreachable or malformed: ignored, and the last good copy
+  // counts for a day (so a pause also holds on a phone that can't reach the site).
+  const controlUrl = hooks.controlUrl !== undefined ? hooks.controlUrl : CONTROL_URL;
+  const updateUrl = controlUrl ? controlUrl.replace(/[^/]*$/, '') : '';
+  const CONTROL_KEY = 'fast-clicker-control';
+  const verNum = (v) => (typeof v === 'string' && /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v) ? v.split('.').reduce((a, x) => a * 1000 + Number(x), 0) : null);
+  const control = { pause: false, old: false, slow: 1, update: false, at: 0, timer: null };
+  const halted = () => control.pause || control.old;
+  function applyControl(c, at) {
+    if (!c || typeof c !== 'object' || Array.isArray(c)) return false;
+    const me = verNum(VERSION), min = verNum(c.min);
+    const latest = c.latest && typeof c.latest === 'object' ? verNum(c.latest[platform]) : null;
+    control.pause = c.pause === true;
+    control.old = min !== null && me < min;
+    control.slow = typeof c.slow === 'number' && c.slow > 1 ? Math.min(c.slow, 10) : 1;
+    control.update = latest !== null && me < latest;
+    control.at = at;
+    return true;
+  }
+  try { const saved = JSON.parse(localStorage.getItem(CONTROL_KEY) || 'null'); if (saved && Date.now() - saved.at < 86400e3) applyControl(saved.c, saved.at); } catch {}
+  async function fetchControl() {
+    clearTimeout(control.timer);
+    if (!controlUrl) return;
+    const before = halted();
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), 10000);
+    try {
+      const r = await fetch(controlUrl + '?' + Date.now().toString(36), { cache: 'no-store', credentials: 'omit', mode: 'cors', signal: ac.signal });
+      const text = r.ok ? await r.text() : '';
+      const c = text && text.length < 4000 ? JSON.parse(text) : null;
+      if (applyControl(c, Date.now())) { try { localStorage.setItem(CONTROL_KEY, JSON.stringify({ c, at: control.at })); } catch {} }
+    } catch {} finally { clearTimeout(t); }
+    // again in 6 hours, or every 10 minutes while paused (so the pause ends soon after it is lifted)
+    control.timer = setTimeout(fetchControl, TS * (halted() ? 10 * 60e3 : 6 * 3600e3));
+    if (before !== halted()) { relaySync(); if (!halted()) pokeNow(); }
+    render();
+  }
 
   // A hint is only a wake-up call. The relay and the students behind it are not trusted: a hint never marks a feed
   // event as handled, never starts a new round, never changes an answer. It makes this client read that one
@@ -799,7 +854,7 @@
   //     tell: check the feed soon (spread out over the hall), and let answer retries wait for that check.
   function onHint(m) {
     const info = relay.want.get(m.room);
-    if (!info || !state.leader || !state.running || state.authLost) return;
+    if (!info || !state.leader || !state.running || state.authLost || halted()) return;
     if (!Number.isSafeInteger(m.k) || m.k <= 0 || typeof m.e !== 'string' || !/^CLICKER_[A-Z_]{1,24}$/.test(m.e)) return;
     const now = Date.now();
     if (now < Math.max(relay.quietUntil, state.notBefore)) return;   // ETH asked for a pause
@@ -911,7 +966,7 @@
 
   // ---------------------------------------------------------------- poll loop (leader only)
   async function tick() {
-    if (!state.running || state.polling || !state.leader) return;
+    if (!state.running || state.polling || !state.leader || halted()) return;
     state.polling = true;
     state.dueAt = 0;
     const started = Date.now();
@@ -962,6 +1017,7 @@
   function schedule(ms, startedAt = Date.now()) {
     clearTimeout(state.timer);
     if (!state.running || !state.leader) return;
+    if (halted()) { state.dueAt = 0; return; }                   // remote control: no automatic checks (see fetchControl)
     if (ms === undefined) {
       const fast = fastMode();
       const sp = fast && !state.authLost ? sharedPlan() : null;
@@ -996,6 +1052,7 @@
         else if (state.errorStreak) cadence = Math.max(state.retryAfterMs, Math.min(maxBackoff, 2000 * 2 ** (state.errorStreak - 1)), Math.min(cadence, 8000), solo);
         ms = Math.max(0, jitter(cadence) - (Date.now() - startedAt));
       }
+      if (control.slow > 1) ms = Math.round(ms * control.slow);   // remote control: ETH is overloaded, check less
       const now = Date.now();
       if (state.dueAt) ms = Math.min(ms, state.dueAt - now);       // messages from the relay can bring a check forward, never push it back
       if (relay.confirmDue) ms = Math.min(ms, relay.confirmDue - now);   // a hint asked for the feed's word on a round change
@@ -1902,9 +1959,12 @@
     setHtml(el.themebtn, icon(dk ? 'sunny' : 'night'));
     el.themebtn.setAttribute('aria-label', dk ? 'Switch to light mode' : 'Switch to dark mode');
     let banner = '';
-    if (state.authLost && state.loginNeeded) banner = `<div class="note">Your EduApp login expired. <button class="chip big" data-a="login">Log in</button><br>Opens the ETH login. Come back here afterwards. Answers you've chosen are kept.</div>`;
-    else if (state.authLost) banner = `<div class="note">${esc(bannerOverride || 'Login expired. Renewing…')}</div>`;
-    else if (state.lastError) banner = `<div class="note">Connection problem: ${esc(state.lastError)}. Retrying automatically.</div>`;
+    if (control.old) banner += `<div class="note">This version of ETH Clicker (${esc(VERSION)}) is out of date and has stopped checking for questions. <button class="chip big" data-a="update">Update</button></div>`;
+    else if (control.pause) banner += `<div class="note">Checking for new questions is paused for now, to take load off EduApp. Use EduApp's own clicker meanwhile. Questions you open and answers you send here still work.</div>`;
+    else if (control.update) banner += `<div class="note gray">A new version of ETH Clicker is available. <button class="chip" data-a="update">Update</button></div>`;
+    if (state.authLost && state.loginNeeded) banner += `<div class="note">Your EduApp login expired. <button class="chip big" data-a="login">Log in</button><br>Opens the ETH login. Come back here afterwards. Answers you've chosen are kept.</div>`;
+    else if (state.authLost) banner += `<div class="note">${esc(bannerOverride || 'Login expired. Renewing…')}</div>`;
+    else if (state.lastError) banner += `<div class="note">Connection problem: ${esc(state.lastError)}. Retrying automatically.</div>`;
     if (CFG.sound && !hooks.nativeAlerts && (!audioCtx || audioCtx.state !== 'running')) banner += `<div class="note gray">Tap anywhere in this panel once to enable the alert sound.</div>`;
     if (!hooks.nativeAlerts && 'Notification' in window && Notification.permission === 'default') banner += `<div class="note gray">Get a notification when a question opens while this tab is in the background. <button class="chip" data-a="notif">Allow notifications</button></div>`;
     const pend = ui.pending != null ? state.clickers.get(ui.pending) : null;
@@ -1990,6 +2050,7 @@
       case 'scan': state.listError = null; startScan(); break;
       case 'notif': Notification.requestPermission().then(render); return;
       case 'login': openLogin(); break;
+      case 'update': if (updateUrl) { if (hooks.openUrl) hooks.openUrl(updateUrl); else window.open(updateUrl, '_blank', 'noopener'); } return;
       case 'focus': show('focus'); return;
       case 'exit': location.href = '/'; return;
     }
@@ -2043,7 +2104,7 @@
   }
 
   // ---------------------------------------------------------------- start
-  window.__fastClicker = { show, state, CFG, hooks, tick, fullScan, sendVote, relay, ui, openDetail, checkNow, setRunning, back: goBack, version: VERSION };
+  window.__fastClicker = { show, state, CFG, hooks, tick, fullScan, sendVote, relay, ui, openDetail, checkNow, setRunning, back: goBack, version: VERSION, control, fetchControl };
   if (mode === 'focus') quietEduApp(); else document.body.appendChild(host);
   applyMode();
   startTimers();
@@ -2051,4 +2112,5 @@
   electLeader();
   sweepSwCache();
   setTimeout(ensureFonts, 1500);
+  control.timer = setTimeout(fetchControl, TS * 2000);           // after the start, not in its way
 })();

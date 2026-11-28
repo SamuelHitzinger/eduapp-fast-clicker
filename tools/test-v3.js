@@ -349,9 +349,10 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     root.querySelector('.opt[data-id="920001"][data-e="2"]').click();
     root.querySelector('.send[data-id="920001"]').click();
     await until(() => /trying|Weak/.test(st(root, 920001)), 2000);
+    // the feed goes down first: a successful check between the hint and the outage would (rightly) end the hold
+    const feedDown = failing(w, (u) => u.includes('activity-feed'), () => resp(503));
     R.last().push({ t: 'hint', room, k: 920001, e: 'CLICKER_START_ROUND', a: 2, c: new Date().toISOString() });
     await until(() => fc.state.hold.has(920001), 2000);
-    const feedDown = failing(w, (u) => u.includes('activity-feed'), () => resp(503));
     const c = S.clickers.get(920001); c.round = 1; c.entries.forEach((e) => { e.selected = false; });
     S.failVotes = 0;
     await wait(2500);
@@ -933,6 +934,76 @@ const feedPolls = (S) => S.log.filter((l) => l.startsWith('GET dashboard/activit
     await wait(1000);
     const slow = S2.log.filter((l) => l.includes('activity-feed')).length - n2;
     check('E7 open on screen, the app checks fast even outside the timetable; the in-page panel does not', fast >= 4 && slow === 0, `${fast} vs ${slow} checks in 1 s`);
+    b.stop();
+  }
+
+  // ---------------------------------------------------------------- remote control (control.json on the install site)
+  {
+    const feedCount = (S) => S.log.filter((l) => l.includes('activity-feed')).length;
+    const hooks = { controlUrl: 'https://site.test/control.json', timeScale: 0.05 };
+    // pause: no automatic checks, a note, the relay left; answers still go through; lifted: checks resume
+    const S = makeServer(); const opened = [];
+    const { root, fc, stop } = boot(S, { hooks: { ...hooks, openUrl: (u) => opened.push(u) } });
+    await until(() => root.querySelector('.card[data-id="322454"]'));
+    S.control = { pause: true };
+    await fc.fetchControl();
+    const n0 = feedCount(S);
+    await wait(1200);
+    const during = feedCount(S) - n0;
+    const note = (root.getElementById('banner') || root.querySelector('#banner')).textContent;
+    S.addClicker(mcsa(990001, 'While paused'));
+    fc.openDetail(990001);
+    await until(() => root.querySelector('.opt[data-id="990001"]'));
+    root.querySelector('.opt[data-id="990001"][data-e="1"]').click();
+    root.querySelector('.send[data-id="990001"]').click();
+    const voted = await until(() => S.votes.some((v) => v.id === 990001), 3000);
+    check('C1 control "pause": no automatic checks of the feed, a note says so, and an answer the student sends still goes through',
+      during === 0 && /paused/.test(note) && fc.control.pause && voted, `${during} feed checks while paused, note "${note.slice(0, 80)}", voted ${voted}`);
+    S.control = { pause: false };
+    await fc.fetchControl();
+    const n1 = feedCount(S);
+    await wait(800);
+    check('C2 lifting the pause resumes checking right away', feedCount(S) - n1 >= 2 && !/paused/.test(root.querySelector('#banner').textContent), `${feedCount(S) - n1} checks`);
+    // too old: stop and ask for the update, which opens the install page
+    S.control = { min: '99.0.0' };
+    await fc.fetchControl();
+    const n2 = feedCount(S);
+    await wait(800);
+    const upd = root.querySelector('#banner [data-a="update"]');
+    if (upd) upd.click();
+    check('C3 control "min" above this version: checking stops and "Update" opens the install page',
+      feedCount(S) - n2 === 0 && /out of date/.test(root.querySelector('#banner').textContent) && opened[0] === 'https://site.test/', `${feedCount(S) - n2} checks, opened ${JSON.stringify(opened)}`);
+    // update available: only a note, checking goes on
+    S.control = { latest: { web: '99.0.0' } };
+    await fc.fetchControl();
+    const n3 = feedCount(S);
+    await wait(800);
+    check('C4 a newer "latest" for this platform is only a note; checking goes on', feedCount(S) - n3 >= 2 && /new version/.test(root.querySelector('#banner').textContent), `${feedCount(S) - n3} checks`);
+    // junk and an unreachable site change nothing
+    for (const junk of ['not json', '[1,2]', JSON.stringify({ pause: 'yes', min: 'soon', slow: -5, latest: 3 })]) { S.control = junk; await fc.fetchControl(); }
+    const okJunk = !fc.control.pause && !fc.control.old && fc.control.slow === 1;
+    S.control = undefined; await fc.fetchControl();
+    const n4 = feedCount(S);
+    await wait(800);
+    check('C5 a malformed or missing control file is ignored (fails open)', okJunk && feedCount(S) - n4 >= 2, `${JSON.stringify(fc.control)}, ${feedCount(S) - n4} checks`);
+    stop();
+  }
+  {
+    // slow: automatic checks are spaced out by the factor
+    const feedCount = (S) => S.log.filter((l) => l.includes('activity-feed')).length;
+    const S = makeServer();
+    const { root, fc, stop } = boot(S, { hooks: { controlUrl: 'https://site.test/control.json', timeScale: 0.05 }, settings: { cadenceMs: 100 } });
+    await until(() => root.querySelector('.card[data-id="322454"]'));
+    const a0 = feedCount(S); await wait(1500); const normal = feedCount(S) - a0;
+    S.control = { slow: 5 }; await fc.fetchControl();
+    const b0 = feedCount(S); await wait(1500); const slowed = feedCount(S) - b0;
+    check('C6 control "slow" spaces automatic checks out', fc.control.slow === 5 && slowed * 2 < normal, `${normal} checks normally, ${slowed} slowed`);
+    stop();
+    // a pause is remembered: the next start honours it even if the site can't be reached
+    const S2 = makeServer();
+    const b = boot(S2, { hooks: { controlUrl: 'https://site.test/control.json', timeScale: 0.05 }, preset: { 'fast-clicker-control': JSON.stringify({ c: { pause: true }, at: Date.now() }) } });
+    await wait(1200);
+    check('C7 a remembered pause holds at the next start, also without the site', feedCount(S2) === 0 && b.fc.control.pause, `${feedCount(S2)} checks`);
     b.stop();
   }
 

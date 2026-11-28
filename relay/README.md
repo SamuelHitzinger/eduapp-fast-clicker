@@ -20,7 +20,11 @@ test/               `node test/run.js`: unit tests (fake clock) + integration te
 | hints: clicker id `k`, event type `e`, activity id `a`, timestamp `c` | question text, answer options, answers or votes |
 | connection IPs (only to enforce the per-IP cap, held in memory) | who a user is |
 
-It stores nothing durable: no database writes and no files. Everything lives in memory and is gone on restart. It logs counts only (`connections=N rooms=M`), never room ids, IPs or hint contents. Error replies never echo input back.
+Hints and connections live in memory. On Cloudflare a room also keeps its recent hints (dedupe ids, 30 s replay) in its Durable Object's storage, and writes one line of numbers to the metrics database every 5 minutes while in use: the first 8 hex digits of the room id, members, scouts and hints. The Worker additionally accepts the apps' anonymous diagnostics (`POST /v1/report`, numbers only; see below). Metrics are kept 90 days and deleted by a daily cron. It never logs room ids, IPs or hint contents. Error replies never echo input back.
+
+## Diagnostics endpoint (`POST /v1/report`, Cloudflare only)
+
+`{"install":"<16 hex>","platform":"ios|android|web|addon","version":"x.y.z","kind":"period|question|start","data":{…}}`, at most 4 KB. `data` may hold only numbers, booleans and one level of nested objects (keys `[A-Za-z0-9_]{1,24}`, at most 60). Anything else gets a 400. At most 600 reports a minute per IP address and Worker instance (a lecture hall shares one address). A failed database write answers 503, so the Android app keeps the report and retries. Stored in D1 `clicker-metrics` (`migrations/`), read with `node tools/monitor.js`.
 
 ## Protocol v1
 

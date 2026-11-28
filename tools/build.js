@@ -18,6 +18,14 @@ if (relayUrl) {
   if (!src.includes(marker)) throw new Error('RELAY_URL marker not found in the script');
   src = src.replace(marker, () => `const RELAY_URL = ${JSON.stringify(relayUrl)};`);
 }
+// The remote control file (install/control.json, published with the install page): see docs/OPERATIONS.md.
+const siteUrl = fs.readFileSync(path.join(root, 'install/site-url.txt'), 'utf8').trim();
+if (!/^https:\/\/[a-z0-9.-]+\/$/i.test(siteUrl)) throw new Error('install/site-url.txt must hold one https://…/ address');
+{
+  const marker = "const CONTROL_URL = '';";
+  if (!src.includes(marker)) throw new Error('CONTROL_URL marker not found in the script');
+  src = src.replace(marker, () => `const CONTROL_URL = ${JSON.stringify(siteUrl + 'control.json')};`);
+}
 const min = esbuild.transformSync(src, { minify: true, target: 'es2020', legalComments: 'none' }).code.trim();
 
 // 1) bookmarklet with everything inside (works without this website).

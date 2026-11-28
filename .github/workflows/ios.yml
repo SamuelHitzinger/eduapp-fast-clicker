@@ -23,7 +23,7 @@ jobs:
         working-directory: ios
         run: xcodegen generate
 
-      - name: Build unsigned .ipa (Sideloadly signs it with your Apple ID)
+      - name: Build unsigned .ipa (a compile check; testers get the app through TestFlight, ios-testflight.yml)
         working-directory: ios
         run: |
           set -o pipefail
